@@ -88,6 +88,7 @@ python tools/state_dashboard/serve.py --once        # JSON を標準出力（CI/
 | 改善セッション | `analysis/agents/*/session_state.json` の仮説・前提・サイクル数 |
 | git | ブランチ / 未コミット / ahead-behind / 直近コミット |
 | コマンド | 主要コマンドのコピーリスト |
+| ルール | コンペルール（採点式・対戦条件・提出ルール・要確認項目）。内容は `tools/state_dashboard/rules.json` |
 
 ダッシュボードは `agent/` の提出物には含まれません（`tools/` は zip 対象外のため）。
 
