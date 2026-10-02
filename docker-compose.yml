@@ -1,0 +1,35 @@
+services:
+  cpu:
+    build:
+      context: ./workspace
+      dockerfile: dockerfiles/Dockerfile.cpu
+    image: atla5/cpu:latest
+    container_name: atla5-cpu
+    ports:
+      - "8080:8080"
+      - "8888:8888"
+    volumes:
+      - ./workspace:/workspace
+      - .:/repo
+    tty: true
+
+  gpu:
+    build:
+      context: ./workspace
+      dockerfile: dockerfiles/Dockerfile.gpu
+    image: atla5/gpu:latest
+    container_name: atla5-gpu
+    ports:
+      - "8081:8080"
+      - "8889:8888"
+    volumes:
+      - ./workspace:/workspace
+      - .:/repo
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Lint with ruff
+        run: uvx ruff check agent/ tools/ tests/ scripts/
+
+      - name: Run tests
+        run: uvx --with pytest pytest tests/ -v
+
+      - name: Build submission package
+        run: uvx python scripts/build_submission.py
