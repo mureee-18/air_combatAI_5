@@ -62,6 +62,7 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 | ログから挙動指標 | `python tools/battle_analyzer/battle_stats.py workspace/results/0/log_0.json` |
 | ログの整理 | `python tools/log_cleanup/cleanup.py`（`--execute` で削除） |
 | **ダッシュボード** | `python tools/state_dashboard/serve.py --open`（http://127.0.0.1:8765） |
+| 環境の定期点検 | `python tools/ops/healthcheck.py`（結果を `analysis/ops/heartbeat.log` に追記） |
 | 提出 | `ATLA5_SUBMIT_CONFIRM=1 python tools/signate/cli.py submit submission/submit.zip --memo "..."` |
 | テスト / lint | `pytest tests/ -q` / `ruff check agent/ tools/ tests/ scripts/ analysis/` |
 
@@ -75,6 +76,7 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 ```bash
 python tools/state_dashboard/serve.py --open        # http://127.0.0.1:8765
 python tools/state_dashboard/serve.py --once        # JSON を標準出力（CI/スクリプト用）
+python tools/state_dashboard/cache_bump.py          # ブラウザのキャッシュを確実に飛ばす
 ```
 
 タブ構成:

@@ -8,4 +8,5 @@ data/
 workspace/
 submission/
 analysis/agents/*/session_state.json
+analysis/ops/
 *.zip

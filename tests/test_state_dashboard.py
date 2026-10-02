@@ -102,9 +102,15 @@ def test_http_endpoints():
         with urllib.request.urlopen(f"{base}/api/health", timeout=30) as res:
             assert json.loads(res.read()) == {"ok": True}
 
+        with urllib.request.urlopen(f"{base}/api/build", timeout=30) as res:
+            build = json.loads(res.read().decode("utf-8"))
+        assert len(build["build"]) == 12
+
         with urllib.request.urlopen(base + "/", timeout=30) as res:
+            html = res.read().decode("utf-8")
             assert res.status == 200
-            assert "air_combatAI_5" in res.read().decode("utf-8")
+            assert "air_combatAI_5" in html
+        assert f'<meta name="x-build" content="{build["build"]}">' in html
 
         with urllib.request.urlopen(f"{base}/api/summary", timeout=180) as res:
             payload = json.loads(res.read().decode("utf-8"))

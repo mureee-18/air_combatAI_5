@@ -62,6 +62,11 @@ python tools/battle_analyzer/battle_stats.py workspace/results/0/log_0.json
 # 開発状況ダッシュボード（環境・提出可否・ペア評価・ログ・git を1画面）
 python tools/state_dashboard/serve.py --open
 python tools/state_dashboard/serve.py --once   # JSON を標準出力（CI/スクリプト用）
+python tools/state_dashboard/cache_bump.py     # ブラウザのキャッシュを確実に飛ばす
+
+# 開発環境の定期点検（dashboard / Docker / git / JSON / 空き容量 → analysis/ops/heartbeat.log）
+python tools/ops/healthcheck.py
+python tools/ops/healthcheck.py --restart     # 明示したときだけ dashboard を再起動
 
 # 提出zipの単体検証（展開して4関数を呼ぶ）
 docker exec atla5-cpu bash -lc "python /repo/scripts/zip_check.py /repo/submission/submit.zip"
@@ -74,12 +79,14 @@ python tools/signate/cli.py submit submission/submit.zip --memo "..."
 pytest tests/ -q
 ruff check agent/ tools/ tests/ scripts/
 
-# 改善セッション
+# 改善セッション（記録は「種別＋出所」の型制約つき。kind=rule は source=official のみ）
 python analysis/tools/improvement_session.py start --specialist default
-python analysis/tools/improvement_session.py hypothesis "..." --specialist default
+python analysis/tools/improvement_session.py hypothesis "..." --specialist default --source log
 python analysis/tools/improvement_session.py verify --specialist default
 python analysis/tools/improvement_session.py validate --specialist default --games 3
-python analysis/tools/improvement_session.py record --specialist default --direction "..." --changes "..." --verification "..." --next-steps "..."
+python analysis/tools/improvement_session.py record --specialist default \
+    --kind observation --source log \
+    --direction "..." --changes "..." --verification "..." --next-steps "..."
 ```
 
 ## Architecture
@@ -113,7 +120,8 @@ tools/
 ├── hooks/                  提出前ゲート（明示確認・specialist・zip・ruff）
 ├── battle_analyzer/        ログ仕様書 BATTLELOG_FORMAT.md と battle_stats.py
 ├── log_cleanup/            ログの世代管理（dry-run 既定）
-└── state_dashboard/        開発状況ダッシュボード（serve.py / index.html）
+├── ops/                    定期ヘルスチェック（heartbeat.log は analysis/ops/ Exclude）
+└── state_dashboard/        開発状況ダッシュボード（serve.py / index.html / cache_bump.py）
 ```
 
 ## 改善の進め方（実測済みの前提）

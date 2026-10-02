@@ -4,13 +4,25 @@
     - 対戦は Docker コンテナ (atla5-cpu) 内の validate.py で実行する
     - 記録は analysis/agents/<specialist>/improvement.md に追記する
 
+記録は「事実（出所あり）」と「推論（仮説）」を型で分離する（kaggriculture の
+records.py と同じ考え方）:
+    kind    rule       大会ルール / 採点式に由来する制約（出所は official のみ）
+            observation 実測ログ・計測値に基づく事実
+            inference   仮説・因果推論・予測
+    source  official 公式ルール / fight.py 等の実装
+            code     自作コードの読み取り
+            log      対戦ログ / 計測値
+            analysis 解析結果・ダッシュボード
+
 Usage:
     python analysis/tools/improvement_session.py start --specialist default
     python analysis/tools/improvement_session.py assumption "MWS は 10km 程度までしか効かない" --specialist default
-    python analysis/tools/improvement_session.py hypothesis "射距離を 35km にすると命中率が上がる" --specialist default
+    python analysis/tools/improvement_session.py hypothesis "射距離を 35km にすると命中率が上がる" \
+        --specialist default --source log
     python analysis/tools/improvement_session.py verify --specialist default
     python analysis/tools/improvement_session.py validate --specialist default --games 3
     python analysis/tools/improvement_session.py record --specialist default \
+        --kind observation --source log \
         --direction "..." --changes "..." --verification "..." --next-steps "..."
     python analysis/tools/improvement_session.py check --specialist default
 """
@@ -31,6 +43,27 @@ ACTIVE_PY = REPO_ROOT / "agent" / "strategy" / "active.py"
 SPECIALISTS_DIR = REPO_ROOT / "agent" / "strategy" / "specialists"
 ARGS_PATH = REPO_ROOT / "agent" / "args.json"
 RESULT_DIR = "results_improve"
+
+RECORD_KINDS = ("rule", "observation", "inference")
+RECORD_SOURCES = ("official", "code", "log", "analysis")
+KIND_PREFIX = {"rule": "R", "observation": "O", "inference": "N"}
+KIND_LABEL = {
+    "rule": "大会ルール由来の制約",
+    "observation": "実測に基づく事実",
+    "inference": "仮説・推論",
+}
+SOURCE_LABEL = {
+    "official": "公式ルール / シミュレータ実装",
+    "code": "自作コードの読み取り",
+    "log": "対戦ログ / 計測値",
+    "analysis": "解析結果・ダッシュボード",
+}
+# 種別ごとの許容出所。rule は公式に限る（推測でルールを作らない）。
+KIND_ALLOWED_SOURCES = {
+    "rule": ("official",),
+    "observation": ("log", "analysis", "code"),
+    "inference": ("log", "analysis", "code", "official"),
+}
 
 
 def state_path(name: str) -> Path:
@@ -57,6 +90,32 @@ def save_state(name: str, state: dict) -> None:
 def require_specialist(name: str) -> None:
     if not (SPECIALISTS_DIR / f"{name}.py").exists():
         raise SystemExit(f"specialist が存在しません: {name}")
+
+
+def validate_record(kind: str, source: str) -> None:
+    """種別と出所の整合を検査する。不正なら SystemExit（ Clap 風の選択肢_help と対）."""
+
+    if kind not in RECORD_KINDS:
+        raise SystemExit(f"種別が不正です: {kind}（{'/'.join(RECORD_KINDS)}）")
+    if source not in RECORD_SOURCES:
+        raise SystemExit(f"出所が不正です: {source}（{'/'.join(RECORD_SOURCES)}）")
+    allowed = KIND_ALLOWED_SOURCES[kind]
+    if source not in allowed:
+        raise SystemExit(
+            f"種別の型制約違反: kind={kind} は source={'/'.join(allowed)} のみ。"
+            f"（{KIND_LABEL[kind]} に {SOURCE_LABEL[source]} は使えない）"
+        )
+
+
+def next_record_id(path: Path, kind: str) -> str:
+    """improvement.md に既にある同種別の記録数から次の ID を返す（O-001 / N-002 形式）."""
+
+    prefix = KIND_PREFIX[kind]
+    used = 0
+    if path.exists():
+        text = path.read_text(encoding="utf-8")
+        used = text.count(f"\n## {prefix}-") + (1 if text.startswith(f"## {prefix}-") else 0)
+    return f"{prefix}-{used + 1:03d}"
 
 
 def run_games(games: int) -> dict:
@@ -129,13 +188,18 @@ def cmd_assumption(args) -> None:
 
 
 def cmd_hypothesis(args) -> None:
+    validate_record("inference", args.source)
     state = load_state(args.specialist)
     state.setdefault("hypotheses", []).append({
+        "id": next_record_id(note_path(args.specialist), "inference"),
+        "kind": "inference",
+        "source": args.source,
         "text": args.text,
         "at": datetime.now().isoformat(timespec="seconds"),
     })
     save_state(args.specialist, state)
-    print(f"仮説（予測）を記録: {args.text}")
+    print(f"仮説（推論）を記録: {args.text}")
+    print(f"  出所: {args.source}（{SOURCE_LABEL[args.source]}）")
     print("変更前に数値で予測を書くこと。書けない場合は変更しない。")
 
 
@@ -157,12 +221,16 @@ def cmd_validate(args) -> None:
 
 
 def cmd_record(args) -> None:
+    validate_record(args.kind, args.source)
     path = note_path(args.specialist)
     path.parent.mkdir(parents=True, exist_ok=True)
     state = load_state(args.specialist)
     latest = state.get("cycles", [])[-1]["metrics"] if state.get("cycles") else {}
+    record_id = next_record_id(path, args.kind)
     with path.open("a", encoding="utf-8") as f:
-        f.write(f"\n## {datetime.now().isoformat(timespec='seconds')}\n")
+        f.write(f"\n## {record_id} [{args.kind}/{args.source}] {datetime.now().isoformat(timespec='seconds')}\n")
+        f.write(f"- 種別: {args.kind}（{KIND_LABEL[args.kind]}）\n")
+        f.write(f"- 出所: {args.source}（{SOURCE_LABEL[args.source]}）\n")
         f.write(f"- 方向性: {args.direction}\n")
         f.write(f"- 変更: {args.changes}\n")
         f.write(f"- 検証: {args.verification}\n")
@@ -170,7 +238,15 @@ def cmd_record(args) -> None:
             f.write(f"- 指標: {json.dumps(latest, ensure_ascii=False)}\n")
         if args.next_steps:
             f.write(f"- 次の一手: {args.next_steps}\n")
+    state.setdefault("records", []).append({
+        "id": record_id,
+        "kind": args.kind,
+        "source": args.source,
+        "at": datetime.now().isoformat(timespec="seconds"),
+    })
+    save_state(args.specialist, state)
     print(f"記録しました: {path}")
+    print(f"  {record_id} [{args.kind}/{args.source}]")
 
 
 def cmd_check(args) -> None:
@@ -180,8 +256,17 @@ def cmd_check(args) -> None:
         return
     print(f"specialist: {state.get('specialist')} / started: {state.get('started')}")
     print(f"  前提: {len(state.get('assumptions', []))} 件")
-    print(f"  仮説: {len(state.get('hypotheses', []))} 件")
-    print(f"  検証: {len(state.get('cycles', []))} 回")
+    hypotheses = state.get("hypotheses", [])
+    print(f"  仮説（推論）: {len(hypotheses)} 件")
+    records = state.get("records", [])
+    by_kind: dict[str, int] = {}
+    for item in records:
+        by_kind[item["kind"]] = by_kind.get(item["kind"], 0) + 1
+    detail = " / ".join(f"{kind}={by_kind.get(kind, 0)}" for kind in RECORD_KINDS)
+    print(f"  記録: {len(records)} 件（{detail}）")
+    unsourced = [item["id"] for item in hypotheses if not item.get("source")]
+    if unsourced:
+        print(f"  出所未記録の仮説: {', '.join(unsourced)}")
     path = note_path(args.specialist)
     print(f"  improvement.md: {'あり' if path.exists() else 'なし'}")
 
@@ -201,6 +286,12 @@ def main() -> None:
 
     p = sub.add_parser("hypothesis")
     p.add_argument("text")
+    p.add_argument(
+        "--source",
+        required=True,
+        choices=RECORD_SOURCES,
+        help="仮説の根拠出处（log=対戦ログ/計測値, analysis=解析, code=コード, official=ルール）",
+    )
     p.add_argument("--specialist", required=True)
     p.set_defaults(func=cmd_hypothesis)
 
@@ -216,6 +307,18 @@ def main() -> None:
 
     p = sub.add_parser("record")
     p.add_argument("--specialist", required=True)
+    p.add_argument(
+        "--kind",
+        required=True,
+        choices=RECORD_KINDS,
+        help="rule=大会ルール由来の制約 / observation=実測事実 / inference=推論",
+    )
+    p.add_argument(
+        "--source",
+        required=True,
+        choices=RECORD_SOURCES,
+        help="根拠の出所。kind=rule は official のみ許可",
+    )
     p.add_argument("--direction", default="")
     p.add_argument("--changes", default="")
     p.add_argument("--verification", default="")

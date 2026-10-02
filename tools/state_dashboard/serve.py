@@ -18,6 +18,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import platform
 import shutil
@@ -35,6 +36,7 @@ WORKSPACE = REPO_ROOT / "workspace"
 MYAGENT_DIR = WORKSPACE / "Agents" / "MyAgent"
 INDEX_HTML = Path(__file__).resolve().parent / "index.html"
 RULES_JSON = Path(__file__).resolve().parent / "rules.json"
+CACHE_EPOCH = REPO_ROOT / "analysis" / "ops" / "dashboard_cache_epoch.txt"
 ALLOWED_SPECIALISTS = {"baseline"}
 REQUIRED_ZIP_ENTRIES = ["__init__.py", "args.json", "config.json"]
 
@@ -469,6 +471,39 @@ def get_summary(force: bool = False) -> dict:
     return payload
 
 
+def asset_sig(path: Path) -> str:
+    """ファイル識別子（mtime + サイズ）。無いファイルは空文字."""
+
+    if not path.exists():
+        return ""
+    stat = path.stat()
+    return f"{stat.st_mtime_ns}:{stat.st_size}"
+
+
+def build_id() -> str:
+    """ダッシュボードのビルド ID.
+
+    index.html / rules.json の mtime と analysis/ops/dashboard_cache_epoch.txt を
+    まとめてハッシュする。cache_bump.py が epoch を更新すると ID が変わる。
+    """
+
+    epoch = CACHE_EPOCH.read_text(encoding="utf-8").strip() if CACHE_EPOCH.exists() else ""
+    raw = "|".join([asset_sig(INDEX_HTML), asset_sig(RULES_JSON), epoch])
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+
+
+def index_body(build: str) -> bytes:
+    """index.html にビルド ID を注入して返す（/meta に埋め込む）."""
+
+    html = INDEX_HTML.read_text(encoding="utf-8")
+    tag = f'<meta name="x-build" content="{build}">'
+    if '<meta name="x-build"' in html:
+        return html.encode("utf-8")
+    if "<head>" in html:
+        return html.replace("<head>", f"<head>{tag}", 1).encode("utf-8")
+    return (tag + html).encode("utf-8")
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -487,12 +522,16 @@ class Handler(BaseHTTPRequestHandler):
         route = self.path.split("?", 1)[0]
         if route in ("/", "/index.html"):
             if INDEX_HTML.exists():
-                self._send(200, INDEX_HTML.read_bytes(), "text/html; charset=utf-8")
+                self._send(200, index_body(build_id()), "text/html; charset=utf-8")
             else:
                 self._send(404, b"index.html not found", "text/plain; charset=utf-8")
             return
         if route == "/api/health":
             self._send(200, json.dumps({"ok": True}).encode(), "application/json; charset=utf-8")
+            return
+        if route == "/api/build":
+            body = json.dumps({"build": build_id()}, ensure_ascii=False).encode("utf-8")
+            self._send(200, body, "application/json; charset=utf-8")
             return
         if route == "/api/summary":
             force = "force=1" in self.path
