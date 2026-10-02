@@ -49,6 +49,13 @@
   .bar { height: 16px; border-radius: 3px; background: var(--accent); }
   .bar.alt { background: #a371f7; }
   .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; border: 1px solid var(--line); }
+  .rule-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin-top: 12px; background: #131b23; }
+  .rule-card h3 { margin: 0 0 8px; font-size: 14px; color: var(--accent); }
+  .rule-groups { display: flex; flex-wrap: wrap; gap: 18px; }
+  .rule-group { flex: 1; min-width: 220px; }
+  .rule-group-title { font-size: 13px; font-weight: 600; color: var(--fg); margin-bottom: 4px; }
+  .rule-items { margin: 0; padding-left: 18px; color: var(--fg); line-height: 1.7; font-size: 13px; }
+  .rule-items code { background: #0b0f14; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
   .empty { color: var(--muted); padding: 8px 0; }
 </style>
 </head>
@@ -76,12 +83,13 @@
   <section class="tab" id="tab-session"><h2>改善セッション</h2><div id="session"></div></section>
   <section class="tab" id="tab-git"><h2>git</h2><div id="git"></div></section>
   <section class="tab" id="tab-cmd"><h2>コマンド</h2><div id="cmd"></div></section>
+  <section class="tab" id="tab-rules"><h2>コンペルール</h2><div id="rules"></div></section>
 </main>
 
 <script>
 const TABS = [
   ["env", "環境"], ["sub", "提出"], ["eval", "評価"], ["logs", "ログ"],
-  ["session", "改善セッション"], ["git", "git"], ["cmd", "コマンド"],
+  ["session", "改善セッション"], ["git", "git"], ["cmd", "コマンド"], ["rules", "ルール"],
 ];
 const nav = document.getElementById("nav");
 const state = { data: null, timer: null, selected: null };
@@ -327,6 +335,44 @@ function renderCmd(d) {
   });
 }
 
+function inlineCode(text) {
+  return esc(text)
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/`(.+?)`/g, "<code>$1</code>");
+}
+
+function renderRules(d) {
+  const r = d.rules || { meta: {}, groups: [] };
+  const m = r.meta || {};
+  let h = cards([
+    { k: "コンペ", v: m.name || "—", cls: "" },
+    { k: "対象", v: m.division || "—" },
+    { k: "task key", v: (m.task_key || "—").slice(0, 8) },
+    { k: "参照元", v: (r.source_files ? Object.values(r.source_files).filter(Boolean).length : 0) + " / 2" },
+  ]);
+  if (m.url) {
+    h += `<p><a href="${esc(m.url)}" target="_blank" rel="noreferrer" style="color:var(--accent)">公式ページを開く（規約の正は公式ページ）</a></p>`;
+  }
+
+  h += '<div class="rule-card"><h3>出所</h3><div class="rule-groups">';
+  (m.sources || []).forEach(s => {
+    h += `<div class="rule-group"><div class="rule-group-title">${esc(s.label)}</div>` +
+         `<ul class="rule-items"><li><code>${esc(s.path)}${s.lines ? ":" + esc(s.lines) : ""}</code></li>` +
+         `<li>${esc(s.note || "")}</li></ul></div>`;
+  });
+  h += "</div>";
+  if (m.note) h += `<p class="meta">${esc(m.note)}</p>`;
+  h += "</div>";
+
+  (r.groups || []).forEach(g => {
+    h += `<div class="rule-card"><h3>${esc(g.title)}</h3><div class="rule-groups"><div class="rule-group">`;
+    h += `<ul class="rule-items">`;
+    (g.items || []).forEach(it => { h += `<li>${inlineCode(it)}</li>`; });
+    h += "</ul></div></div></div>";
+  });
+  document.getElementById("rules").innerHTML = h;
+}
+
 function showTab(key) {
   TABS.forEach(([k]) => {
     document.getElementById("nav-" + k).classList.toggle("active", k === key);
@@ -351,7 +397,7 @@ async function load(force) {
     state.data = data;
     document.getElementById("stamp").textContent = "更新 " + data.generated_at;
     renderEnv(data); renderSub(data); renderEval(data); renderLogs(data);
-    renderSession(data); renderGit(data); renderCmd(data);
+    renderSession(data); renderGit(data); renderCmd(data); renderRules(data);
   } catch (err) {
     document.getElementById("stamp").textContent = "読み込み失敗: " + err;
   }

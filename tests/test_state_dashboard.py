@@ -11,11 +11,13 @@ import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SERVE_PATH = REPO_ROOT / "tools" / "state_dashboard" / "serve.py"
 INDEX_PATH = REPO_ROOT / "tools" / "state_dashboard" / "index.html"
 
-TABS = ["環境", "提出", "評価", "ログ", "改善セッション", "git", "コマンド"]
+TABS = ["環境", "提出", "評価", "ログ", "改善セッション", "git", "コマンド", "ルール"]
 
 
 def load_serve():
@@ -65,6 +67,32 @@ def test_commands_are_documented_and_copyable():
     assert all(cmd.strip() for cmd in all_cmds)
 
 
+def test_rules_json_contract():
+    rules = serve.collect_rules()
+    assert set(rules.keys()) >= {"meta", "groups", "source_files"}
+    assert rules["meta"]["division"] == "ユース部門"
+    assert rules["meta"]["task_key"] == "5564d022dac44dd498c97aa82efab260"
+    titles = [g["title"] for g in rules["groups"]]
+    assert any("採点式" in t for t in titles)
+    assert any("提出ルール" in t for t in titles)
+    for group in rules["groups"]:
+        assert group["items"]
+        for item in group["items"]:
+            assert isinstance(item, str) and item.strip()
+
+
+def test_scoring_formula_matches_fight_py():
+    fight = REPO_ROOT / "workspace" / "src" / "fight.py"
+    if not fight.exists():
+        pytest.skip("fight.py が無い環境ではスキップ")
+    source = fight.read_text(encoding="utf-8")
+    assert "0.6" in source and "0.3 * hit_rate" in source
+    assert "time_bonus" in source
+    rules_text = json.dumps(serve.collect_rules(), ensure_ascii=False)
+    assert "0.6 + 0.3" in rules_text
+    assert "0.1" in rules_text
+
+
 def test_http_endpoints():
     server = ThreadingHTTPServer(("127.0.0.1", 0), serve.Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -89,6 +117,7 @@ def test_http_endpoints():
             "logs",
             "session",
             "git",
+            "rules",
             "commands",
         }
     finally:

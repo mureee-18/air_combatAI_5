@@ -1,0 +1,105 @@
+{
+  "meta": {
+    "name": "SIGNATE 第5回空戦AIチャレンジ",
+    "division": "ユース部門",
+    "competition_key": "42024ceef5064aa6a7f463aac3f26fc2",
+    "task_key": "5564d022dac44dd498c97aa82efab260",
+    "url": "https://user.competition.signate.jp/ja/competition/detail/?competition=42024ceef5064aa6a7f463aac3f26fc2&task=5564d022dac44dd498c97aa82efab260",
+    "sources": [
+      {
+        "label": "採点式",
+        "path": "workspace/src/fight.py",
+        "lines": "456-499",
+        "note": "この実装が正。scores / endReason / numAlives の算出式"
+      },
+      {
+        "label": "対戦条件（初期配置・機体性能）",
+        "path": "workspace/src/fight.py",
+        "lines": "118-185",
+        "note": "機体性能のランダム化はオープン部門のみ（if not match_config[youth]）"
+      },
+      {
+        "label": "今年度の変更点",
+        "path": "data/tutorial.zip の初級セミナー【配布用】.pdf",
+        "lines": null,
+        "note": "索敵・場外・速度評価の変更点。PDF は文字化けするため数値は他資料と実測と突合している"
+      }
+    ],
+    "note": "公式ページの規約（提出回数上限・実行時間制限・全体スケジュール等）はログインが必要で本リポジトリからは取得できないため未収録。最後のグループを参照。"
+  },
+  "groups": [
+    {
+      "title": "コンペ概要",
+      "items": [
+        "対象: ユース部門（task 5564d022dac44dd498c97aa82efab260）",
+        "評価: 初期行動判断モデル（BenchMark = BasicAACRuleBasedAgent01）との対戦。勝率ではなく自陣営の平均スコアで決まる",
+        "提出物は行動判断を行う Python モジュールのみ（評価は x86 CPU・Linux で実行）",
+        "提出 Zip: submission/submit.zip（ルートに __init__.py / args.json / config.json）"
+      ]
+    },
+    {
+      "title": "採点式（workspace/src/fight.py が正）",
+      "items": [
+        "決着理由は 3 種: PENALTY（場外失格）/ ELIMINATION（護衛対象機撃破）/ TIMEUP（時間切れ）",
+        "勝者スコア = 0.6 + 0.3 × 命中率 + タイムボーナス",
+        "命中率 = 1 −（消費弾 / 発射弾）、消費弾 = 発射弾 −（敵の初期機数 − 敵の生存機数）",
+        "タイムボーナス = 0.1 ×（経過 < 900 秒 ? 1 : max(0, 2 − 経過 / 900)）",
+        "→ 900 秒まで +0.1、1350 秒で +0.05、1800 秒（TIMEUP）では 0。速攻が有利",
+        "敗者スコア = 1 − 勝者スコア（敗者 0.235 なら勝者 0.765）",
+        "TIMEUP と引き分け決着は双方 +0.5 / エラー発生（nocontest）は双方 0.0",
+        "実測: 851 歩で勝った場合の 0.765 = 0.6 + 0.3 × 0.217 + 0.1（命中率 21.7%）",
+        "本リポジトリでは勝敗ではなく avg_score / avg_our_alive / avg_enemy_alive で改善を判断する"
+      ]
+    },
+    {
+      "title": "対戦条件（ユース部門）",
+      "items": [
+        "1 陣営 = 戦闘機 4 機 + 護衛対象機 1 機。被撃破で機体ごと脱落（自 1 機 = 1 エージェントの S 方式）",
+        "1 ステップ = 1 秒。TIMEUP は 1800 秒（実測: TIMEUP 試合は step_count = 1800）",
+        "高度 10,000 m 固定の水平面戦闘（PlanarFighter）。降下など上下機動は機能しない",
+        "初期配置（fight.py:118-145）: 戦闘機は x ∈ [-20, +20] km・y 95〜105 km・heading 225°/315°・260/280 m/s、護衛対象機は x ≈ ±100 km・y 120 km を半径 5 km で周回（250 m/s）",
+        "初期誘導弾 6 本/機。同時発射は maxSimulShot（自作）/ nMslSimul（初期行動判断モデル）で制限。飛翔中の誘導弾は最大 150 秒残る",
+        "場外は PENALTY（失格）。戦域は ±150 km（dOut = dLine = 150 km）",
+        "ユース部門は燃料を消費しない（fuelRemaining が一定）。高度と燃料では勝負が決まらない",
+        "通信: 陣営内 datalink で自機の情報は全共有。敵の情報はレーダ / IRST からのみ",
+        "機体性能のランダム化はオープン部門だけ（fight.py:147 の if not youth）。ユース部門は固定仕様",
+        "ランダム要素は初期配置（np.random）と護衛対象機の周回方向（np.random.choice で right / left）のみ → ローカルでは seed 固定で完全に再現できる",
+        "失格ラインは戦域ラインから 200 秒の猶予（配布資料の記述。実測では場外で PENALTY 終了）"
+      ]
+    },
+    {
+      "title": "今年度の変更点（初級セミナー配布資料・参考値）",
+      "items": [
+        "索敵が根本変化: レーダは確定探知から plot 観測へ変更され、実効探知距離はほぼ半減",
+        "IRST を新設: 距離は測定できず、方位と方位変化率のみ得られる",
+        "場外は実害: 戦域 ±150 km 四方。制限時間は 1200 秒から 1800 秒へ",
+        "評価軸が命中と速度重視に: 護衛対象機撃破・失格勝ちでは時間賞が加算され、速攻が有利",
+        "護衛対象機は探知性アップ・防御力ダウン: RCS が 1.6〜2 倍になり探知距離も倍増",
+        "ランダム性が増加: 護衛対象機の周回方向や速度がランダム化され、固定パターンの最適化は不利",
+        "ユース部門は独自仕様: レーダは有限レーダー化、ただし IRST は距離無限・全周",
+        "資料の推奨: 役割と高度を使い分ける（アタッカーとチェイサー）、回避旋回に降下を入れる、確実に勝てる判断だけ強化学習へ置き換える"
+      ]
+    },
+    {
+      "title": "提出ルール（本コンペでの運用）",
+      "items": [
+        "必須 4 関数: getUserAgentClass / getUserAgentModelConfig / isUserAgentSingleAsset / getUserPolicy",
+        "zip のルートに __init__.py・args.json・config.json が必要（それ以外は自由）",
+        "zip に入るのは agent/ 配下のみ。tools/・scripts/・local_test/・analysis/・tests/ は入らない",
+        "提出はユーザーの明示指示時のみ。環境変数 ATLA5_SUBMIT_CONFIRM=1 を付けて実行する",
+        "提出前ゲート tools/hooks/pre_submit_gate.py: 明示確認 → specialist 検査 → zip 検査 → ruff",
+        "提出用 specialist は baseline のみ。default（自作）はローカル評価専用",
+        "提出前にコンテナ内で zip_check.py、ホストで pytest と ruff を通す"
+      ]
+    },
+    {
+      "title": "公式ページの未収録項目（要確認）",
+      "items": [
+        "提出回数の上限と提出サイズの制限",
+        "実行時間制限（TL）・メモリ制限・並列実行の可否",
+        "動作確認と評価の全体スケジュール、締切",
+        "上記は公式ページ（ログイン必須）で確認する"
+      ]
+    }
+  ]
+}

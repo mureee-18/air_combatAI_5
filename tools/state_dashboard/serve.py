@@ -34,6 +34,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE = REPO_ROOT / "workspace"
 MYAGENT_DIR = WORKSPACE / "Agents" / "MyAgent"
 INDEX_HTML = Path(__file__).resolve().parent / "index.html"
+RULES_JSON = Path(__file__).resolve().parent / "rules.json"
 ALLOWED_SPECIALISTS = {"baseline"}
 REQUIRED_ZIP_ENTRIES = ["__init__.py", "args.json", "config.json"]
 
@@ -433,6 +434,17 @@ def collect_git() -> dict:
     }
 
 
+def collect_rules() -> dict:
+    data = load_json(RULES_JSON) or {}
+    data.setdefault("meta", {})
+    data.setdefault("groups", [])
+    data["source_files"] = {
+        "fight.py": (REPO_ROOT / "workspace" / "src" / "fight.py").exists(),
+        "mission_config": (WORKSPACE / "common" / "R8_contest_youth_mission_config.json").exists(),
+    }
+    return data
+
+
 def collect_summary() -> dict:
     return {
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -443,6 +455,7 @@ def collect_summary() -> dict:
         "logs": collect_logs(),
         "session": collect_session(),
         "git": collect_git(),
+        "rules": collect_rules(),
         "commands": COMMANDS,
     }
 
