@@ -60,6 +60,7 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 | パラメータ走査 | `python scripts/run_eval.py --games 3 --sweep fireRangeKm=25,35,50` |
 | **seed 固定ペア評価** | `docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --out /workspace/paired/baseline.json"` |
 | ログから挙動指標 | `python tools/battle_analyzer/battle_stats.py workspace/results/0/log_0.json` |
+| ログから軌跡を復元 | `python tools/battle_analyzer/trajectory.py workspace/results_tel/0/log_0.json` |
 | ログの整理 | `python tools/log_cleanup/cleanup.py`（`--execute` で削除） |
 | **ダッシュボード** | `python tools/state_dashboard/serve.py --open`（http://127.0.0.1:8765） |
 | 環境の定期点検 | `python tools/ops/healthcheck.py`（結果を `analysis/ops/heartbeat.log` に追記） |
@@ -91,8 +92,32 @@ python tools/state_dashboard/cache_bump.py          # ブラウザのキャッ�
 | git | ブランチ / 未コミット / ahead-behind / 直近コミット |
 | コマンド | 主要コマンドのコピーリスト |
 | ルール | コンペルール（採点式・対戦条件・提出ルール・要確認項目）。内容は `tools/state_dashboard/rules.json` |
+| 軌跡 | 自作エージェントのログから復元したレーダースコープ再生（後述） |
 
 ダッシュボードは `agent/` の提出物には含まれません（`tools/` は zip 対象外のため）。
+
+## 軌跡リプレイ
+
+公式シミュレータのビューアは headless（Docker）環境では画像や GIF を生成しないため、
+**ログの own / enemy / threat / actions から軌跡を復元して表示する**。復元式は実測で検証済み
+（4機が独立に探知した敵の推定位置が平均 0.07 km で一致した）。
+
+```
+enemy_x = own_x + dist * cos(bearing)      # 陣営座標系[km]、x=+ は敵陣方向
+enemy_y = own_y + dist * sin(bearing)      # bearing は反時計回りが正
+```
+
+```bash
+python tools/battle_analyzer/trajectory.py workspace/results_tel/0/log_0.json          # 要約
+python tools/battle_analyzer/trajectory.py workspace/results_tel/0/log_0.json --json   # JSON
+```
+
+制約（重要）:
+
+- **自作エージェントのログのみ対象**。baseline / BenchMark のログは observation がスカラーで位置を持たない。
+- 敵の点は「そのフレームで当該機が探知していた敵」だけ。探知していない敵は表示されない（実位置の復元ではない）。
+- 高度はユース部門で固定のため平面表示。`own` が旧 8 列世代のログは残弾・燃料の列が無いため発射イベントを検出できない。
+- 発射は残弾数の減少で検出する（`isLaunchableAt()` の都合で射撃指示回数と発射数は一致しない）。
 
 ## 提出ルール
 

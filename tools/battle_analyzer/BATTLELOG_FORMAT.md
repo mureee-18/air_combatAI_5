@@ -19,6 +19,8 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 - `python scripts/run_eval.py --games 3` … 3戦実行して集計を表示
 - `python scripts/run_eval.py --games 3 --sweep fireRangeKm=25,35,50` … `args.json` の値を書き換えて走査
 - `python tools/battle_analyzer/battle_stats.py workspace/results/0/log_0.json` … 挙動指標の集計
+- `python tools/battle_analyzer/trajectory.py workspace/results_tel/0/log_0.json` … 軌跡の復元（要約）
+  （ダッシュボードの「軌跡」タブが同じデータを使う。HTTP は `/api/replays` と `/api/replay?log=<repo相対パス>`）
 
 ## 2. validation_results.json
 
@@ -113,7 +115,28 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 - シミュレータ側の `isLaunchableAt()` が False の場合は action で target を指定しても発射されない。
   したがって「fire_orders」の数と実際の発射数は一致しない（残弾数の推移で確認する）。
 
-## 5. ベンチマーク（BenchMark = BasicAACRuleBasedAgent01）
+## 5. 軌跡の復元（trajectory.py / ダッシュボード「軌跡」タブ）
+
+- 敵の座標は 3.1 の `own` と `enemy` から次の式で復元する（**実測で検証済み**:
+  4機が独立に探知した同一敵の推定位置が平均 0.07 km で一致した）。
+
+  ```
+  enemy_x = own_x + dist * cos(bearing)
+  enemy_y = own_y + dist * sin(bearing)
+  ```
+
+  bearing は陣営座標系で `0 = 敵陣方向(+x)`、反時計回りが正。水平面のみ扱う（高度は固定）。
+- 復元できるログは**自作 Agent のログだけ**（dict payload が無い baseline / BenchMark は除外）。
+- 表示されるのは「そのフレームで当該機が探知していた敵」だけ。未探知の敵は出ない。
+- イベント:
+  - `launch` … `own[8]`（残弾）が前フレームより減ったとき（`isLaunchableAt()` の都合で
+    `target` 指定回数と発射数は一致しない）
+  - `lock` … `actions[].data[].target` が 0 → 非 0 に変化
+  - `warning` … `threat[0]` が 0 → 1（`threat[1]` が警報方位）
+  - `lost` … あるスロットの観測が以降のフレームから消えた（=`previous_ammo` にあり `own` にない）
+- `own` が旧 8 列世代のログは残弾・燃料の列が無いため `launch` イベントは出ない。
+
+## 6. ベンチマーク（BenchMark = BasicAACRuleBasedAgent01）
 
 - 状態（ADVANCE / APPROACH_TARGET / KEEP_SENSING / RTB / WITHDRAW / EVADE）を遷移するルールベース。
 - BenchMark 同士の対戦は引き分け寄り（TIMEUP が多い）。

@@ -21,6 +21,10 @@ x86 CPU・Linux 上で初期行動判断モデル（BenchMark）と対戦させ�
 4. **ログ構造を毎回調べ直さない。** 改善セッション開始時に
    `tools/battle_analyzer/BATTLELOG_FORMAT.md` を必ず読む。
 5. **改善は1変数ずつ。** 複数の変更を同時に入れたら、悪化時に原因を切り分けられない。
+6. **可視化はログ再構築のみ。** 公式ビューア（`visualize=1`）は headless で画像/GIFを
+   生成せず、`env.manager` の生状態は `getEntityByName` で core dump するため使わない。
+   軌跡は `tools/battle_analyzer/trajectory.py` の復元式
+   （`enemy = own + dist·(cos bearing, sin bearing)`、陣営座標系 x=+ が敵陣方向）を正とする。
 
 ## Environment
 
@@ -59,7 +63,10 @@ python tools/log_cleanup/cleanup.py --keep 3
 # 1戦のログから挙動指標
 python tools/battle_analyzer/battle_stats.py workspace/results/0/log_0.json
 
-# 開発状況ダッシュボード（環境・提出可否・ペア評価・ログ・git を1画面）
+# 1戦のログから軌跡を復元（自作エージェントのログのみ。ダッシュボードの「軌跡」タブでも再生）
+python tools/battle_analyzer/trajectory.py workspace/results_tel/0/log_0.json
+
+# 開発状況ダッシュボード（環境・提出可否・ペア評価・ログ・軌跡・git を1画面）
 python tools/state_dashboard/serve.py --open
 python tools/state_dashboard/serve.py --once   # JSON を標準出力（CI/スクリプト用）
 python tools/state_dashboard/cache_bump.py     # ブラウザのキャッシュを確実に飛ばす
@@ -118,7 +125,7 @@ zip のルートに `__init__.py`・`args.json`・`config.json` が必要（そ�
 tools/
 ├── signate/                SIGNATE CLI ラッパー（config.json に key 固定）
 ├── hooks/                  提出前ゲート（明示確認・specialist・zip・ruff）
-├── battle_analyzer/        ログ仕様書 BATTLELOG_FORMAT.md と battle_stats.py
+├── battle_analyzer/        ログ仕様書 BATTLELOG_FORMAT.md / battle_stats.py / trajectory.py（軌跡復元）
 ├── log_cleanup/            ログの世代管理（dry-run 既定）
 ├── ops/                    定期ヘルスチェック（heartbeat.log は analysis/ops/ Exclude）
 └── state_dashboard/        開発状況ダッシュボード（serve.py / index.html / cache_bump.py）

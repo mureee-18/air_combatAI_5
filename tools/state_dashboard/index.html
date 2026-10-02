@@ -56,6 +56,22 @@
   .rule-group-title { font-size: 13px; font-weight: 600; color: var(--fg); margin-bottom: 4px; }
   .rule-items { margin: 0; padding-left: 18px; color: var(--fg); line-height: 1.7; font-size: 13px; }
   .rule-items code { background: #0b0f14; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+  .traj-wrap { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .traj-stage { flex: 1 1 620px; min-width: 380px; }
+  .traj-stage canvas { width: 100%; height: auto; display: block; background: #0b0f14;
+                       border: 1px solid var(--line); border-radius: 8px; }
+  .traj-side { flex: 0 1 330px; min-width: 260px; }
+  .traj-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  .traj-controls input[type=range] { flex: 1; min-width: 150px; accent-color: var(--accent); }
+  .traj-controls label { font-size: 12px; color: var(--muted); display: inline-flex; gap: 4px; align-items: center; }
+  .traj-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+  .traj-legend span.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; }
+  .traj-events { max-height: 300px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; background: #0b0f14; }
+  .traj-events div { padding: 3px 8px; border-bottom: 1px solid var(--line); cursor: pointer;
+                     font-family: Consolas, "Courier New", monospace; font-size: 12px; }
+  .traj-events div:hover { background: #16202b; }
+  .traj-events div.cur { color: var(--accent); background: #16202b; }
+  .traj-note { font-size: 12px; color: var(--muted); line-height: 1.7; }
   .empty { color: var(--muted); padding: 8px 0; }
 </style>
 </head>
@@ -84,12 +100,14 @@
   <section class="tab" id="tab-git"><h2>git</h2><div id="git"></div></section>
   <section class="tab" id="tab-cmd"><h2>コマンド</h2><div id="cmd"></div></section>
   <section class="tab" id="tab-rules"><h2>コンペルール</h2><div id="rules"></div></section>
+  <section class="tab" id="tab-traj"><h2>軌跡リプレイ（自作エージェントのログのみ）</h2><div id="traj"></div></section>
 </main>
 
 <script>
 const TABS = [
   ["env", "環境"], ["sub", "提出"], ["eval", "評価"], ["logs", "ログ"],
   ["session", "改善セッション"], ["git", "git"], ["cmd", "コマンド"], ["rules", "ルール"],
+  ["traj", "軌跡"],
 ];
 const nav = document.getElementById("nav");
 const state = { data: null, timer: null, selected: null };
@@ -373,12 +391,339 @@ function renderRules(d) {
   document.getElementById("rules").innerHTML = h;
 }
 
+const TRAJ_SLOT_COLORS = ["#58a6ff", "#3fb950", "#d29922", "#a371f7"];
+const TRAJ_RING_COLORS = { radar: "rgba(88,166,255,0.20)", irst: "rgba(163,113,247,0.18)", mws: "rgba(248,81,73,0.35)" };
+const traj = { entries: [], data: null, log: null, t: 0, playing: false, timer: null,
+               speed: 2, span: 300, rings: true, trail: true };
+
+function trajColor(slot) {
+  const i = traj.data ? traj.data.slots.indexOf(slot) : -1;
+  return TRAJ_SLOT_COLORS[(i < 0 ? 0 : i) % TRAJ_SLOT_COLORS.length];
+}
+
+async function loadTrajEntries(force) {
+  const box = document.getElementById("traj");
+  if (!box) return;
+  if (!force && traj.entries.length) return;
+  box.innerHTML = '<div class="empty">軌跡データを読み込み中…</div>';
+  let payload;
+  try {
+    const res = await fetch("/api/replays", { cache: "no-store" });
+    payload = await res.json();
+  } catch (err) {
+    box.innerHTML = '<div class="empty">読み込み失敗: ' + esc(err) + '</div>';
+    return;
+  }
+  traj.entries = payload.entries || [];
+  if (payload.error) {
+    box.innerHTML = '<div class="empty">' + esc(payload.error) + '</div>';
+    return;
+  }
+  if (!traj.entries.length) {
+    box.innerHTML = '<div class="empty">再生可能なログがありません。<br>'
+      + '軌跡の復元は自作エージェント（EscortHunterAgent）のログのみ対象です。'
+      + 'BenchMark 同士のログは observation がスカラー構造で位置情報を持たないため再生できません。</div>';
+    return;
+  }
+  buildTrajShell();
+  const keep = traj.entries.some(e => e.log === traj.log);
+  const target = keep ? traj.log : traj.entries[0].log;
+  document.getElementById("traj-sel").value = target;
+  await openTraj(target);
+}
+
+function buildTrajShell() {
+  const opts = traj.entries.map(e =>
+    `<option value="${esc(e.log)}">${esc(e.log + "  " + e.mtime + "  " + e.frames + "ステップ"
+      + (e.has_ammo ? "" : "（残弾列なし）"))}</option>`).join("");
+  document.getElementById("traj").innerHTML = `
+    <div class="traj-controls">
+      <select id="traj-sel">${opts}</select>
+      <button id="traj-reload">再読み込み</button>
+      <span class="meta">再生可能なログ ${traj.entries.length} 本</span>
+    </div>
+    <div class="traj-wrap">
+      <div class="traj-stage">
+        <canvas id="traj-canvas"></canvas>
+        <div class="traj-controls">
+          <button id="traj-play">▶ 再生</button>
+          <input type="range" id="traj-seek" min="0" max="0" value="0">
+          <span class="meta" id="traj-time">0 / 0</span>
+          <select id="traj-speed">
+            <option value="1">1×</option><option value="2" selected>2×</option>
+            <option value="4">4×</option><option value="8">8×</option>
+          </select>
+          <select id="traj-span">
+            <option value="80">80 km</option><option value="150">150 km</option>
+            <option value="300" selected>300 km（全域）</option>
+          </select>
+          <label><input type="checkbox" id="traj-rings" checked>センサリング</label>
+          <label><input type="checkbox" id="traj-trail" checked>軌跡</label>
+        </div>
+        <div class="traj-legend" id="traj-legend"></div>
+      </div>
+      <div class="traj-side">
+        <div id="traj-info"></div>
+        <h2>イベント（クリックでジャンプ）</h2>
+        <div class="traj-events" id="traj-events"></div>
+      </div>
+    </div>
+    <p class="traj-note">陣営座標系（km）。x=+ は敵陣方向、y=+ は反時計回り側。プロットは自機編隊の中心に追従。
+      敵の点は <code>own + dist·(cos bearing, sin bearing)</code> で復元した推定位置で、
+      <b>そのフレームで当該機が探知していた敵だけ</b>を表示します（ undetected の敵は出ません）。
+      ▲ は自機の位置と進行方位、リングはレーダ 80 km / IRST 120 km / MWS 10 km、
+      赤線は被弾警報の方位です。高度はユース部門で固定のため平面表示です。</p>`;
+
+  document.getElementById("traj-sel").addEventListener("change", e => openTraj(e.target.value));
+  document.getElementById("traj-reload").addEventListener("click", () => loadTrajEntries(true));
+  document.getElementById("traj-play").addEventListener("click", toggleTraj);
+  document.getElementById("traj-seek").addEventListener("input", e => {
+    traj.t = Number(e.target.value); drawTraj();
+  });
+  document.getElementById("traj-speed").addEventListener("change", e => { traj.speed = Number(e.target.value); });
+  document.getElementById("traj-span").addEventListener("change", e => { traj.span = Number(e.target.value); drawTraj(); });
+  document.getElementById("traj-rings").addEventListener("change", e => { traj.rings = e.target.checked; drawTraj(); });
+  document.getElementById("traj-trail").addEventListener("change", e => { traj.trail = e.target.checked; drawTraj(); });
+}
+
+async function openTraj(log) {
+  const btn = document.getElementById("traj-play");
+  if (btn) { traj.playing = false; clearInterval(traj.timer); traj.timer = null; btn.textContent = "▶ 再生"; }
+  const info = document.getElementById("traj-info");
+  if (info) info.innerHTML = '<div class="empty">読み込み中…</div>';
+  let payload;
+  try {
+    const res = await fetch("/api/replay?log=" + encodeURIComponent(log), { cache: "no-store" });
+    payload = await res.json();
+  } catch (err) {
+    if (info) info.innerHTML = '<div class="empty">読み込み失敗: ' + esc(err) + '</div>';
+    return;
+  }
+  if (payload.error) {
+    if (info) info.innerHTML = '<div class="empty">' + esc(payload.error) + '</div>';
+    return;
+  }
+  traj.data = payload;
+  traj.log = log;
+  traj.t = 0;
+  const seek = document.getElementById("traj-seek");
+  seek.max = Math.max(0, payload.frame_count - 1);
+  seek.value = 0;
+  renderTrajLegend();
+  renderTrajEvents();
+  drawTraj();
+}
+
+function toggleTraj() {
+  const btn = document.getElementById("traj-play");
+  traj.playing = !traj.playing;
+  btn.textContent = traj.playing ? "❚❚ 一時停止" : "▶ 再生";
+  clearInterval(traj.timer);
+  traj.timer = null;
+  if (!traj.playing) return;
+  traj.timer = setInterval(() => {
+    if (!traj.data) return;
+    const last = traj.data.frame_count - 1;
+    traj.t = traj.t >= last ? 0 : Math.min(last, traj.t + traj.speed);
+    document.getElementById("traj-seek").value = traj.t;
+    drawTraj();
+  }, 50);
+}
+
+function renderTrajLegend() {
+  const d = traj.data;
+  const items = d.slots.map(s =>
+    `<span><span class="sw" style="background:${trajColor(s)}"></span>${esc(s)}号</span>`).join("");
+  const rings = Object.keys(d.sensor_ranges || {}).map(k =>
+    `<span><span class="sw" style="background:${TRAJ_RING_COLORS[k]}"></span>${esc(k)} ${d.sensor_ranges[k]} km</span>`).join("");
+  document.getElementById("traj-legend").innerHTML =
+    `<span><span class="sw" style="background:#f85149"></span>被弾警報</span>`
+    + `<span><span class="sw" style="background:#e6edf3"></span>探知した敵</span>`
+    + `<span><span class="sw" style="background:#ffd33d"></span>護衛対象機フラグ</span>`
+    + items + rings;
+}
+
+function renderTrajEvents() {
+  const box = document.getElementById("traj-events");
+  const events = traj.data.events || [];
+  if (!events.length) {
+    box.innerHTML = '<div class="empty">イベントなし</div>';
+    return;
+  }
+  box.innerHTML = events.map((e, i) =>
+    `<div data-i="${i}" data-t="${e.t}">t=${String(e.t).padStart(4)} ${esc(e.kind)} ${esc(e.text)}</div>`).join("");
+  box.querySelectorAll("div[data-t]").forEach(el => {
+    el.addEventListener("click", () => {
+      traj.t = Number(el.dataset.t);
+      document.getElementById("traj-seek").value = traj.t;
+      drawTraj();
+    });
+  });
+}
+
+function trajFoeCount(frame) {
+  const seen = {};
+  (frame.enemy || []).forEach(e => {
+    const key = Math.round(e.x) + ":" + Math.round(e.y);
+    seen[key] = true;
+  });
+  return Object.keys(seen).length;
+}
+
+function drawTraj() {
+  const canvas = document.getElementById("traj-canvas");
+  const d = traj.data;
+  if (!canvas || !d || !d.frames.length) return;
+  if (!canvas.clientWidth) return;
+  const cssW = canvas.clientWidth;
+  const cssH = Math.max(360, Math.round(cssW * 0.62));
+  const dpr = window.devicePixelRatio || 1;
+  if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    canvas.style.height = cssH + "px";
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  ctx.fillStyle = "#0b0f14";
+  ctx.fillRect(0, 0, cssW, cssH);
+
+  const frame = d.frames[Math.min(traj.t, d.frames.length - 1)];
+  const own = Object.values(frame.own || {}).filter(p => p.x !== null && p.y !== null);
+  let cx = 0, cy = 0;
+  if (own.length) {
+    cx = own.reduce((a, p) => a + p.x, 0) / own.length;
+    cy = own.reduce((a, p) => a + p.y, 0) / own.length;
+  }
+  const scale = Math.min(cssW, cssH) / traj.span;
+  const X = x => cssW / 2 + (x - cx) * scale;
+  const Y = y => cssH / 2 - (y - cy) * scale;
+
+  ctx.strokeStyle = "rgba(147,161,176,0.16)";
+  ctx.lineWidth = 1;
+  ctx.font = "10px Consolas, monospace";
+  ctx.fillStyle = "rgba(147,161,176,0.55)";
+  const step = traj.span > 200 ? 50 : 25;
+  for (let g = -300; g <= 300; g += step) {
+    const sx = X(g), sy = Y(g);
+    ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, cssH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(cssW, sy); ctx.stroke();
+    if (sx > 12 && sx < cssW - 30) ctx.fillText(String(g), sx + 3, cssH - 6);
+    if (sy > 12 && sy < cssH - 6) ctx.fillText(String(g), 6, sy - 3);
+  }
+  ctx.fillStyle = "rgba(147,161,176,0.8)";
+  ctx.fillText("x=+ 敵陣側 →", cssW - 96, 14);
+  ctx.fillText("← x=- 自陣側", 8, cssH - 20);
+
+  if (traj.rings) {
+    Object.entries(d.sensor_ranges || {}).forEach(([k, km]) => {
+      ctx.strokeStyle = TRAJ_RING_COLORS[k] || "rgba(147,161,176,0.2)";
+      own.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(X(p.x), Y(p.y), km * scale, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+    });
+  }
+
+  if (traj.trail) {
+    d.slots.forEach(slot => {
+      ctx.strokeStyle = trajColor(slot) + "80";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      let started = false;
+      for (let i = 0; i <= traj.t && i < d.frames.length; i++) {
+        const p = d.frames[i].own[slot];
+        if (!p || p.x === null || p.y === null) { started = false; continue; }
+        const sx = X(p.x), sy = Y(p.y);
+        if (!started) { ctx.moveTo(sx, sy); started = true; } else { ctx.lineTo(sx, sy); }
+      }
+      ctx.stroke();
+    });
+  }
+
+  (frame.enemy || []).forEach(e => {
+    const sx = X(e.x), sy = Y(e.y);
+    const src = frame.own[e.slot];
+    if (src && src.x !== null) {
+      ctx.strokeStyle = "rgba(230,237,243,0.22)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(X(src.x), Y(src.y)); ctx.lineTo(sx, sy); ctx.stroke();
+    }
+    ctx.fillStyle = e.escort ? "#ffd33d" : "#e6edf3";
+    ctx.beginPath(); ctx.arc(sx, sy, 3.2, 0, Math.PI * 2); ctx.fill();
+  });
+
+  (frame.threat || []).forEach(th => {
+    const src = frame.own[th.slot];
+    if (!src || src.x === null) return;
+    const rad = (th.bearing || 0) * Math.PI / 180;
+    const len = (d.sensor_ranges.mws || 10) * scale;
+    const ax = X(src.x), ay = Y(src.y);
+    const bx = ax + Math.cos(rad) * len, by = ay - Math.sin(rad) * len;
+    ctx.strokeStyle = "#f85149";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    ctx.fillStyle = "#f85149";
+    ctx.beginPath(); ctx.arc(bx, by, 3, 0, Math.PI * 2); ctx.fill();
+  });
+
+  Object.entries(frame.own || {}).forEach(([slot, p]) => {
+    if (p.x === null || p.y === null) return;
+    const sx = X(p.x), sy = Y(p.y), col = trajColor(slot);
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(-(p.heading || 0) * Math.PI / 180);
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(8, 0); ctx.lineTo(-5, 5); ctx.lineTo(-2, 0); ctx.lineTo(-5, -5);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = col;
+    ctx.font = "11px Consolas, monospace";
+    ctx.fillText(slot + "号", sx + 9, sy - 6);
+  });
+
+  (frame.events || []).forEach(ev => {
+    const p = frame.own[ev.slot];
+    if (!p || p.x === null) return;
+    ctx.strokeStyle = ev.kind === "lost" ? "#f85149" : "#58a6ff";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), 16, 0, Math.PI * 2); ctx.stroke();
+  });
+
+  document.getElementById("traj-seek").value = traj.t;
+  document.getElementById("traj-time").textContent = `${traj.t + 1} / ${d.frame_count}  （ptime ${frame.ptime}s）`;
+  const r = d.result || {};
+  const alive = Object.keys(frame.own || {}).length;
+  document.getElementById("traj-info").innerHTML = cards([
+    { k: "ログ", v: (d.log || "").split("/").slice(-2).join("/") },
+    { k: "自機応答", v: alive + " / " + d.slots.length, cls: alive < d.slots.length ? "warn" : "ok" },
+    { k: "推定敵位置", v: trajFoeCount(frame) },
+    { k: "このフレームのイベント", v: (frame.events || []).length },
+    { k: "終了理由", v: r.endReason || "—" },
+    { k: "自陣スコア", v: r.own ? num(r.scores ? r.scores[r.own] : null, 3) : "—" },
+    { k: "命中率", v: r.hit_rate === null || r.hit_rate === undefined ? "—" : num(r.hit_rate, 3) },
+    { k: "生存（自/敵）", v: r.numAlives ? `${r.numAlives.Red ?? "—"} / ${r.numAlives.Blue ?? "—"}` : "—" },
+  ]);
+
+  const box = document.getElementById("traj-events");
+  box.querySelectorAll("div[data-t]").forEach(el => {
+    el.classList.toggle("cur", Number(el.dataset.t) === traj.t);
+  });
+}
+
 function showTab(key) {
   TABS.forEach(([k]) => {
     document.getElementById("nav-" + k).classList.toggle("active", k === key);
     document.getElementById("tab-" + k).classList.toggle("active", k === key);
   });
   location.hash = key;
+  if (key === "traj") {
+    loadTrajEntries(false);
+    if (traj.data) drawTraj();
+  }
 }
 
 function buildNav() {
@@ -405,6 +750,8 @@ async function load(force) {
 
 buildNav();
 showTab((location.hash || "#env").slice(1));
+window.addEventListener("hashchange", () => showTab((location.hash || "#env").slice(1)));
+window.addEventListener("resize", () => { if (traj.data) drawTraj(); });
 load(false);
 document.getElementById("refresh").addEventListener("click", () => load(true));
 document.getElementById("auto").addEventListener("change", () => schedule());

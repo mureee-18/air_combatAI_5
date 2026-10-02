@@ -5,6 +5,7 @@
     提出      specialist、submit.zip、pre_submit_gate の判定
     評価      local_test/run_eval_paired.py の出力（workspace/paired/*.json）
     ログ      workspace/results*/ の世代と最新ログの挙動指標
+    軌跡      自作エージェントのログから復元したレーダースコープ再生
     改善      analysis/agents/*/session_state.json
     git       ブランチ / 未コミット / 最新コミット
     コマンド  主要コマンドのコピーリスト
@@ -30,12 +31,14 @@ import zipfile
 from pathlib import Path
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE = REPO_ROOT / "workspace"
 MYAGENT_DIR = WORKSPACE / "Agents" / "MyAgent"
 INDEX_HTML = Path(__file__).resolve().parent / "index.html"
 RULES_JSON = Path(__file__).resolve().parent / "rules.json"
+TRAJECTORY_DIR = REPO_ROOT / "tools" / "battle_analyzer"
 CACHE_EPOCH = REPO_ROOT / "analysis" / "ops" / "dashboard_cache_epoch.txt"
 ALLOWED_SPECIALISTS = {"baseline"}
 REQUIRED_ZIP_ENTRIES = ["__init__.py", "args.json", "config.json"]
@@ -69,6 +72,10 @@ COMMANDS = [
             {
                 "title": "ログの挙動指標",
                 "cmd": "python tools/battle_analyzer/battle_stats.py workspace/results/0/log_0.json",
+            },
+            {
+                "title": "軌跡の復元（自作エージェントのログのみ）",
+                "cmd": "python tools/battle_analyzer/trajectory.py workspace/results_tel/0/log_0.json",
             },
             {
                 "title": "ログの整理（dry-run）",
@@ -126,6 +133,7 @@ COMMANDS = [
 ]
 
 _cache: dict = {"at": 0.0, "payload": None}
+_trajectory_cache: dict = {}
 TTL_SECONDS = 15.0
 
 
@@ -380,6 +388,83 @@ def _log_stats(log_path: Path) -> dict | None:
     }
 
 
+def _trajectory_module():
+    """tools/battle_analyzer/trajectory.py を import する（キャッシュ付き）."""
+
+    cached = _trajectory_cache.get("module")
+    if cached is not None:
+        return cached
+    sys.path.insert(0, str(TRAJECTORY_DIR))
+    try:
+        import trajectory
+    finally:
+        sys.path.pop(0)
+    _trajectory_cache["module"] = trajectory
+    return trajectory
+
+
+def _log_candidates() -> list[Path]:
+    paths: list[Path] = []
+    for gen in sorted(WORKSPACE.glob("results*")):
+        if gen.is_dir():
+            paths.extend(gen.rglob("log_*.json"))
+    return sorted(paths, key=lambda p: p.stat().st_mtime, reverse=True)
+
+
+def collect_replays(limit: int = 30) -> dict:
+    """再生可能なログ（自作エージェント形式）の一覧を返す."""
+
+    module = _trajectory_module()
+    entries = []
+    skipped = 0
+    for path in _log_candidates():
+        if len(entries) >= limit:
+            break
+        try:
+            stat = path.stat()
+            log_data = module.load_log(path)
+        except OSError:
+            continue
+        except ValueError:
+            skipped += 1
+            continue
+        if module.first_payload(log_data) is None:
+            skipped += 1
+            continue
+        payload = module.first_payload(log_data) or {}
+        own = payload.get("own") or []
+        entries.append(
+            {
+                "log": path.relative_to(REPO_ROOT).as_posix(),
+                "mtime": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)),
+                "age_s": int(time.time() - stat.st_mtime),
+                "size_h": human(stat.st_size),
+                "frames": len(log_data.get("observations") or []),
+                "own_length": len(own),
+                "has_ammo": len(own) >= 10,
+            }
+        )
+    return {"entries": entries, "scanned_skipped": skipped, "limit": limit}
+
+
+def replay_payload(log_rel: str) -> dict:
+    """ログ 1 本の軌跡 JSON を返す。パスは repo 配下のみ許可する."""
+
+    module = _trajectory_module()
+    if not log_rel or "\x00" in log_rel:
+        raise ValueError("log パラメータが空です")
+    candidate = (REPO_ROOT / log_rel).resolve()
+    try:
+        candidate.relative_to(REPO_ROOT.resolve())
+    except ValueError as exc:
+        raise ValueError("repo 外のパスは指定できません") from exc
+    if not candidate.name.startswith("log_") or candidate.suffix != ".json" or not candidate.is_file():
+        raise ValueError("log_*.json のみ指定できます")
+    if not module.is_replayable(candidate):
+        raise ValueError("このログは軌跡再現できません（自作エージェントのログのみ対象）")
+    return module.build_trajectory(candidate)
+
+
 def collect_session() -> dict:
     base = REPO_ROOT / "analysis" / "agents"
     sessions = []
@@ -538,6 +623,31 @@ class Handler(BaseHTTPRequestHandler):
             payload = get_summary(force=force)
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             self._send(200, body, "application/json; charset=utf-8")
+            return
+        if route == "/api/replays":
+            try:
+                payload = collect_replays()
+                status = 200
+            except Exception as exc:  # noqa: BLE001
+                payload = {"error": str(exc)}
+                status = 500
+            body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            self._send(status, body, "application/json; charset=utf-8")
+            return
+        if route == "/api/replay":
+            params = parse_qs(urlparse(self.path).query)
+            log_rel = (params.get("log") or [""])[0]
+            try:
+                payload = replay_payload(log_rel)
+                status = 200
+            except ValueError as exc:
+                payload = {"error": str(exc)}
+                status = 400
+            except Exception as exc:  # noqa: BLE001
+                payload = {"error": str(exc)}
+                status = 500
+            body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            self._send(status, body, "application/json; charset=utf-8")
             return
         self._send(404, json.dumps({"error": "not found"}).encode(), "application/json; charset=utf-8")
 
