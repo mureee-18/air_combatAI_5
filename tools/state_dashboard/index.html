@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>air_combatAI_5 開発状況ダッシュボード</title>
+<style>
+  :root {
+    --bg: #10151c; --panel: #182029; --line: #26313d; --fg: #e6edf3; --muted: #93a1b0;
+    --ok: #3fb950; --warn: #d29922; --bad: #f85149; --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font-family: "Yu Gothic UI", "Meiryo", "Noto Sans JP", system-ui, sans-serif; font-size: 14px; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; gap: 16px;
+           align-items: center; flex-wrap: wrap; background: #0d1218; position: sticky; top: 0; z-index: 5; }
+  h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  .meta { color: var(--muted); font-size: 12px; }
+  .spacer { flex: 1; }
+  button, select { background: #1f2a36; color: var(--fg); border: 1px solid var(--line);
+                   border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
+  button:hover { border-color: var(--accent); }
+  nav { display: flex; gap: 4px; padding: 10px 20px 0; flex-wrap: wrap; }
+  nav button { border-radius: 6px 6px 0 0; border-bottom-color: transparent; }
+  nav button.active { background: var(--panel); border-color: var(--line); border-bottom-color: var(--panel); color: var(--accent); }
+  main { padding: 0 20px 40px; }
+  section.tab { display: none; background: var(--panel); border: 1px solid var(--line);
+                border-top: none; border-radius: 0 0 8px 8px; padding: 16px; }
+  section.tab.active { display: block; }
+  h2 { font-size: 14px; margin: 20px 0 8px; color: var(--accent); }
+  h2:first-child { margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .cards { display: flex; gap: 12px; flex-wrap: wrap; }
+  .card { background: #131b23; border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-width: 150px; }
+  .card .k { color: var(--muted); font-size: 12px; }
+  .card .v { font-size: 18px; font-variant-numeric: tabular-nums; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+  code, pre { font-family: Consolas, "Courier New", monospace; }
+  pre { background: #0b0f14; border: 1px solid var(--line); border-radius: 6px; padding: 10px;
+        overflow-x: auto; font-size: 12px; margin: 0; white-space: pre-wrap; }
+  .cmd { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .cmd .title { color: var(--muted); min-width: 240px; font-size: 12px; }
+  .cmd code { flex: 1; background: #0b0f14; border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; }
+  .cmd button { padding: 2px 8px; font-size: 12px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .bar-row .label { width: 140px; color: var(--muted); font-size: 12px; }
+  .bar { height: 16px; border-radius: 3px; background: var(--accent); }
+  .bar.alt { background: #a371f7; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; border: 1px solid var(--line); }
+  .empty { color: var(--muted); padding: 8px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>air_combatAI_5 開発状況</h1>
+  <span class="meta" id="stamp">読み込み中…</span>
+  <span class="spacer"></span>
+  <label class="meta"><input type="checkbox" id="auto" checked> 自動更新</label>
+  <select id="interval">
+    <option value="15000">15秒</option>
+    <option value="30000">30秒</option>
+    <option value="60000">60秒</option>
+  </select>
+  <button id="refresh">再読み込み</button>
+</header>
+
+<nav id="nav"></nav>
+
+<main>
+  <section class="tab" id="tab-env"><h2>環境</h2><div id="env"></div></section>
+  <section class="tab" id="tab-sub"><h2>提出</h2><div id="sub"></div></section>
+  <section class="tab" id="tab-eval"><h2>評価（seed固定ペア評価）</h2><div id="eval"></div></section>
+  <section class="tab" id="tab-logs"><h2>ログ</h2><div id="logs"></div></section>
+  <section class="tab" id="tab-session"><h2>改善セッション</h2><div id="session"></div></section>
+  <section class="tab" id="tab-git"><h2>git</h2><div id="git"></div></section>
+  <section class="tab" id="tab-cmd"><h2>コマンド</h2><div id="cmd"></div></section>
+</main>
+
+<script>
+const TABS = [
+  ["env", "環境"], ["sub", "提出"], ["eval", "評価"], ["logs", "ログ"],
+  ["session", "改善セッション"], ["git", "git"], ["cmd", "コマンド"],
+];
+const nav = document.getElementById("nav");
+const state = { data: null, timer: null, selected: null };
+
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function num(v, digits) {
+  if (v === null || v === undefined || v === "") return "—";
+  return Number(v).toFixed(digits === undefined ? 2 : digits);
+}
+function table(headers, rows) {
+  if (!rows.length) return '<div class="empty">データがありません</div>';
+  let h = "<table><thead><tr>";
+  headers.forEach(x => h += `<th>${esc(x.label)}</th>`);
+  h += "</tr></thead><tbody>";
+  rows.forEach(r => {
+    h += "<tr>";
+    r.forEach((c, i) => {
+      const cls = headers[i].num ? ' class="num"' : "";
+      h += `<td${cls}>${c}</td>`;
+    });
+    h += "</tr>";
+  });
+  return h + "</tbody></table>";
+}
+function cards(items) {
+  return '<div class="cards">' + items.map(i =>
+    `<div class="card"><div class="k">${esc(i.k)}</div><div class="v ${i.cls || ""}">${esc(i.v)}</div></div>`
+  ).join("") + "</div>";
+}
+function copy(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const old = btn.textContent; btn.textContent = "コピー済"; setTimeout(() => btn.textContent = old, 1200);
+  });
+}
+
+function renderEnv(d) {
+  const e = d.environment;
+  const drift = e.deploy_drift;
+  const driftCls = drift === null ? "" : (drift.args_match && drift.config_match ? "ok" : "warn");
+  const driftTxt = drift === null ? "未配置"
+    : ((drift.args_match && drift.config_match) ? "一致" : ",要再ビルド");
+  let h = cards([
+    { k: "specialist (repo)", v: e.repo_specialist },
+    { k: "workspace", v: e.workspace.exists ? e.workspace.size_h : "無し", cls: e.workspace.exists ? "" : "bad" },
+    { k: "シミュレータ", v: e.workspace.simulator_ready ? "配置済み" : "未配置", cls: e.workspace.simulator_ready ? "ok" : "bad" },
+    { k: "配置ドリフト", v: driftTxt, cls: driftCls },
+    { k: "ホスト", v: e.host.python },
+  ]);
+  h += "<h2>Docker コンテナ</h2>";
+  if (!e.docker.available) h += '<div class="empty">docker コマンドを実行できません（Docker Desktop が起動中か確認）</div>';
+  else if (!e.docker.containers.length) h += '<div class="empty">起動中のコンテナはありません</div>';
+  else h += table([{label:"コンテナ"},{label:"ステータス"},{label:"イメージ"}],
+    e.docker.containers.map(c => [esc(c.name), esc(c.status), esc(c.image)]));
+  h += "<h2>配置（workspace/Agents）</h2>";
+  h += table([{label:"Agent ディレクトリ"},{label:"備考"}],
+    (e.workspace.agents.length ? e.workspace.agents : ["—"]).map(a =>
+      [esc(a), a === "MyAgent" ? "ビルドした提出物" : (a === "BenchMark" ? "公式ベンチマーク" : "")]));
+  h += "<h2>ホスト情報</h2>";
+  h += table([{label:"項目"},{label:"値"}], [
+    ["OS", esc(e.host.platform)],
+    ["Python (ホスト)", esc(e.host.python)],
+    ["numpy (ホスト)", e.host.numpy ? "導入済み" : "未導入（コンテナ内で実行するツール.matrix)"],
+  ]);
+  document.getElementById("env").innerHTML = h;
+}
+
+function renderSub(d) {
+  const s = d.submission;
+  let h = cards([
+    { k: "specialist", v: s.specialist, cls: s.specialist_allowed ? "ok" : "bad" },
+    { k: "提出可能", v: s.specialist_allowed ? "YES" : "NO", cls: s.specialist_allowed ? "ok" : "bad" },
+    { k: "submit.zip", v: s.zip.exists ? s.zip.size_h : "未ビルド", cls: s.zip.exists ? "ok" : "warn" },
+    { k: "ゲート", v: s.gate_ok ? "OK" : "BLOCK", cls: s.gate_ok ? "ok" : "warn" },
+  ]);
+  h += "<h2>args.json</h2><pre>" + esc(JSON.stringify(s.args, null, 2)) + "</pre>";
+  h += "<h2>提出物のルートファイル</h2>";
+  h += table([{label:"ファイル"},{label:"有無"}],
+    Object.keys(s.zip_entries).map(k => [esc(k), s.zip_entries[k] ? '<span class="ok">あり</span>' : '<span class="bad">なし</span>']));
+  h += "<h2>提出前ゲート（tools/hooks/pre_submit_gate.py）</h2>";
+  h += "<p class=\"meta\">ゲートは <code>" + esc(s.confirm_env) + "=1</code> なしの実行を BLOCK 扱いします（意図した設計）。</p>";
+  h += "<pre>" + esc(s.gate_output.join("\n")) + "</pre>";
+  if (s.zip.exists) h += `<p class="meta">ビルド日時: ${esc(s.zip.mtime)} / サイズ: ${esc(s.zip.size_h)}</p>`;
+  document.getElementById("sub").innerHTML = h;
+}
+
+function renderEval(d) {
+  const p = d.paired;
+  if (!p.files.length) {
+    document.getElementById("eval").innerHTML =
+      '<div class="empty">workspace/paired/*.json がありません。<br>docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --label baseline --out /workspace/paired/baseline.json"</div>';
+    return;
+  }
+  const rows = p.files.map(f => {
+    const m = f.metrics || {};
+    const best = f.name === p.best ? " ★" : "";
+    return [
+      esc((m.label || f.name) + best), f.name,
+      m.games ?? "—", `${m.win ?? "—"}/${m.draw ?? "—"}/${m.loss ?? "—"}`,
+      num(m.avg_score, 3), num(m.avg_our_alive, 2), num(m.avg_enemy_alive, 2), esc(f.mtime),
+    ];
+  });
+  let h = cards([
+    { k: "評価ファイル", v: p.files.length },
+    { k: "最良", v: p.best || "—" },
+  ]);
+  h += "<h2>比較（★ が avg_score 最良）</h2>";
+  h += table([
+    {label:"label", num:false}, {label:"ファイル", num:false}, {label:"対戦数", num:true},
+    {label:"win/draw/loss", num:false}, {label:"avg_score", num:true},
+    {label:"avg_our_alive", num:true}, {label:"avg_enemy_alive", num:true}, {label:"更新", num:false},
+  ], rows);
+
+  h += "<h2>avg_score 比較</h2>";
+  const max = Math.max(1, ...p.files.map(f => (f.metrics || {}).avg_score || 0));
+  p.files.forEach(f => {
+    const m = f.metrics || {};
+    const w = Math.round(((m.avg_score || 0) / max) * 100);
+    h += `<div class="bar-row"><span class="label">${esc(m.label || f.name)}</span>` +
+         `<span class="bar ${f.name === p.best ? "" : "alt"}" style="width:${w}%"></span>` +
+         `<span>${num(m.avg_score, 3)}</span></div>`;
+  });
+
+  h += "<h2>明細</h2>";
+  h += '<div id="rows"></div>';
+  document.getElementById("eval").innerHTML = h;
+
+  const sel = document.createElement("select");
+  p.files.forEach(f => {
+    const o = document.createElement("option");
+    o.value = f.name; o.textContent = f.name; sel.appendChild(o);
+  });
+  const box = document.getElementById("rows");
+  const renderRows = () => {
+    const f = p.files.find(x => x.name === sel.value);
+    box.innerHTML = table([
+      {label:"色", num:false}, {label:"seed", num:true}, {label:"結果", num:false},
+      {label:"終了理由", num:false}, {label:"ステップ", num:true},
+      {label:"自機生存", num:true}, {label:"敵生存", num:true}, {label:"スコア", num:true},
+    ], (f.rows || []).map(r => [
+      esc(r.color), r.seed,
+      `<span class="${r.result === "win" ? "ok" : (r.result === "loss" ? "bad" : "muted")}">${esc(r.result)}</span>`,
+      esc(r.endReason), r.step_count, num(r.our_alive, 0), num(r.enemy_alive, 0), num(r.score, 3),
+    ]));
+  };
+  sel.addEventListener("change", renderRows);
+  box.prepend(sel);
+  sel.value = state.selected && p.files.some(f => f.name === state.selected) ? state.selected : p.files[0].name;
+  renderRows();
+  sel.addEventListener("change", () => { state.selected = sel.value; });
+}
+
+function renderLogs(d) {
+  const l = d.logs;
+  let h = cards([
+    { k: "世代数", v: l.generations.length },
+    { k: "合計サイズ", v: l.total_size_h },
+  ]);
+  h += "<h2>ログ世代（workspace/results*）</h2>";
+  h += table([{label:"世代"},{label:"ログ数",num:true},{label:"サイズ",num:true},{label:"更新",num:false},{label:"最新ログ",num:false}],
+    l.generations.map(g => [esc(g.name), g.logs, esc(g.size_h), esc(g.mtime), esc(g.newest || "—")]));
+  const s = l.newest_stats;
+  h += "<h2>最新ログの挙動指標</h2>";
+  if (!s) h += '<div class="empty">解析できるログがありません</div>';
+  else if (s.error) h += `<pre>${esc(s.error)}</pre>`;
+  else {
+    h += `<p class="meta">${esc(s.log)} / ${s.steps} ステップ / <span class="pill">${esc(s.mode)}</span></p>`;
+    h += table([{label:"機体"},{label:"敵探知",num:true},{label:"被弾警報",num:true},{label:"射撃指示",num:true},
+                {label:"護衛対象機",num:true},{label:"最近接[km]",num:true},{label:"最小残弾",num:true}],
+      s.agents.map(a => [esc(a.agent), a.enemy_seen, a.threat, a.fire_orders, a.escorted_seen,
+        a.min_dist_km === null ? "—" : num(a.min_dist_km, 1), a.min_rmsls === null ? "—" : a.min_rmsls]));
+    if (s.mode !== "自作エージェント") {
+      h += '<p class="meta">baseline / BenchMark のログは observation がスカラー構造のため指標は 0 になります。自作エージェントのログを選ぶと値が出ます。</p>';
+    }
+  }
+  document.getElementById("logs").innerHTML = h;
+}
+
+function renderSession(d) {
+  const sessions = d.session.sessions;
+  if (!sessions.length) {
+    document.getElementById("session").innerHTML =
+      '<div class="empty">セッション記録がありません。python analysis/tools/improvement_session.py start --specialist default</div>';
+    return;
+  }
+  let h = "";
+  sessions.forEach(s => {
+    h += cards([
+      { k: "specialist", v: s.specialist },
+      { k: "開始", v: (s.started || "—").replace("T", " ") },
+      { k: "仮説", v: s.hypotheses.length },
+      { k: "前提", v: s.assumptions.length },
+      { k: "サイクル", v: s.cycles.length },
+    ]);
+    h += "<h2>仮説 / 前提 / サイクル</h2>";
+    const items = [
+      ...s.assumptions.map(a => ["前提", JSON.stringify(a)]),
+      ...s.hypotheses.map(x => ["仮説", JSON.stringify(x)]),
+      ...s.cycles.map(x => ["サイクル", JSON.stringify(x)]),
+    ];
+    h += items.length
+      ? table([{label:"種別",num:false},{label:"内容",num:false}], items.map(i => [esc(i[0]), `<code>${esc(i[1])}</code>`]))
+      : '<div class="empty">まだ記録がありません（hypothesis を先に登録する）</div>';
+  });
+  document.getElementById("session").innerHTML = h;
+}
+
+function renderGit(d) {
+  const g = d.git;
+  const ab = g.ahead_behind;
+  let h = cards([
+    { k: "ブランチ", v: g.branch },
+    { k: "最新コミット", v: (g.head || "").split(" ")[0] },
+    { k: "未コミット", v: g.dirty.modified + g.dirty.untracked + g.dirty.other,
+      cls: (g.dirty.modified + g.dirty.untracked + g.dirty.other) ? "warn" : "ok" },
+    { k: "ahead/behind", v: ab ? `${ab.ahead}/${ab.behind}` : "—", cls: ab && ab.ahead ? "warn" : "" },
+  ]);
+  h += "<h2>リモート</h2>";
+  h += table([{label:"項目",num:false},{label:"値",num:false}], [
+    ["origin", esc(g.remote || "未設定")], ["upstream", esc(g.upstream || "未設定")],
+    ["変更(tracked)", g.dirty.modified], ["未追跡", g.dirty.untracked],
+  ]);
+  h += "<h2>直近のコミット</h2>";
+  h += g.recent.length ? "<pre>" + esc(g.recent.join("\n")) + "</pre>" : '<div class="empty">なし</div>';
+  document.getElementById("git").innerHTML = h;
+}
+
+function renderCmd(d) {
+  let h = "";
+  d.commands.forEach(group => {
+    h += `<h2>${esc(group.group)}</h2>`;
+    group.items.forEach(item => {
+      h += `<div class="cmd"><span class="title">${esc(item.title)}</span>` +
+           `<code>${esc(item.cmd)}</code>` +
+           `<button data-cmd="${esc(item.cmd)}">コピー</button></div>`;
+    });
+  });
+  document.getElementById("cmd").innerHTML = h;
+  document.querySelectorAll("#cmd button[data-cmd]").forEach(btn => {
+    btn.addEventListener("click", () => copy(btn.dataset.cmd, btn));
+  });
+}
+
+function showTab(key) {
+  TABS.forEach(([k]) => {
+    document.getElementById("nav-" + k).classList.toggle("active", k === key);
+    document.getElementById("tab-" + k).classList.toggle("active", k === key);
+  });
+  location.hash = key;
+}
+
+function buildNav() {
+  TABS.forEach(([k, label]) => {
+    const b = document.createElement("button");
+    b.id = "nav-" + k; b.textContent = label;
+    b.addEventListener("click", () => showTab(k));
+    nav.appendChild(b);
+  });
+}
+
+async function load(force) {
+  try {
+    const res = await fetch("/api/summary" + (force ? "?force=1" : ""), { cache: "no-store" });
+    const data = await res.json();
+    state.data = data;
+    document.getElementById("stamp").textContent = "更新 " + data.generated_at;
+    renderEnv(data); renderSub(data); renderEval(data); renderLogs(data);
+    renderSession(data); renderGit(data); renderCmd(data);
+  } catch (err) {
+    document.getElementById("stamp").textContent = "読み込み失敗: " + err;
+  }
+}
+
+buildNav();
+showTab((location.hash || "#env").slice(1));
+load(false);
+document.getElementById("refresh").addEventListener("click", () => load(true));
+document.getElementById("auto").addEventListener("change", () => schedule());
+document.getElementById("interval").addEventListener("change", () => schedule());
+function schedule() {
+  clearInterval(state.timer);
+  if (document.getElementById("auto").checked) {
+    state.timer = setInterval(() => load(false), Number(document.getElementById("interval").value));
+  }
+}
+schedule();
+</script>
+</body>
+</html>

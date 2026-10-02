@@ -59,6 +59,10 @@ python tools/log_cleanup/cleanup.py --keep 3
 # 1戦のログから挙動指標
 python tools/battle_analyzer/battle_stats.py workspace/results/0/log_0.json
 
+# 開発状況ダッシュボード（環境・提出可否・ペア評価・ログ・git を1画面）
+python tools/state_dashboard/serve.py --open
+python tools/state_dashboard/serve.py --once   # JSON を標準出力（CI/スクリプト用）
+
 # 提出zipの単体検証（展開して4関数を呼ぶ）
 docker exec atla5-cpu bash -lc "python /repo/scripts/zip_check.py /repo/submission/submit.zip"
 
@@ -97,6 +101,20 @@ agent/
 提出に必須の4関数: `getUserAgentClass` / `getUserAgentModelConfig` /
 `isUserAgentSingleAsset` / `getUserPolicy`。
 zip のルートに `__init__.py`・`args.json`・`config.json` が必要（それ以外は自由）。
+
+提出物に含まれるのは `agent/` 配下のみ。`tools/`・`scripts/`・`local_test/`・
+`analysis/`・`tests/` は開発用で zip には入らない。
+
+開発状況の可視化:
+
+```
+tools/
+├── signate/                SIGNATE CLI ラッパー（config.json に key 固定）
+├── hooks/                  提出前ゲート（明示確認・specialist・zip・ruff）
+├── battle_analyzer/        ログ仕様書 BATTLELOG_FORMAT.md と battle_stats.py
+├── log_cleanup/            ログの世代管理（dry-run 既定）
+└── state_dashboard/        開発状況ダッシュボード（serve.py / index.html）
+```
 
 ## 改善の進め方（実測済みの前提）
 

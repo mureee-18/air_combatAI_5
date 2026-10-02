@@ -61,11 +61,35 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 | **seed 固定ペア評価** | `docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --out /workspace/paired/baseline.json"` |
 | ログから挙動指標 | `python tools/battle_analyzer/battle_stats.py workspace/results/0/log_0.json` |
 | ログの整理 | `python tools/log_cleanup/cleanup.py`（`--execute` で削除） |
+| **ダッシュボード** | `python tools/state_dashboard/serve.py --open`（http://127.0.0.1:8765） |
 | 提出 | `ATLA5_SUBMIT_CONFIRM=1 python tools/signate/cli.py submit submission/submit.zip --memo "..."` |
 | テスト / lint | `pytest tests/ -q` / `ruff check agent/ tools/ tests/ scripts/ analysis/` |
 
 評価は**勝率ではなく挙動指標**（`avg_score` / `avg_our_alive` / `avg_enemy_alive`）で判定する。
 同一 seed 群での A/B 比較ができるので、改善は必ずペア評価で確認する。
+
+## ダッシュボード
+
+開発状況を1画面で可視化するローカルダッシュボード（依存ゼロ・オフライン動作）。
+
+```bash
+python tools/state_dashboard/serve.py --open        # http://127.0.0.1:8765
+python tools/state_dashboard/serve.py --once        # JSON を標準出力（CI/スクリプト用）
+```
+
+タブ構成:
+
+| タブ | 内容 |
+|---|---|
+| 環境 | Docker コンテナ、シミュレータ配置、`workspace/Agents/MyAgent` と repo の**ドリフト検出**、サイズ |
+| 提出 | 現在の specialist（提出可否）、`submit.zip` の有無とルートファイル、`pre_submit_gate.py` の判定 |
+| 評価 | `workspace/paired/*.json` の比較（★ が `avg_score` 最良）、平均スコアバー、明細（色/seed/結果/スコア） |
+| ログ | `workspace/results*/` の世代とサイズ、最新ログの挙動指標（`battle_stats` と同じ値） |
+| 改善セッション | `analysis/agents/*/session_state.json` の仮説・前提・サイクル数 |
+| git | ブランチ / 未コミット / ahead-behind / 直近コミット |
+| コマンド | 主要コマンドのコピーリスト |
+
+ダッシュボードは `agent/` の提出物には含まれません（`tools/` は zip 対象外のため）。
 
 ## 提出ルール
 
