@@ -272,6 +272,12 @@ def cmd_check(args) -> None:
 
 
 def main() -> None:
+    # Windows 標準出力(cp932)でもヘルプ出力が失敗しないよう、argparse より前に切り替える
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
     parser = argparse.ArgumentParser(description="改善セッション支援")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -330,7 +336,6 @@ def main() -> None:
     p.set_defaults(func=cmd_check)
 
     args = parser.parse_args()
-    sys.stdout.reconfigure(encoding="utf-8")
     args.func(args)
 
 

@@ -154,6 +154,86 @@ def test_scoring_formula_matches_fight_py():
     assert "0.1" in rules_text
 
 
+def test_collect_session_keeps_legacy_keys_and_adds_workflow():
+    session = serve.collect_session()
+    # 既存契約: sessions 配列はそのまま残す
+    assert isinstance(session["sessions"], list)
+    for entry in session["sessions"]:
+        assert {"specialist", "started", "assumptions", "hypotheses", "cycles"} <= set(entry.keys())
+    # 追加情報
+    assert {"target", "submitted", "steps", "evidence"} <= set(session.keys())
+    assert session["submitted"] == (serve.load_json(serve.REPO_ROOT / "agent" / "args.json") or {}).get(
+        "specialist"
+    )
+
+
+def test_session_steps_are_ordered_and_labelled():
+    steps = serve.collect_session()["steps"]
+    assert [s["key"] for s in steps] == ["hypothesis", "change", "verify", "validate", "record"]
+    order = {"done": 0, "current": 1, "todo": 2}
+    assert [order[s["state"]] for s in steps] == sorted(order[s["state"]] for s in steps)
+    for step in steps:
+        assert step["label"] and step["hint"] and step["detail"]
+        if step["key"] != "change":
+            assert step["command"].startswith("python ") or "docker exec" in step["command"]
+
+
+def test_session_evidence_cards_are_observable_and_have_sources():
+    cards = serve.collect_session()["evidence"]
+    assert cards, "事実カードが1つも生成されていない"
+    for card in cards:
+        assert card["kind"] in {"observation", "assumption", "rule"}
+        assert card["source"] in {"log", "code", "official"}
+        assert card["title"].strip()
+        if card["kind"] == "rule":
+            assert card["source"] == "official"
+        if card.get("items"):
+            for item in card["items"]:
+                assert item["text"].strip()
+                # 前提テキストが引用符で閉じられないこと（囲みの2個だけが "）
+                assert item["command"].count('"') == 2
+                assert "--specialist" in item["command"]
+        else:
+            assert card["evidence"], f"{card['id']} に観測値がない"
+            for row in card["evidence"]:
+                assert row["label"] and row["value"] is not None
+
+
+def test_session_evidence_paired_card_reflects_metrics():
+    paired = serve.collect_paired()
+    with_metrics = [f for f in paired["files"] if (f.get("metrics") or {}).get("avg_score") is not None]
+    cards = serve.collect_session()["evidence"]
+    card = next((c for c in cards if c["id"] == "paired"), None)
+    if len(with_metrics) < 2:
+        assert card is None
+        return
+    assert card is not None
+    labels = [row["label"] for row in card["evidence"]]
+    for entry in with_metrics:
+        name = (entry.get("metrics") or {}).get("label") or entry["name"]
+        assert f"{name} avg_score" in labels
+
+
+def test_session_steps_mark_hypothesis_current_when_empty():
+    session = serve.collect_session()
+    if not session["sessions"]:
+        pytest.skip("セッション記録が無い環境ではスキップ")
+    current = session["sessions"][-1]
+    steps = {s["key"]: s for s in session["steps"]}
+    if not current["hypotheses"]:
+        assert steps["hypothesis"]["state"] in {"current", "done"}
+
+
+def test_index_renders_session_steps_and_fact_cards():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    for hook in ["renderSteps", "renderFact", "STEP_STATE_LABEL", "bindCopy", "attr"]:
+        assert hook in html
+    assert "fact-grid" in html and "hyp-box" in html
+    # コマンド内の " が data-cmd を壊さないこと
+    assert 'data-cmd="${attr(' in html
+    assert 'data-cmd="${esc(' not in html
+
+
 def test_http_endpoints():
     server = ThreadingHTTPServer(("127.0.0.1", 0), serve.Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -187,6 +267,7 @@ def test_http_endpoints():
             "rules",
             "commands",
         }
+        assert {"target", "submitted", "steps", "evidence"} <= set(payload["session"].keys())
 
         with urllib.request.urlopen(f"{base}/api/replays", timeout=180) as res:
             replays = json.loads(res.read().decode("utf-8"))

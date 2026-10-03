@@ -67,6 +67,7 @@ python tools/battle_analyzer/battle_stats.py workspace/results/0/log_0.json
 python tools/battle_analyzer/trajectory.py workspace/results_tel/0/log_0.json
 
 # 開発状況ダッシュボード（環境・提出可否・ペア評価・ログ・軌跡・git を1画面）
+# 改善セッションタブは読み取り専用。事実カードとコピー用コマンドだけを出す（書き込みはしない）
 python tools/state_dashboard/serve.py --open
 python tools/state_dashboard/serve.py --once   # JSON を標準出力（CI/スクリプト用）
 python tools/state_dashboard/cache_bump.py     # ブラウザのキャッシュを確実に飛ばす

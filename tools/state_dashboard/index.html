@@ -73,6 +73,36 @@
   .traj-events div.cur { color: var(--accent); background: #16202b; }
   .traj-note { font-size: 12px; color: var(--muted); line-height: 1.7; }
   .empty { color: var(--muted); padding: 8px 0; }
+  .steps { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 6px; }
+  .step { flex: 1 1 190px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: #131b23; }
+  .step .n { display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center;
+             border-radius: 50%; font-size: 11px; border: 1px solid var(--line); color: var(--muted); }
+  .step .t { font-size: 13px; font-weight: 600; margin-left: 4px; }
+  .step .d { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .step .h { font-size: 12px; color: var(--fg); opacity: .75; margin-top: 3px; line-height: 1.5; }
+  .step.done { border-color: #24503a; } .step.done .n { background: var(--ok); color: #0b0f14; border-color: var(--ok); }
+  .step.current { border-color: var(--accent); background: #14202c; } .step.current .n { background: var(--accent); color: #0b0f14; border-color: var(--accent); }
+  .step.todo .t { color: var(--muted); }
+  .facts { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+  .fact { flex: 1 1 460px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: #131b23; }
+  .fact.hyp { border-color: #3d5a2e; } .fact.rule { border-color: #3b4a6b; }
+  .fact-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .fact-head .title { font-size: 14px; font-weight: 600; color: var(--accent); }
+  .badge { font-size: 11px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); color: var(--muted); }
+  .badge.official { border-color: #3b4a6b; color: var(--accent); }
+  .fact .summary { font-size: 13px; line-height: 1.7; margin: 6px 0; color: var(--fg); }
+  .fact-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 12px; margin: 6px 0; }
+  .fact-grid .k { color: var(--muted); font-size: 12px; }
+  .fact-grid .v { font-size: 13px; font-variant-numeric: tabular-nums; }
+  .fact .hyp-box { border-left: 3px solid #3d5a2e; background: #101a14; padding: 6px 10px; margin: 8px 0; font-size: 13px; line-height: 1.7; }
+  .fact .hyp-box .k { color: var(--ok); font-size: 12px; }
+  .fact .metric { font-size: 12px; color: var(--muted); margin: 4px 0; }
+  .fact .metric b { color: var(--fg); font-weight: 600; }
+  .fact-list { margin: 6px 0; padding: 0; list-style: none; }
+  .fact-list li { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .fact-list .title { color: var(--accent); min-width: 130px; }
+  .fact-list .text { flex: 1; line-height: 1.6; }
+  .fact-list button { padding: 1px 8px; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -115,6 +145,10 @@ const state = { data: null, timer: null, selected: null };
 function esc(s) {
   return String(s === null || s === undefined ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+// HTML 属性値用のエスケープ（コマンド内の " が属性を壊すため必須）
+function attr(s) {
+  return esc(s).replace(/"/g, "&quot;");
 }
 function num(v, digits) {
   if (v === null || v === undefined || v === "") return "—";
@@ -288,33 +322,123 @@ function renderLogs(d) {
   document.getElementById("logs").innerHTML = h;
 }
 
-function renderSession(d) {
-  const sessions = d.session.sessions;
-  if (!sessions.length) {
-    document.getElementById("session").innerHTML =
-      '<div class="empty">セッション記録がありません。python analysis/tools/improvement_session.py start --specialist default</div>';
-    return;
-  }
-  let h = "";
-  sessions.forEach(s => {
-    h += cards([
-      { k: "specialist", v: s.specialist },
-      { k: "開始", v: (s.started || "—").replace("T", " ") },
-      { k: "仮説", v: s.hypotheses.length },
-      { k: "前提", v: s.assumptions.length },
-      { k: "サイクル", v: s.cycles.length },
-    ]);
-    h += "<h2>仮説 / 前提 / サイクル</h2>";
-    const items = [
-      ...s.assumptions.map(a => ["前提", JSON.stringify(a)]),
-      ...s.hypotheses.map(x => ["仮説", JSON.stringify(x)]),
-      ...s.cycles.map(x => ["サイクル", JSON.stringify(x)]),
-    ];
-    h += items.length
-      ? table([{label:"種別",num:false},{label:"内容",num:false}], items.map(i => [esc(i[0]), `<code>${esc(i[1])}</code>`]))
-      : '<div class="empty">まだ記録がありません（hypothesis を先に登録する）</div>';
+const STEP_STATE_LABEL = { done: "済", current: "次", todo: "未" };
+
+function cmdRow(cmd, label) {
+  if (!cmd) return "";
+  return `<div class="cmd"><span class="title">${esc(label || "コマンド")}</span>` +
+         `<code>${esc(cmd)}</code><button data-cmd="${attr(cmd)}">コピー</button></div>`;
+}
+
+function bindCopy(root) {
+  root.querySelectorAll("button[data-cmd]").forEach(btn => {
+    btn.addEventListener("click", () => copy(btn.dataset.cmd, btn));
   });
+}
+
+function renderSteps(steps) {
+  if (!steps || !steps.length) return '<div class="empty">対象 specialist が未設定です。</div>';
+  let h = '<div class="steps">';
+  steps.forEach((s, i) => {
+    h += `<div class="step ${s.state}">` +
+         `<span class="n">${STEP_STATE_LABEL[s.state] || "?"}</span>` +
+         `<span class="t">${i + 1}. ${esc(s.label)}</span>` +
+         `<div class="d">${esc(s.detail || "")}</div>` +
+         `<div class="h">${esc(s.hint || "")}</div>`;
+    h += cmdRow(s.command, "");
+    h += "</div>";
+  });
+  return h + "</div>";
+}
+
+function renderFact(card) {
+  const badgeKind = { observation: "観測", assumption: "前提", rule: "公式ルール" };
+  const badgeSrc = { log: "ログ", code: "コード", official: "公式" };
+  let h = `<div class="fact ${card.kind}">`;
+  h += '<div class="fact-head">' +
+       `<span class="title">${esc(card.title)}</span>` +
+       `<span class="badge">${esc(badgeKind[card.kind] || card.kind)}</span>` +
+       `<span class="badge${card.source === "official" ? " official" : ""}">` +
+       `${esc(badgeSrc[card.source] || card.source)}</span></div>`;
+  if (card.summary) h += `<div class="summary">${esc(card.summary)}</div>`;
+
+  if (card.evidence && card.evidence.length) {
+    h += '<div class="fact-grid">';
+    card.evidence.forEach(e => {
+      const digits = e.digits !== undefined ? e.digits : (Number.isInteger(e.value) ? 0 : 2);
+      const v = e.num ? num(e.value, digits) : esc(e.value);
+      h += `<div><div class="k">${esc(e.label)}</div><div class="v">${v}</div></div>`;
+    });
+    h += "</div>";
+  }
+
+  if (card.items && card.items.length) {
+    h += '<ul class="fact-list">';
+    card.items.forEach(it => {
+      const title = it.title ? `<span class="title">${esc(it.title)}</span>` : "";
+      h += `<li>${title}<span class="text">${esc(it.text)}</span>` +
+           `<button data-cmd="${attr(it.command)}">コピー</button></li>`;
+    });
+    h += "</ul>";
+  }
+
+  if (card.hypothesis) {
+    h += '<div class="hyp-box"><div class="k">ここから立てられる仮説例</div>' +
+         `${esc(card.hypothesis)}</div>`;
+  }
+  if (card.metric) h += `<div class="metric">判定指標: <b>${esc(card.metric)}</b></div>`;
+  h += cmdRow(card.command, card.command_label);
+  return h + "</div>";
+}
+
+function renderSession(d) {
+  const s = d.session;
+  const sessions = s.sessions || [];
+  const cur = sessions.find(x => x.specialist === s.target) || sessions[sessions.length - 1];
+  let h = "";
+  if (!sessions.length) {
+    h += '<div class="empty">セッション記録がありません。' +
+         '<code>python analysis/tools/improvement_session.py start --specialist default</code></div>';
+  }
+  if (cur) {
+    h += cards([
+      { k: "対象 specialist", v: cur.specialist, cls: cur.specialist === s.submitted ? "" : "warn" },
+      { k: "提出用 specialist", v: s.submitted || "—", cls: "ok" },
+      { k: "開始", v: (cur.started || "—").replace("T", " ") },
+      { k: "仮説", v: (cur.hypotheses || []).length, cls: (cur.hypotheses || []).length ? "ok" : "warn" },
+      { k: "前提", v: (cur.assumptions || []).length },
+      { k: "サイクル", v: (cur.cycles || []).length },
+    ]);
+    if (cur.specialist !== s.submitted) {
+      h += `<p class="meta">対象は <b>${esc(cur.specialist)}</b>（ローカル評価専用）。` +
+           `提出するのは <b>${esc(s.submitted)}</b>。${esc(cur.specialist)} を submit しない。</p>`;
+    }
+  }
+
+  h += "<h2>改善サイクル（現在地）</h2>" + renderSteps(s.steps);
+
+  h += "<h2>事実カード（ここから仮説を立てる材料）</h2>";
+  if (!s.evidence || !s.evidence.length) {
+    h += '<div class="empty">事実カードを組み立てるデータがありません（ペア評価・ログ・軌跡）。</div>';
+  } else {
+    h += '<div class="facts">' + s.evidence.map(renderFact).join("") + "</div>";
+  }
+
+  if (cur) {
+    const items = [
+      ...(cur.assumptions || []).map(a => ["前提", JSON.stringify(a)]),
+      ...(cur.hypotheses || []).map(x => ["仮説", JSON.stringify(x)]),
+      ...(cur.cycles || []).map(x => ["サイクル", JSON.stringify(x)]),
+    ];
+    h += "<h2>記録済み</h2>";
+    h += items.length
+      ? table([{label:"種別",num:false},{label:"内容",num:false}],
+          items.map(i => [esc(i[0]), `<code>${esc(i[1])}</code>`]))
+      : '<div class="empty">まだ記録がありません。上の「事実カード」を材料に hypothesis を登録する。</div>';
+  }
+
   document.getElementById("session").innerHTML = h;
+  bindCopy(document.getElementById("session"));
 }
 
 function renderGit(d) {
@@ -344,13 +468,11 @@ function renderCmd(d) {
     group.items.forEach(item => {
       h += `<div class="cmd"><span class="title">${esc(item.title)}</span>` +
            `<code>${esc(item.cmd)}</code>` +
-           `<button data-cmd="${esc(item.cmd)}">コピー</button></div>`;
+           `<button data-cmd="${attr(item.cmd)}">コピー</button></div>`;
     });
   });
   document.getElementById("cmd").innerHTML = h;
-  document.querySelectorAll("#cmd button[data-cmd]").forEach(btn => {
-    btn.addEventListener("click", () => copy(btn.dataset.cmd, btn));
-  });
+  bindCopy(document.getElementById("cmd"));
 }
 
 function inlineCode(text) {
