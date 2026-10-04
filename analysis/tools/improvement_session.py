@@ -158,6 +158,37 @@ def summarize(label: str, data: dict) -> dict:
     return metrics
 
 
+def summarize_paired(path: Path) -> dict:
+    """seed 固定ペア評価（local_test/run_eval_paired.py の出力）を判定指標として読む.
+
+    判定基準はペア評価（CLAUDE.md）。validate.py を直接叩くとシナリオが毎回変わるため、
+    記録は `--paired` で行う。
+    """
+
+    if not path.exists():
+        raise SystemExit(f"ペア評価ファイルが見つかりません: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    metrics = data.get("metrics") or {}
+    if metrics.get("avg_score") is None:
+        raise SystemExit(f"metrics.avg_score がありません（別ファイルの可能性）: {path}")
+    print(f"--- ペア評価（seed 固定）: {metrics.get('label') or path.name} ---")
+    for row in data.get("rows", []):
+        print(
+            f"  {str(row.get('color', '')):<5} seed={str(row.get('seed', '')):<4} "
+            f"{str(row.get('result', '')):<5} {str(row.get('endReason', '')):<12} "
+            f"steps={str(row.get('step_count', '')):<6} "
+            f"alive {row.get('our_alive')} / {row.get('enemy_alive')} score={row.get('score')}"
+        )
+    picked = {
+        "avg_score": metrics.get("avg_score"),
+        "avg_our_alive": metrics.get("avg_our_alive"),
+        "avg_enemy_alive": metrics.get("avg_enemy_alive"),
+        "games": metrics.get("games"),
+    }
+    print(f"  {picked}")
+    return picked
+
+
 def cmd_start(args) -> None:
     require_specialist(args.specialist)
     if load_state(args.specialist):
@@ -206,18 +237,39 @@ def cmd_hypothesis(args) -> None:
 def cmd_verify(args) -> None:
     metrics = summarize("1ゲーム検証", run_games(args.games))
     state = load_state(args.specialist)
-    state.setdefault("cycles", []).append({"kind": "verify", "metrics": metrics})
+    state.setdefault("cycles", []).append(
+        {"kind": "verify", "metrics": metrics, "at": datetime.now().isoformat(timespec="seconds")}
+    )
     save_state(args.specialist, state)
+    stats_log = f"workspace/{RESULT_DIR}/0/log_0.json"
     print("意図した挙動（接近・射撃・回避）が起きているかログで確認すること:")
-    print(f"  python tools/battle_analyzer/battle_stats.py workspace/{RESULT_DIR}/0/log_0.json")
+    print(f"  python tools/battle_analyzer/battle_stats.py {stats_log}")
+    print(f"  python tools/battle_analyzer/trajectory.py {stats_log}")
 
 
 def cmd_validate(args) -> None:
-    metrics = summarize("バッチ検証", run_games(args.games))
+    if args.paired:
+        path = Path(args.paired)
+        if not path.is_absolute():
+            path = REPO_ROOT / path
+        metrics = summarize_paired(path)
+        paired = True
+    else:
+        metrics = summarize("バッチ検証", run_games(args.games))
+        paired = False
     state = load_state(args.specialist)
-    state.setdefault("cycles", []).append({"kind": "validate", "metrics": metrics})
+    state.setdefault("cycles", []).append(
+        {
+            "kind": "validate",
+            "metrics": metrics,
+            "paired": paired,
+            "at": datetime.now().isoformat(timespec="seconds"),
+        }
+    )
     save_state(args.specialist, state)
     print("勝率ではなく挙動指標（avg_our_alive / avg_enemy_alive / avg_score）で判定すること。")
+    if not paired:
+        print("※ 判定基準は seed 固定ペア評価。--paired workspace/paired/<label>.json を推奨。")
 
 
 def cmd_record(args) -> None:
@@ -308,6 +360,12 @@ def main() -> None:
 
     p = sub.add_parser("validate")
     p.add_argument("--games", type=int, default=3)
+    p.add_argument(
+        "--paired",
+        default="",
+        help="判定基準となる seed 固定ペア評価の JSON（workspace/paired/<label>.json）。"
+        "指定すると対戦を再開せず、その指標を validate サイクルとして記録する",
+    )
     p.add_argument("--specialist", required=True)
     p.set_defaults(func=cmd_validate)
 

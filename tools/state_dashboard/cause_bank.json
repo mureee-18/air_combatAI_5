@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "note": "仮説ビルダーの『原因』候補を追加・更新する定義。python tools/state_dashboard/add_cause.py で使う。group は measured / constraint / history のいずれか。",
+  "causes": [
+    {
+      "id": "cause",
+      "label": "初発までの空白が長い",
+      "phrase": "敵を初めて探知してから初発まで 154 秒の空白がある。射撃開始条件が高すぎて射撃ループに入っていない",
+      "group": "measured",
+      "source": "log",
+      "note": "fireRangeKm など 1 変数だけ下げる"
+    }
+  ]
+}
