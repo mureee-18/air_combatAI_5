@@ -1175,7 +1175,7 @@ def collect_evidence(target: str) -> list[dict]:
     _evidence_derived["paired"] = paired
     if paired:
         worst, best = paired["worst"], paired["best"]
-        wm, bm = worst["metrics"], best["metrics"]
+        wm, _ = worst["metrics"], best["metrics"]
         cards.append({
             "id": "paired",
             "kind": "observation",
@@ -1187,7 +1187,12 @@ def collect_evidence(target: str) -> list[dict]:
                 "『有利な射撃機会を作れていない』ことにある。"
             ),
             "evidence": [
-                {"label": f"{entry['name']} avg_score", "value": entry["metrics"].get("avg_score"), "num": True, "digits": 3}
+                {
+                    "label": f"{entry['name']} avg_score",
+                    "value": entry["metrics"].get("avg_score"),
+                    "num": True,
+                    "digits": 3,
+                }
                 for entry in paired["rows"]
             ] + [
                 {"label": f"{worst['name']} 自機生存", "value": wm.get("avg_our_alive"), "num": True, "digits": 2},
