@@ -266,6 +266,7 @@ def test_http_endpoints():
             "git",
             "rules",
             "commands",
+            "custom_metrics",
         }
         assert {"target", "submitted", "steps", "evidence"} <= set(payload["session"].keys())
 
