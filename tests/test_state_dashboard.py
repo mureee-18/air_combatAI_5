@@ -168,7 +168,10 @@ def test_collect_session_keeps_legacy_keys_and_adds_workflow():
 
 
 def test_session_steps_are_ordered_and_labelled():
-    steps = serve.collect_session()["steps"]
+    session = serve.collect_session()
+    if not session["sessions"]:
+        pytest.skip("セッション記録が無い環境ではスキップ")
+    steps = session["steps"]
     assert [s["key"] for s in steps] == ["hypothesis", "change", "verify", "validate", "record"]
     order = {"done": 0, "current": 1, "todo": 2}
     assert [order[s["state"]] for s in steps] == sorted(order[s["state"]] for s in steps)
