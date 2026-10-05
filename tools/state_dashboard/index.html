@@ -109,6 +109,14 @@
   .fact-list .title { color: var(--accent); min-width: 130px; }
   .fact-list .text { flex: 1; line-height: 1.6; }
   .fact-list button { padding: 1px 8px; font-size: 11px; }
+  .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .fact-grid > .extra { display: none; }
+  .fact-grid.open > .extra { display: block; }
+  .fact-list li.extra { display: none; }
+  .fact-list.open li.extra { display: flex; }
+  .fact-grid .more-toggle { grid-column: 1 / -1; }
+  .more-toggle button { padding: 1px 8px; font-size: 11px; border: 1px dashed var(--line); background: transparent; color: var(--muted); border-radius: 6px; cursor: pointer; }
+  .more-toggle button:hover { color: var(--fg); border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -352,6 +360,17 @@ function bindCopy(root) {
   });
 }
 
+function bindFactToggle(root) {
+  root.querySelectorAll("button[data-fact-toggle]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const box = btn.closest(".fact-grid, .fact-list");
+      if (!box) return;
+      const open = box.classList.toggle("open");
+      btn.textContent = open ? btn.dataset.less : btn.dataset.more;
+    });
+  });
+}
+
 function renderSteps(steps) {
   if (!steps || !steps.length) return '<div class="empty">対象 specialist が未設定です。</div>';
   let h = '<div class="steps">';
@@ -376,34 +395,48 @@ function renderFact(card) {
        `<span class="badge">${esc(badgeKind[card.kind] || card.kind)}</span>` +
        `<span class="badge${card.source === "official" ? " official" : ""}">` +
        `${esc(badgeSrc[card.source] || card.source)}</span></div>`;
-  if (card.summary) h += `<div class="summary">${esc(card.summary)}</div>`;
+  if (card.summary) h += `<div class="summary clamp2">${esc(card.summary)}</div>`;
 
   if (card.evidence && card.evidence.length) {
+    const LIMIT = 8;
+    const hasExtra = card.evidence.length > LIMIT;
     h += '<div class="fact-grid">';
-    card.evidence.forEach(e => {
+    card.evidence.forEach((e, idx) => {
       const digits = e.digits !== undefined ? e.digits : (Number.isInteger(e.value) ? 0 : 2);
       const v = e.num ? num(e.value, digits) : esc(e.value);
       const diffClass = e._diff === "changed" ? "changed" : (e._diff === "new" ? "new" : "");
       const diffIcon = e._diff === "changed" ? '<span class="diff-icon">🔄</span>' : (e._diff === "new" ? '<span class="diff-icon new">NEW</span>' : "");
       const prevDisplay = e._diff === "changed" && e._prevValue !== undefined ? ` <span class="k" style="opacity:0.6">(前: ${esc(String(e._prevValue))})</span>` : "";
-      h += `<div><div class="k">${esc(e.label)}</div><div class="v ${diffClass}">${v}${diffIcon}${prevDisplay}</div></div>`;
+      const cls = hasExtra && idx >= LIMIT ? ' class="extra"' : "";
+      h += `<div${cls}><div class="k">${esc(e.label)}</div><div class="v ${diffClass}">${v}${diffIcon}${prevDisplay}</div></div>`;
     });
+    if (hasExtra) {
+      const n = card.evidence.length - LIMIT;
+      h += `<div class="more-toggle"><button data-fact-toggle data-more="+${n}件を表示" data-less="折りたたむ">+${n}件を表示</button></div>`;
+    }
     h += "</div>";
   }
 
   if (card.items && card.items.length) {
+    const LIMIT = 3;
+    const hasExtra = card.items.length > LIMIT;
     h += '<ul class="fact-list">';
-    card.items.forEach(it => {
+    card.items.forEach((it, idx) => {
       const title = it.title ? `<span class="title">${esc(it.title)}</span>` : "";
-      h += `<li>${title}<span class="text">${esc(it.text)}</span>` +
+      const cls = hasExtra && idx >= LIMIT ? ' class="extra"' : "";
+      h += `<li${cls}>${title}<span class="text">${esc(it.text)}</span>` +
            `<button data-cmd="${attr(it.command)}">コピー</button></li>`;
     });
+    if (hasExtra) {
+      const n = card.items.length - LIMIT;
+      h += `<li class="more-toggle"><button data-fact-toggle data-more="+${n}件を表示" data-less="折りたたむ">+${n}件を表示</button></li>`;
+    }
     h += "</ul>";
   }
 
   if (card.hypothesis) {
     h += '<div class="hyp-box"><div class="k">ここから立てられる仮説例</div>' +
-         `${esc(card.hypothesis)}</div>`;
+         `<div class="clamp2">${esc(card.hypothesis)}</div></div>`;
   }
   if (card.metric) h += `<div class="metric">判定指標: <b>${esc(card.metric)}</b></div>`;
   h += cmdRow(card.command, card.command_label);
@@ -442,6 +475,7 @@ function renderHypothesis(d) {
 
   document.getElementById("hyp").innerHTML = h;
   bindCopy(document.getElementById("hyp"));
+  bindFactToggle(document.getElementById("hyp"));
 }
 
 function renderSession(d) {
