@@ -380,7 +380,6 @@ function renderSteps(steps) {
          `<span class="t">${i + 1}. ${esc(s.label)}</span>` +
          `<div class="d">${esc(s.detail || "")}</div>` +
          `<div class="h">${esc(s.hint || "")}</div>`;
-    h += cmdRow(s.command, "");
     h += "</div>";
   });
   return h + "</div>";
@@ -512,7 +511,6 @@ function renderSession(d) {
   }
 
   document.getElementById("session").innerHTML = h;
-  bindCopy(document.getElementById("session"));
 }
 
 const GIT_INSTRUCTIONS = [
