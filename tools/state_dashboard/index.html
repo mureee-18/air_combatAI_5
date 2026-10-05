@@ -132,7 +132,8 @@
   <section class="tab" id="tab-sub"><h2>提出</h2><div id="sub"></div></section>
   <section class="tab" id="tab-eval"><h2>評価（seed固定ペア評価）</h2><div id="eval"></div></section>
   <section class="tab" id="tab-logs"><h2>ログ</h2><div id="logs"></div></section>
-  <section class="tab" id="tab-session"><h2>改善セッション</h2><div id="session"></div></section>
+  <section class="tab" id="tab-hyp"><h2>仮説登録</h2><div id="hyp"></div></section>
+  <section class="tab" id="tab-session"><h2>仮説検証</h2><div id="session"></div></section>
   <section class="tab" id="tab-git"><h2>git</h2><div id="git">  <div class="cmd-row">
     <button class="copy" data-cmd="status">ステータス表示</button>
     <button class="copy" data-cmd="log -1">最近のコミット</button>
@@ -151,7 +152,7 @@
 <script>
 const TABS = [
   ["env", "環境"], ["sub", "提出"], ["eval", "評価"], ["logs", "ログ"],
-  ["session", "改善セッション"], ["git", "git"], ["cmd", "コマンド"], ["rules", "ルール"],
+  ["hyp", "仮説登録"], ["session", "仮説検証"], ["git", "git"], ["cmd", "コマンド"], ["rules", "ルール"],
   ["traj", "軌跡"],
 ];
 const nav = document.getElementById("nav");
@@ -409,7 +410,7 @@ function renderFact(card) {
   return h + "</div>";
 }
 
-function renderSession(d) {
+function renderHypothesis(d) {
   const s = d.session;
   const sessions = s.sessions || [];
   const cur = sessions.find(x => x.specialist === s.target) || sessions[sessions.length - 1];
@@ -425,15 +426,12 @@ function renderSession(d) {
       { k: "開始", v: (cur.started || "—").replace("T", " ") },
       { k: "仮説", v: (cur.hypotheses || []).length, cls: (cur.hypotheses || []).length ? "ok" : "warn" },
       { k: "前提", v: (cur.assumptions || []).length },
-      { k: "サイクル", v: (cur.cycles || []).length },
     ]);
     if (cur.specialist !== s.submitted) {
       h += `<p class="meta">対象は <b>${esc(cur.specialist)}</b>（ローカル評価専用）。` +
            `提出するのは <b>${esc(s.submitted)}</b>。${esc(cur.specialist)} を submit しない。</p>`;
     }
   }
-
-  h += "<h2>改善サイクル（現在地）</h2>" + renderSteps(s.steps);
 
   h += "<h2>事実カード（ここから仮説を立てる材料）</h2>";
   if (!s.evidence || !s.evidence.length) {
@@ -442,17 +440,41 @@ function renderSession(d) {
     h += '<div class="facts">' + s.evidence.map(renderFact).join("") + "</div>";
   }
 
+  document.getElementById("hyp").innerHTML = h;
+  bindCopy(document.getElementById("hyp"));
+}
+
+function renderSession(d) {
+  const s = d.session;
+  const sessions = s.sessions || [];
+  const cur = sessions.find(x => x.specialist === s.target) || sessions[sessions.length - 1];
+  let h = "";
+  if (!sessions.length) {
+    h += '<div class="empty">セッション記録がありません。' +
+         '<code>python analysis/tools/improvement_session.py start --specialist default</code></div>';
+  }
+  if (cur) {
+    h += cards([
+      { k: "対象 specialist", v: cur.specialist, cls: cur.specialist === s.submitted ? "" : "warn" },
+      { k: "提出用 specialist", v: s.submitted || "—", cls: "ok" },
+      { k: "仮説", v: (cur.hypotheses || []).length, cls: (cur.hypotheses || []).length ? "ok" : "warn" },
+      { k: "サイクル", v: (cur.cycles || []).length },
+    ]);
+  }
+
+  h += "<h2>改善サイクル（現在地）</h2>" + renderSteps(s.steps);
+
   if (cur) {
     const items = [
       ...(cur.assumptions || []).map(a => ["前提", JSON.stringify(a)]),
       ...(cur.hypotheses || []).map(x => ["仮説", JSON.stringify(x)]),
       ...(cur.cycles || []).map(x => ["サイクル", JSON.stringify(x)]),
     ];
-    h += "<h2>記録済み</h2>";
+    h += "<h2>仮説・サイクル・記録</h2>";
     h += items.length
       ? table([{label:"種別",num:false},{label:"内容",num:false}],
           items.map(i => [esc(i[0]), `<code>${esc(i[1])}</code>`]))
-      : '<div class="empty">まだ記録がありません。上の「事実カード」を材料に hypothesis を登録する。</div>';
+      : '<div class="empty">まだ記録がありません。</div>';
   }
 
   document.getElementById("session").innerHTML = h;
@@ -904,7 +926,7 @@ async function load(force) {
     // Compute evidence diffs before rendering
     markEvidenceDiffs(data);
     renderEnv(data); renderSub(data); renderEval(data); renderLogs(data);
-    renderSession(data); renderGit(data); renderCmd(data); renderRules(data);
+    renderHypothesis(data); renderSession(data); renderGit(data); renderCmd(data); renderRules(data);
   } catch (err) {
     document.getElementById("stamp").textContent = "読み込み失敗: " + err;
   }
