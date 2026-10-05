@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>air_combatAI_5 éçºç¶æ³ããã·ã¥ãã¼ã</title>
+<title>air_combatAI_5 開発状況ダッシュボード</title>
 <style>
   :root {
     --bg: #10151c; --panel: #182029; --line: #26313d; --fg: #e6edf3; --muted: #93a1b0;
@@ -113,47 +113,47 @@
 </head>
 <body>
 <header>
-  <h1>air_combatAI_5 éçºç¶æ³</h1>
-  <span class="meta" id="stamp">èª­ã¿è¾¼ã¿ä¸­â¦</span>
+  <h1>air_combatAI_5 開発状況</h1>
+  <span class="meta" id="stamp">読み込み中…</span>
   <span class="spacer"></span>
-  <label class="meta"><input type="checkbox" id="auto" checked> èªåæ´æ°</label>
+  <label class="meta"><input type="checkbox" id="auto" checked> 自動更新</label>
   <select id="interval">
-    <option value="15000">15ç§</option>
-    <option value="30000">30ç§</option>
-    <option value="60000">60ç§</option>
+    <option value="15000">15秒</option>
+    <option value="30000">30秒</option>
+    <option value="60000">60秒</option>
   </select>
-  <button id="refresh">åèª­ã¿è¾¼ã¿</button>
+  <button id="refresh">再読み込み</button>
 </header>
 
 <nav id="nav"></nav>
 
 <main>
-  <section class="tab" id="tab-env"><h2>ç°å¢</h2><div id="env"></div></section>
-  <section class="tab" id="tab-sub"><h2>æåº</h2><div id="sub"></div></section>
-  <section class="tab" id="tab-eval"><h2>è©ä¾¡ï¼seedåºå®ãã¢è©ä¾¡ï¼</h2><div id="eval"></div></section>
-  <section class="tab" id="tab-logs"><h2>ã­ã°</h2><div id="logs"></div></section>
+  <section class="tab" id="tab-env"><h2>環境</h2><div id="env"></div></section>
+  <section class="tab" id="tab-sub"><h2>提出</h2><div id="sub"></div></section>
+  <section class="tab" id="tab-eval"><h2>評価（seed固定ペア評価）</h2><div id="eval"></div></section>
+  <section class="tab" id="tab-logs"><h2>ログ</h2><div id="logs"></div></section>
   <section class="tab" id="tab-hyp"><h2>仮説登録</h2><div id="hyp"></div></section>
   <section class="tab" id="tab-session"><h2>仮説検証</h2><div id="session"></div></section>
   <section class="tab" id="tab-git"><h2>git</h2><div id="git">  <div class="cmd-row">
-    <button class="copy" data-cmd="status">ã¹ãã¼ã¿ã¹è¡¨ç¤º</button>
-    <button class="copy" data-cmd="log -1">æè¿ã®ã³ããã</button>
-    <button class="copy" data-cmd="branch">ãã©ã³ãè¡¨ç¤º</button>
-  </div><div class="cmd-row"><span class="row-label">æç¤º</span>
-    <button class="copy" data-cmd="å¤æ´ãã³ããããã¦ããã·ã¥ãã¦ãäºåã« git status ã¨ git diff ãç¢ºèªããã¹ãã¼ã¸å¯¾è±¡ã®ãã¡ã¤ã«ä¸è¦§ã¨ã³ãããã¡ãã»ã¼ã¸æ¡ãæç¤ºãã¦æ¿èªãå¾ããã¨">ã³ãããï¼ããã·ã¥</button>
-    <button class="copy" data-cmd="ãã®å¤æ´ã® PR ãä½æãã¦ãã¿ã¤ãã«ã¨æ¬æã¯æ¥æ¬èªã§æ¸ããã¨">PRä½æ</button>
-    <button class="copy" data-cmd="PR ã® CI ãã¹ãçµæãç¢ºèªãã¦ãå¤±æãã¦ããã°åå ãå ±åãã¦">CIç¢ºèª</button>
-    <button class="copy" data-cmd="PR ããã¼ã¸ãã¦">ãã¼ã¸</button>
+    <button class="copy" data-cmd="status">ステータス表示</button>
+    <button class="copy" data-cmd="log -1">最近のコミット</button>
+    <button class="copy" data-cmd="branch">ブランチ表示</button>
+  </div><div class="cmd-row"><span class="row-label">指示</span>
+    <button class="copy" data-cmd="変更をコミットしてプッシュして。事前に git status と git diff を確認し、ステージ対象のファイル一覧とコミットメッセージ案を提示して承認を得ること">コミット＆プッシュ</button>
+    <button class="copy" data-cmd="この変更の PR を作成して。タイトルと本文は日本語で書くこと">PR作成</button>
+    <button class="copy" data-cmd="PR の CI テスト結果を確認して。失敗していれば原因を報告して">CI確認</button>
+    <button class="copy" data-cmd="PR をマージして">マージ</button>
   </div></div></section>
-  <section class="tab" id="tab-cmd"><h2>ã³ãã³ã</h2><div id="cmd"></div></section>
-  <section class="tab" id="tab-rules"><h2>ã³ã³ãã«ã¼ã«</h2><div id="rules"></div></section>
-  <section class="tab" id="tab-traj"><h2>è»è·¡ãªãã¬ã¤ï¼èªä½ã¨ã¼ã¸ã§ã³ãã®ã­ã°ã®ã¿ï¼</h2><div id="traj"></div></section>
+  <section class="tab" id="tab-cmd"><h2>コマンド</h2><div id="cmd"></div></section>
+  <section class="tab" id="tab-rules"><h2>コンペルール</h2><div id="rules"></div></section>
+  <section class="tab" id="tab-traj"><h2>軌跡リプレイ（自作エージェントのログのみ）</h2><div id="traj"></div></section>
 </main>
 
 <script>
 const TABS = [
-  ["env", "ç°å¢"], ["sub", "æåº"], ["eval", "è©ä¾¡"], ["logs", "ã­ã°"],
-  ["hyp", "仮説登録"], ["session", "仮説検証"], ["git", "git"], ["cmd", "コマンド"], ["rules", "ã«ã¼ã«"],
-  ["traj", "è»è·¡"],
+  ["env", "環境"], ["sub", "提出"], ["eval", "評価"], ["logs", "ログ"],
+  ["hyp", "仮説登録"], ["session", "仮説検証"], ["git", "git"], ["cmd", "コマンド"], ["rules", "ルール"],
+  ["traj", "軌跡"],
 ];
 const nav = document.getElementById("nav");
 const state = { data: null, timer: null, selected: null };
@@ -162,16 +162,16 @@ function esc(s) {
   return String(s === null || s === undefined ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-// HTML å±æ§å¤ç¨ã®ã¨ã¹ã±ã¼ãï¼ã³ãã³ãåã® " ãå±æ§ãå£ãããå¿é ï¼
+// HTML 属性値用のエスケープ（コマンド内の " が属性を壊すため必須）
 function attr(s) {
   return esc(s).replace(/"/g, "&quot;");
 }
 function num(v, digits) {
-  if (v === null || v === undefined || v === "") return "â";
+  if (v === null || v === undefined || v === "") return "—";
   return Number(v).toFixed(digits === undefined ? 2 : digits);
 }
 function table(headers, rows) {
-  if (!rows.length) return '<div class="empty">ãã¼ã¿ãããã¾ãã</div>';
+  if (!rows.length) return '<div class="empty">データがありません</div>';
   let h = "<table><thead><tr>";
   headers.forEach(x => h += `<th>${esc(x.label)}</th>`);
   h += "</tr></thead><tbody>";
@@ -192,7 +192,7 @@ function cards(items) {
 }
 function copy(text, btn) {
   navigator.clipboard.writeText(text).then(() => {
-    const old = btn.textContent; btn.textContent = "ã³ãã¼æ¸"; setTimeout(() => btn.textContent = old, 1200);
+    const old = btn.textContent; btn.textContent = "コピー済"; setTimeout(() => btn.textContent = old, 1200);
   });
 }
 
@@ -200,29 +200,29 @@ function renderEnv(d) {
   const e = d.environment;
   const drift = e.deploy_drift;
   const driftCls = drift === null ? "" : (drift.args_match && drift.config_match ? "ok" : "warn");
-  const driftTxt = drift === null ? "æªéç½®"
-    : ((drift.args_match && drift.config_match) ? "ä¸è´" : ",è¦åãã«ã");
+  const driftTxt = drift === null ? "未配置"
+    : ((drift.args_match && drift.config_match) ? "一致" : ",要再ビルド");
   let h = cards([
     { k: "specialist (repo)", v: e.repo_specialist },
-    { k: "workspace", v: e.workspace.exists ? e.workspace.size_h : "ç¡ã", cls: e.workspace.exists ? "" : "bad" },
-    { k: "ã·ãã¥ã¬ã¼ã¿", v: e.workspace.simulator_ready ? "éç½®æ¸ã¿" : "æªéç½®", cls: e.workspace.simulator_ready ? "ok" : "bad" },
-    { k: "éç½®ããªãã", v: driftTxt, cls: driftCls },
-    { k: "ãã¹ã", v: e.host.python },
+    { k: "workspace", v: e.workspace.exists ? e.workspace.size_h : "無し", cls: e.workspace.exists ? "" : "bad" },
+    { k: "シミュレータ", v: e.workspace.simulator_ready ? "配置済み" : "未配置", cls: e.workspace.simulator_ready ? "ok" : "bad" },
+    { k: "配置ドリフト", v: driftTxt, cls: driftCls },
+    { k: "ホスト", v: e.host.python },
   ]);
-  h += "<h2>Docker ã³ã³ãã</h2>";
-  if (!e.docker.available) h += '<div class="empty">docker ã³ãã³ããå®è¡ã§ãã¾ããï¼Docker Desktop ãèµ·åä¸­ãç¢ºèªï¼</div>';
-  else if (!e.docker.containers.length) h += '<div class="empty">èµ·åä¸­ã®ã³ã³ããã¯ããã¾ãã</div>';
-  else h += table([{label:"ã³ã³ãã"},{label:"ã¹ãã¼ã¿ã¹"},{label:"ã¤ã¡ã¼ã¸"}],
+  h += "<h2>Docker コンテナ</h2>";
+  if (!e.docker.available) h += '<div class="empty">docker コマンドを実行できません（Docker Desktop が起動中か確認）</div>';
+  else if (!e.docker.containers.length) h += '<div class="empty">起動中のコンテナはありません</div>';
+  else h += table([{label:"コンテナ"},{label:"ステータス"},{label:"イメージ"}],
     e.docker.containers.map(c => [esc(c.name), esc(c.status), esc(c.image)]));
-  h += "<h2>éç½®ï¼workspace/Agentsï¼</h2>";
-  h += table([{label:"Agent ãã£ã¬ã¯ããª"},{label:"åè"}],
-    (e.workspace.agents.length ? e.workspace.agents : ["â"]).map(a =>
-      [esc(a), a === "MyAgent" ? "ãã«ãããæåºç©" : (a === "BenchMark" ? "å¬å¼ãã³ããã¼ã¯" : "")]));
-  h += "<h2>ãã¹ãæå ±</h2>";
-  h += table([{label:"é ç®"},{label:"å¤"}], [
+  h += "<h2>配置（workspace/Agents）</h2>";
+  h += table([{label:"Agent ディレクトリ"},{label:"備考"}],
+    (e.workspace.agents.length ? e.workspace.agents : ["—"]).map(a =>
+      [esc(a), a === "MyAgent" ? "ビルドした提出物" : (a === "BenchMark" ? "公式ベンチマーク" : "")]));
+  h += "<h2>ホスト情報</h2>";
+  h += table([{label:"項目"},{label:"値"}], [
     ["OS", esc(e.host.platform)],
-    ["Python (ãã¹ã)", esc(e.host.python)],
-    ["numpy (ãã¹ã)", e.host.numpy ? "å°å¥æ¸ã¿" : "æªå°å¥ï¼ã³ã³ããåã§å®è¡ãããã¼ã«.matrix)"],
+    ["Python (ホスト)", esc(e.host.python)],
+    ["numpy (ホスト)", e.host.numpy ? "導入済み" : "未導入（コンテナ内で実行するツール.matrix)"],
   ]);
   document.getElementById("env").innerHTML = h;
 }
@@ -231,18 +231,18 @@ function renderSub(d) {
   const s = d.submission;
   let h = cards([
     { k: "specialist", v: s.specialist, cls: s.specialist_allowed ? "ok" : "bad" },
-    { k: "æåºå¯è½", v: s.specialist_allowed ? "YES" : "NO", cls: s.specialist_allowed ? "ok" : "bad" },
-    { k: "submit.zip", v: s.zip.exists ? s.zip.size_h : "æªãã«ã", cls: s.zip.exists ? "ok" : "warn" },
-    { k: "ã²ã¼ã", v: s.gate_ok ? "OK" : "BLOCK", cls: s.gate_ok ? "ok" : "warn" },
+    { k: "提出可能", v: s.specialist_allowed ? "YES" : "NO", cls: s.specialist_allowed ? "ok" : "bad" },
+    { k: "submit.zip", v: s.zip.exists ? s.zip.size_h : "未ビルド", cls: s.zip.exists ? "ok" : "warn" },
+    { k: "ゲート", v: s.gate_ok ? "OK" : "BLOCK", cls: s.gate_ok ? "ok" : "warn" },
   ]);
   h += "<h2>args.json</h2><pre>" + esc(JSON.stringify(s.args, null, 2)) + "</pre>";
-  h += "<h2>æåºç©ã®ã«ã¼ããã¡ã¤ã«</h2>";
-  h += table([{label:"ãã¡ã¤ã«"},{label:"æç¡"}],
-    Object.keys(s.zip_entries).map(k => [esc(k), s.zip_entries[k] ? '<span class="ok">ãã</span>' : '<span class="bad">ãªã</span>']));
-  h += "<h2>æåºåã²ã¼ãï¼tools/hooks/pre_submit_gate.pyï¼</h2>";
-  h += "<p class=\"meta\">ã²ã¼ãã¯ <code>" + esc(s.confirm_env) + "=1</code> ãªãã®å®è¡ã BLOCK æ±ããã¾ãï¼æå³ããè¨­è¨ï¼ã</p>";
+  h += "<h2>提出物のルートファイル</h2>";
+  h += table([{label:"ファイル"},{label:"有無"}],
+    Object.keys(s.zip_entries).map(k => [esc(k), s.zip_entries[k] ? '<span class="ok">あり</span>' : '<span class="bad">なし</span>']));
+  h += "<h2>提出前ゲート（tools/hooks/pre_submit_gate.py）</h2>";
+  h += "<p class=\"meta\">ゲートは <code>" + esc(s.confirm_env) + "=1</code> なしの実行を BLOCK 扱いします（意図した設計）。</p>";
   h += "<pre>" + esc(s.gate_output.join("\n")) + "</pre>";
-  if (s.zip.exists) h += `<p class="meta">ãã«ãæ¥æ: ${esc(s.zip.mtime)} / ãµã¤ãº: ${esc(s.zip.size_h)}</p>`;
+  if (s.zip.exists) h += `<p class="meta">ビルド日時: ${esc(s.zip.mtime)} / サイズ: ${esc(s.zip.size_h)}</p>`;
   document.getElementById("sub").innerHTML = h;
 }
 
@@ -250,30 +250,30 @@ function renderEval(d) {
   const p = d.paired;
   if (!p.files.length) {
     document.getElementById("eval").innerHTML =
-      '<div class="empty">workspace/paired/*.json ãããã¾ããã<br>docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --label baseline --out /workspace/paired/baseline.json"</div>';
+      '<div class="empty">workspace/paired/*.json がありません。<br>docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --label baseline --out /workspace/paired/baseline.json"</div>';
     return;
   }
   const rows = p.files.map(f => {
     const m = f.metrics || {};
-    const best = f.name === p.best ? " â" : "";
+    const best = f.name === p.best ? " ★" : "";
     return [
       esc((m.label || f.name) + best), f.name,
-      m.games ?? "â", `${m.win ?? "â"}/${m.draw ?? "â"}/${m.loss ?? "â"}`,
+      m.games ?? "—", `${m.win ?? "—"}/${m.draw ?? "—"}/${m.loss ?? "—"}`,
       num(m.avg_score, 3), num(m.avg_our_alive, 2), num(m.avg_enemy_alive, 2), esc(f.mtime),
     ];
   });
   let h = cards([
-    { k: "è©ä¾¡ãã¡ã¤ã«", v: p.files.length },
-    { k: "æè¯", v: p.best || "â" },
+    { k: "評価ファイル", v: p.files.length },
+    { k: "最良", v: p.best || "—" },
   ]);
-  h += "<h2>æ¯è¼ï¼â ã avg_score æè¯ï¼</h2>";
+  h += "<h2>比較（★ が avg_score 最良）</h2>";
   h += table([
-    {label:"label", num:false}, {label:"ãã¡ã¤ã«", num:false}, {label:"å¯¾æ¦æ°", num:true},
+    {label:"label", num:false}, {label:"ファイル", num:false}, {label:"対戦数", num:true},
     {label:"win/draw/loss", num:false}, {label:"avg_score", num:true},
-    {label:"avg_our_alive", num:true}, {label:"avg_enemy_alive", num:true}, {label:"æ´æ°", num:false},
+    {label:"avg_our_alive", num:true}, {label:"avg_enemy_alive", num:true}, {label:"更新", num:false},
   ], rows);
 
-  h += "<h2>avg_score æ¯è¼</h2>";
+  h += "<h2>avg_score 比較</h2>";
   const max = Math.max(1, ...p.files.map(f => (f.metrics || {}).avg_score || 0));
   p.files.forEach(f => {
     const m = f.metrics || {};
@@ -283,7 +283,7 @@ function renderEval(d) {
          `<span>${num(m.avg_score, 3)}</span></div>`;
   });
 
-  h += "<h2>æç´°</h2>";
+  h += "<h2>明細</h2>";
   h += '<div id="rows"></div>';
   document.getElementById("eval").innerHTML = h;
 
@@ -296,9 +296,9 @@ function renderEval(d) {
   const renderRows = () => {
     const f = p.files.find(x => x.name === sel.value);
     box.innerHTML = table([
-      {label:"è²", num:false}, {label:"seed", num:true}, {label:"çµæ", num:false},
-      {label:"çµäºçç±", num:false}, {label:"ã¹ããã", num:true},
-      {label:"èªæ©çå­", num:true}, {label:"æµçå­", num:true}, {label:"ã¹ã³ã¢", num:true},
+      {label:"色", num:false}, {label:"seed", num:true}, {label:"結果", num:false},
+      {label:"終了理由", num:false}, {label:"ステップ", num:true},
+      {label:"自機生存", num:true}, {label:"敵生存", num:true}, {label:"スコア", num:true},
     ], (f.rows || []).map(r => [
       esc(r.color), r.seed,
       `<span class="${r.result === "win" ? "ok" : (r.result === "loss" ? "bad" : "muted")}">${esc(r.result)}</span>`,
@@ -315,35 +315,35 @@ function renderEval(d) {
 function renderLogs(d) {
   const l = d.logs;
   let h = cards([
-    { k: "ä¸ä»£æ°", v: l.generations.length },
-    { k: "åè¨ãµã¤ãº", v: l.total_size_h },
+    { k: "世代数", v: l.generations.length },
+    { k: "合計サイズ", v: l.total_size_h },
   ]);
-  h += "<h2>ã­ã°ä¸ä»£ï¼workspace/results*ï¼</h2>";
-  h += table([{label:"ä¸ä»£"},{label:"ã­ã°æ°",num:true},{label:"ãµã¤ãº",num:true},{label:"æ´æ°",num:false},{label:"ææ°ã­ã°",num:false}],
-    l.generations.map(g => [esc(g.name), g.logs, esc(g.size_h), esc(g.mtime), esc(g.newest || "â")]));
+  h += "<h2>ログ世代（workspace/results*）</h2>";
+  h += table([{label:"世代"},{label:"ログ数",num:true},{label:"サイズ",num:true},{label:"更新",num:false},{label:"最新ログ",num:false}],
+    l.generations.map(g => [esc(g.name), g.logs, esc(g.size_h), esc(g.mtime), esc(g.newest || "—")]));
   const s = l.newest_stats;
-  h += "<h2>ææ°ã­ã°ã®æåææ¨</h2>";
-  if (!s) h += '<div class="empty">è§£æã§ããã­ã°ãããã¾ãã</div>';
+  h += "<h2>最新ログの挙動指標</h2>";
+  if (!s) h += '<div class="empty">解析できるログがありません</div>';
   else if (s.error) h += `<pre>${esc(s.error)}</pre>`;
   else {
-    h += `<p class="meta">${esc(s.log)} / ${s.steps} ã¹ããã / <span class="pill">${esc(s.mode)}</span></p>`;
-    h += table([{label:"æ©ä½"},{label:"æµæ¢ç¥",num:true},{label:"è¢«å¼¾è­¦å ±",num:true},{label:"å°ææç¤º",num:true},
-                {label:"è­·è¡å¯¾è±¡æ©",num:true},{label:"æè¿æ¥[km]",num:true},{label:"æå°æ®å¼¾",num:true}],
+    h += `<p class="meta">${esc(s.log)} / ${s.steps} ステップ / <span class="pill">${esc(s.mode)}</span></p>`;
+    h += table([{label:"機体"},{label:"敵探知",num:true},{label:"被弾警報",num:true},{label:"射撃指示",num:true},
+                {label:"護衛対象機",num:true},{label:"最近接[km]",num:true},{label:"最小残弾",num:true}],
       s.agents.map(a => [esc(a.agent), a.enemy_seen, a.threat, a.fire_orders, a.escorted_seen,
-        a.min_dist_km === null ? "â" : num(a.min_dist_km, 1), a.min_rmsls === null ? "â" : a.min_rmsls]));
-    if (s.mode !== "èªä½ã¨ã¼ã¸ã§ã³ã") {
-      h += '<p class="meta">baseline / BenchMark ã®ã­ã°ã¯ observation ãã¹ã«ã©ã¼æ§é ã®ããææ¨ã¯ 0 ã«ãªãã¾ããèªä½ã¨ã¼ã¸ã§ã³ãã®ã­ã°ãé¸ã¶ã¨å¤ãåºã¾ãã</p>';
+        a.min_dist_km === null ? "—" : num(a.min_dist_km, 1), a.min_rmsls === null ? "—" : a.min_rmsls]));
+    if (s.mode !== "自作エージェント") {
+      h += '<p class="meta">baseline / BenchMark のログは observation がスカラー構造のため指標は 0 になります。自作エージェントのログを選ぶと値が出ます。</p>';
     }
   }
   document.getElementById("logs").innerHTML = h;
 }
 
-const STEP_STATE_LABEL = { done: "æ¸", current: "æ¬¡", todo: "æª" };
+const STEP_STATE_LABEL = { done: "済", current: "次", todo: "未" };
 
 function cmdRow(cmd, label) {
   if (!cmd) return "";
-  return `<div class="cmd"><span class="title">${esc(label || "ã³ãã³ã")}</span>` +
-         `<code>${esc(cmd)}</code><button data-cmd="${attr(cmd)}">ã³ãã¼</button></div>`;
+  return `<div class="cmd"><span class="title">${esc(label || "コマンド")}</span>` +
+         `<code>${esc(cmd)}</code><button data-cmd="${attr(cmd)}">コピー</button></div>`;
 }
 
 function bindCopy(root) {
@@ -353,7 +353,7 @@ function bindCopy(root) {
 }
 
 function renderSteps(steps) {
-  if (!steps || !steps.length) return '<div class="empty">å¯¾è±¡ specialist ãæªè¨­å®ã§ãã</div>';
+  if (!steps || !steps.length) return '<div class="empty">対象 specialist が未設定です。</div>';
   let h = '<div class="steps">';
   steps.forEach((s, i) => {
     h += `<div class="step ${s.state}">` +
@@ -368,8 +368,8 @@ function renderSteps(steps) {
 }
 
 function renderFact(card) {
-  const badgeKind = { observation: "è¦³æ¸¬", assumption: "åæ", rule: "å¬å¼ã«ã¼ã«" };
-  const badgeSrc = { log: "ã­ã°", code: "ã³ã¼ã", official: "å¬å¼" };
+  const badgeKind = { observation: "観測", assumption: "前提", rule: "公式ルール" };
+  const badgeSrc = { log: "ログ", code: "コード", official: "公式" };
   let h = `<div class="fact ${card.kind}">`;
   h += '<div class="fact-head">' +
        `<span class="title">${esc(card.title)}</span>` +
@@ -384,8 +384,8 @@ function renderFact(card) {
       const digits = e.digits !== undefined ? e.digits : (Number.isInteger(e.value) ? 0 : 2);
       const v = e.num ? num(e.value, digits) : esc(e.value);
       const diffClass = e._diff === "changed" ? "changed" : (e._diff === "new" ? "new" : "");
-      const diffIcon = e._diff === "changed" ? '<span class="diff-icon">ð</span>' : (e._diff === "new" ? '<span class="diff-icon new">NEW</span>' : "");
-      const prevDisplay = e._diff === "changed" && e._prevValue !== undefined ? ` <span class="k" style="opacity:0.6">(å: ${esc(String(e._prevValue))})</span>` : "";
+      const diffIcon = e._diff === "changed" ? '<span class="diff-icon">🔄</span>' : (e._diff === "new" ? '<span class="diff-icon new">NEW</span>' : "");
+      const prevDisplay = e._diff === "changed" && e._prevValue !== undefined ? ` <span class="k" style="opacity:0.6">(前: ${esc(String(e._prevValue))})</span>` : "";
       h += `<div><div class="k">${esc(e.label)}</div><div class="v ${diffClass}">${v}${diffIcon}${prevDisplay}</div></div>`;
     });
     h += "</div>";
@@ -396,16 +396,16 @@ function renderFact(card) {
     card.items.forEach(it => {
       const title = it.title ? `<span class="title">${esc(it.title)}</span>` : "";
       h += `<li>${title}<span class="text">${esc(it.text)}</span>` +
-           `<button data-cmd="${attr(it.command)}">ã³ãã¼</button></li>`;
+           `<button data-cmd="${attr(it.command)}">コピー</button></li>`;
     });
     h += "</ul>";
   }
 
   if (card.hypothesis) {
-    h += '<div class="hyp-box"><div class="k">ããããç«ã¦ãããä»®èª¬ä¾</div>' +
+    h += '<div class="hyp-box"><div class="k">ここから立てられる仮説例</div>' +
          `${esc(card.hypothesis)}</div>`;
   }
-  if (card.metric) h += `<div class="metric">å¤å®ææ¨: <b>${esc(card.metric)}</b></div>`;
+  if (card.metric) h += `<div class="metric">判定指標: <b>${esc(card.metric)}</b></div>`;
   h += cmdRow(card.command, card.command_label);
   return h + "</div>";
 }
@@ -416,26 +416,26 @@ function renderHypothesis(d) {
   const cur = sessions.find(x => x.specialist === s.target) || sessions[sessions.length - 1];
   let h = "";
   if (!sessions.length) {
-    h += '<div class="empty">ã»ãã·ã§ã³è¨é²ãããã¾ããã' +
+    h += '<div class="empty">セッション記録がありません。' +
          '<code>python analysis/tools/improvement_session.py start --specialist default</code></div>';
   }
   if (cur) {
     h += cards([
-      { k: "å¯¾è±¡ specialist", v: cur.specialist, cls: cur.specialist === s.submitted ? "" : "warn" },
-      { k: "æåºç¨ specialist", v: s.submitted || "â", cls: "ok" },
-      { k: "éå§", v: (cur.started || "â").replace("T", " ") },
-      { k: "ä»®èª¬", v: (cur.hypotheses || []).length, cls: (cur.hypotheses || []).length ? "ok" : "warn" },
-      { k: "åæ", v: (cur.assumptions || []).length },
+      { k: "対象 specialist", v: cur.specialist, cls: cur.specialist === s.submitted ? "" : "warn" },
+      { k: "提出用 specialist", v: s.submitted || "—", cls: "ok" },
+      { k: "開始", v: (cur.started || "—").replace("T", " ") },
+      { k: "仮説", v: (cur.hypotheses || []).length, cls: (cur.hypotheses || []).length ? "ok" : "warn" },
+      { k: "前提", v: (cur.assumptions || []).length },
     ]);
     if (cur.specialist !== s.submitted) {
-      h += `<p class="meta">å¯¾è±¡ã¯ <b>${esc(cur.specialist)}</b>ï¼ã­ã¼ã«ã«è©ä¾¡å°ç¨ï¼ã` +
-           `æåºããã®ã¯ <b>${esc(s.submitted)}</b>ã${esc(cur.specialist)} ã submit ããªãã</p>`;
+      h += `<p class="meta">対象は <b>${esc(cur.specialist)}</b>（ローカル評価専用）。` +
+           `提出するのは <b>${esc(s.submitted)}</b>。${esc(cur.specialist)} を submit しない。</p>`;
     }
   }
 
-  h += "<h2>äºå®ã«ã¼ãï¼ããããä»®èª¬ãç«ã¦ãææï¼</h2>";
+  h += "<h2>事実カード（ここから仮説を立てる材料）</h2>";
   if (!s.evidence || !s.evidence.length) {
-    h += '<div class="empty">äºå®ã«ã¼ããçµã¿ç«ã¦ããã¼ã¿ãããã¾ããï¼ãã¢è©ä¾¡ã»ã­ã°ã»è»è·¡ï¼ã</div>';
+    h += '<div class="empty">事実カードを組み立てるデータがありません（ペア評価・ログ・軌跡）。</div>';
   } else {
     h += '<div class="facts">' + s.evidence.map(renderFact).join("") + "</div>";
   }
@@ -450,31 +450,31 @@ function renderSession(d) {
   const cur = sessions.find(x => x.specialist === s.target) || sessions[sessions.length - 1];
   let h = "";
   if (!sessions.length) {
-    h += '<div class="empty">ã»ãã·ã§ã³è¨é²ãããã¾ããã' +
+    h += '<div class="empty">セッション記録がありません。' +
          '<code>python analysis/tools/improvement_session.py start --specialist default</code></div>';
   }
   if (cur) {
     h += cards([
-      { k: "å¯¾è±¡ specialist", v: cur.specialist, cls: cur.specialist === s.submitted ? "" : "warn" },
-      { k: "æåºç¨ specialist", v: s.submitted || "â", cls: "ok" },
-      { k: "ä»®èª¬", v: (cur.hypotheses || []).length, cls: (cur.hypotheses || []).length ? "ok" : "warn" },
-      { k: "ãµã¤ã¯ã«", v: (cur.cycles || []).length },
+      { k: "対象 specialist", v: cur.specialist, cls: cur.specialist === s.submitted ? "" : "warn" },
+      { k: "提出用 specialist", v: s.submitted || "—", cls: "ok" },
+      { k: "仮説", v: (cur.hypotheses || []).length, cls: (cur.hypotheses || []).length ? "ok" : "warn" },
+      { k: "サイクル", v: (cur.cycles || []).length },
     ]);
   }
 
-  h += "<h2>æ¹åãµã¤ã¯ã«ï¼ç¾å¨å°ï¼</h2>" + renderSteps(s.steps);
+  h += "<h2>改善サイクル（現在地）</h2>" + renderSteps(s.steps);
 
   if (cur) {
     const items = [
-      ...(cur.assumptions || []).map(a => ["åæ", JSON.stringify(a)]),
-      ...(cur.hypotheses || []).map(x => ["ä»®èª¬", JSON.stringify(x)]),
-      ...(cur.cycles || []).map(x => ["ãµã¤ã¯ã«", JSON.stringify(x)]),
+      ...(cur.assumptions || []).map(a => ["前提", JSON.stringify(a)]),
+      ...(cur.hypotheses || []).map(x => ["仮説", JSON.stringify(x)]),
+      ...(cur.cycles || []).map(x => ["サイクル", JSON.stringify(x)]),
     ];
-    h += "<h2>ä»®èª¬ã»ãµã¤ã¯ã«ã»è¨é²</h2>";
+    h += "<h2>仮説・サイクル・記録</h2>";
     h += items.length
-      ? table([{label:"ç¨®å¥",num:false},{label:"åå®¹",num:false}],
+      ? table([{label:"種別",num:false},{label:"内容",num:false}],
           items.map(i => [esc(i[0]), `<code>${esc(i[1])}</code>`]))
-      : '<div class="empty">ã¾ã è¨é²ãããã¾ããã</div>';
+      : '<div class="empty">まだ記録がありません。</div>';
   }
 
   document.getElementById("session").innerHTML = h;
@@ -482,17 +482,17 @@ function renderSession(d) {
 }
 
 const GIT_INSTRUCTIONS = [
-  ["ã³ãããï¼ããã·ã¥",
-   "å¤æ´ãã³ããããã¦ããã·ã¥ãã¦ãäºåã« git status ã¨ git diff ãç¢ºèªããã¹ãã¼ã¸å¯¾è±¡ã®ãã¡ã¤ã«ä¸è¦§ã¨ã³ãããã¡ãã»ã¼ã¸æ¡ãæç¤ºãã¦æ¿èªãå¾ããã¨"],
-  ["PRä½æ", "ãã®å¤æ´ã® PR ãä½æãã¦ãã¿ã¤ãã«ã¨æ¬æã¯æ¥æ¬èªã§æ¸ããã¨"],
-  ["CIç¢ºèª", "PR ã® CI ãã¹ãçµæãç¢ºèªãã¦ãå¤±æãã¦ããã°åå ãå ±åãã¦"],
-  ["ãã¼ã¸", "PR ããã¼ã¸ãã¦"],
+  ["コミット＆プッシュ",
+   "変更をコミットしてプッシュして。事前に git status と git diff を確認し、ステージ対象のファイル一覧とコミットメッセージ案を提示して承認を得ること"],
+  ["PR作成", "この変更の PR を作成して。タイトルと本文は日本語で書くこと"],
+  ["CI確認", "PR の CI テスト結果を確認して。失敗していれば原因を報告して"],
+  ["マージ", "PR をマージして"],
 ];
 const GIT_CMD_ROW = '<div class="cmd-row">' +
-  '<button class="copy" data-cmd="status">ã¹ãã¼ã¿ã¹è¡¨ç¤º</button>' +
-  '<button class="copy" data-cmd="log -1">æè¿ã®ã³ããã</button>' +
-  '<button class="copy" data-cmd="branch">ãã©ã³ãè¡¨ç¤º</button>' +
-  '</div><div class="cmd-row"><span class="row-label">æç¤º</span>' +
+  '<button class="copy" data-cmd="status">ステータス表示</button>' +
+  '<button class="copy" data-cmd="log -1">最近のコミット</button>' +
+  '<button class="copy" data-cmd="branch">ブランチ表示</button>' +
+  '</div><div class="cmd-row"><span class="row-label">指示</span>' +
   GIT_INSTRUCTIONS.map(([label, text]) =>
     `<button class="copy" data-cmd="${attr(text)}">${esc(label)}</button>`).join("") +
   '</div>';
@@ -502,21 +502,21 @@ function renderGit(d) {
   const ab = g.ahead_behind;
   const total = g.dirty.modified + g.dirty.untracked + g.dirty.other;
   const parts = [];
-  if (g.dirty.modified) parts.push("å¤æ´ " + g.dirty.modified);
-  if (g.dirty.untracked) parts.push("æªè¿½è·¡ " + g.dirty.untracked);
-  if (g.dirty.other) parts.push("ãã®ä» " + g.dirty.other);
-  const branchV = g.branch + (ab ? `ï¼ahead ${ab.ahead} / behind ${ab.behind}ï¼` : "");
+  if (g.dirty.modified) parts.push("変更 " + g.dirty.modified);
+  if (g.dirty.untracked) parts.push("未追跡 " + g.dirty.untracked);
+  if (g.dirty.other) parts.push("その他 " + g.dirty.other);
+  const branchV = g.branch + (ab ? `（ahead ${ab.ahead} / behind ${ab.behind}）` : "");
   let h = GIT_CMD_ROW + cards([
-    { k: "ãã©ã³ã", v: branchV, cls: ab && ab.ahead ? "warn" : "" },
-    { k: "æªã³ããã", v: total ? `${total}ï¼${parts.join("ã»")}ï¼` : "0",
+    { k: "ブランチ", v: branchV, cls: ab && ab.ahead ? "warn" : "" },
+    { k: "未コミット", v: total ? `${total}（${parts.join("・")}）` : "0",
       cls: total ? "warn" : "ok" },
   ]);
-  h += "<h2>ãªã¢ã¼ã</h2>";
-  h += table([{label:"é ç®",num:false},{label:"å¤",num:false}], [
-    ["origin", esc(g.remote || "æªè¨­å®")], ["upstream", esc(g.upstream || "æªè¨­å®")],
+  h += "<h2>リモート</h2>";
+  h += table([{label:"項目",num:false},{label:"値",num:false}], [
+    ["origin", esc(g.remote || "未設定")], ["upstream", esc(g.upstream || "未設定")],
   ]);
-  h += "<h2>ç´è¿ã®ã³ããã</h2>";
-  h += g.recent.length ? "<pre>" + esc(g.recent.join("\n")) + "</pre>" : '<div class="empty">ãªã</div>';
+  h += "<h2>直近のコミット</h2>";
+  h += g.recent.length ? "<pre>" + esc(g.recent.join("\n")) + "</pre>" : '<div class="empty">なし</div>';
   document.getElementById("git").innerHTML = h;
   bindCopy(document.getElementById("git"));
 }
@@ -528,7 +528,7 @@ function renderCmd(d) {
     group.items.forEach(item => {
       h += `<div class="cmd"><span class="title">${esc(item.title)}</span>` +
            `<code>${esc(item.cmd)}</code>` +
-           `<button data-cmd="${attr(item.cmd)}">ã³ãã¼</button></div>`;
+           `<button data-cmd="${attr(item.cmd)}">コピー</button></div>`;
     });
   });
   document.getElementById("cmd").innerHTML = h;
@@ -545,16 +545,16 @@ function renderRules(d) {
   const r = d.rules || { meta: {}, groups: [] };
   const m = r.meta || {};
   let h = cards([
-    { k: "ã³ã³ã", v: m.name || "â", cls: "" },
-    { k: "å¯¾è±¡", v: m.division || "â" },
-    { k: "task key", v: (m.task_key || "â").slice(0, 8) },
-    { k: "åç§å", v: (r.source_files ? Object.values(r.source_files).filter(Boolean).length : 0) + " / 2" },
+    { k: "コンペ", v: m.name || "—", cls: "" },
+    { k: "対象", v: m.division || "—" },
+    { k: "task key", v: (m.task_key || "—").slice(0, 8) },
+    { k: "参照元", v: (r.source_files ? Object.values(r.source_files).filter(Boolean).length : 0) + " / 2" },
   ]);
   if (m.url) {
-    h += `<p><a href="${esc(m.url)}" target="_blank" rel="noreferrer" style="color:var(--accent)">å¬å¼ãã¼ã¸ãéãï¼è¦ç´ã®æ­£ã¯å¬å¼ãã¼ã¸ï¼</a></p>`;
+    h += `<p><a href="${esc(m.url)}" target="_blank" rel="noreferrer" style="color:var(--accent)">公式ページを開く（規約の正は公式ページ）</a></p>`;
   }
 
-  h += '<div class="rule-card"><h3>åºæ</h3><div class="rule-groups">';
+  h += '<div class="rule-card"><h3>出所</h3><div class="rule-groups">';
   (m.sources || []).forEach(s => {
     h += `<div class="rule-group"><div class="rule-group-title">${esc(s.label)}</div>` +
          `<ul class="rule-items"><li><code>${esc(s.path)}${s.lines ? ":" + esc(s.lines) : ""}</code></li>` +
@@ -587,13 +587,13 @@ async function loadTrajEntries(force) {
   const box = document.getElementById("traj");
   if (!box) return;
   if (!force && traj.entries.length) return;
-  box.innerHTML = '<div class="empty">è»è·¡ãã¼ã¿ãèª­ã¿è¾¼ã¿ä¸­â¦</div>';
+  box.innerHTML = '<div class="empty">軌跡データを読み込み中…</div>';
   let payload;
   try {
     const res = await fetch("/api/replays", { cache: "no-store" });
     payload = await res.json();
   } catch (err) {
-    box.innerHTML = '<div class="empty">èª­ã¿è¾¼ã¿å¤±æ: ' + esc(err) + '</div>';
+    box.innerHTML = '<div class="empty">読み込み失敗: ' + esc(err) + '</div>';
     return;
   }
   traj.entries = payload.entries || [];
@@ -602,9 +602,9 @@ async function loadTrajEntries(force) {
     return;
   }
   if (!traj.entries.length) {
-    box.innerHTML = '<div class="empty">åçå¯è½ãªã­ã°ãããã¾ããã<br>'
-      + 'è»è·¡ã®å¾©åã¯èªä½ã¨ã¼ã¸ã§ã³ãï¼EscortHunterAgentï¼ã®ã­ã°ã®ã¿å¯¾è±¡ã§ãã'
-      + 'BenchMark åå£«ã®ã­ã°ã¯ observation ãã¹ã«ã©ã¼æ§é ã§ä½ç½®æå ±ãæããªãããåçã§ãã¾ããã</div>';
+    box.innerHTML = '<div class="empty">再生可能なログがありません。<br>'
+      + '軌跡の復元は自作エージェント（EscortHunterAgent）のログのみ対象です。'
+      + 'BenchMark 同士のログは observation がスカラー構造で位置情報を持たないため再生できません。</div>';
     return;
   }
   buildTrajShell();
@@ -616,45 +616,45 @@ async function loadTrajEntries(force) {
 
 function buildTrajShell() {
   const opts = traj.entries.map(e =>
-    `<option value="${esc(e.log)}">${esc(e.log + "  " + e.mtime + "  " + e.frames + "ã¹ããã"
-      + (e.has_ammo ? "" : "ï¼æ®å¼¾åãªãï¼"))}</option>`).join("");
+    `<option value="${esc(e.log)}">${esc(e.log + "  " + e.mtime + "  " + e.frames + "ステップ"
+      + (e.has_ammo ? "" : "（残弾列なし）"))}</option>`).join("");
   document.getElementById("traj").innerHTML = `
     <div class="traj-controls">
       <select id="traj-sel">${opts}</select>
-      <button id="traj-reload">åèª­ã¿è¾¼ã¿</button>
-      <span class="meta">åçå¯è½ãªã­ã° ${traj.entries.length} æ¬</span>
+      <button id="traj-reload">再読み込み</button>
+      <span class="meta">再生可能なログ ${traj.entries.length} 本</span>
     </div>
     <div class="traj-wrap">
       <div class="traj-stage">
         <canvas id="traj-canvas"></canvas>
         <div class="traj-controls">
-          <button id="traj-play">â¶ åç</button>
+          <button id="traj-play">▶ 再生</button>
           <input type="range" id="traj-seek" min="0" max="0" value="0">
           <span class="meta" id="traj-time">0 / 0</span>
           <select id="traj-speed">
-            <option value="1">1Ã</option><option value="2" selected>2Ã</option>
-            <option value="4">4Ã</option><option value="8">8Ã</option>
+            <option value="1">1×</option><option value="2" selected>2×</option>
+            <option value="4">4×</option><option value="8">8×</option>
           </select>
           <select id="traj-span">
             <option value="80">80 km</option><option value="150">150 km</option>
-            <option value="300" selected>300 kmï¼å¨åï¼</option>
+            <option value="300" selected>300 km（全域）</option>
           </select>
-          <label><input type="checkbox" id="traj-rings" checked>ã»ã³ãµãªã³ã°</label>
-          <label><input type="checkbox" id="traj-trail" checked>è»è·¡</label>
+          <label><input type="checkbox" id="traj-rings" checked>センサリング</label>
+          <label><input type="checkbox" id="traj-trail" checked>軌跡</label>
         </div>
         <div class="traj-legend" id="traj-legend"></div>
       </div>
       <div class="traj-side">
         <div id="traj-info"></div>
-        <h2>ã¤ãã³ãï¼ã¯ãªãã¯ã§ã¸ã£ã³ãï¼</h2>
+        <h2>イベント（クリックでジャンプ）</h2>
         <div class="traj-events" id="traj-events"></div>
       </div>
     </div>
-    <p class="traj-note">é£å¶åº§æ¨ç³»ï¼kmï¼ãx=+ ã¯æµé£æ¹åãy=+ ã¯åæè¨åãå´ããã­ããã¯èªæ©ç·¨éã®ä¸­å¿ã«è¿½å¾ã
-      æµã®ç¹ã¯ <code>own + distÂ·(cos bearing, sin bearing)</code> ã§å¾©åããæ¨å®ä½ç½®ã§ã
-      <b>ãã®ãã¬ã¼ã ã§å½è©²æ©ãæ¢ç¥ãã¦ããæµã ã</b>ãè¡¨ç¤ºãã¾ãï¼ undetected ã®æµã¯åºã¾ããï¼ã
-      â² ã¯èªæ©ã®ä½ç½®ã¨é²è¡æ¹ä½ããªã³ã°ã¯ã¬ã¼ã 80 km / IRST 120 km / MWS 10 kmã
-      èµ¤ç·ã¯è¢«å¼¾è­¦å ±ã®æ¹ä½ã§ããé«åº¦ã¯ã¦ã¼ã¹é¨éã§åºå®ã®ããå¹³é¢è¡¨ç¤ºã§ãã</p>`;
+    <p class="traj-note">陣営座標系（km）。x=+ は敵陣方向、y=+ は反時計回り側。プロットは自機編隊の中心に追従。
+      敵の点は <code>own + dist·(cos bearing, sin bearing)</code> で復元した推定位置で、
+      <b>そのフレームで当該機が探知していた敵だけ</b>を表示します（ undetected の敵は出ません）。
+      ▲ は自機の位置と進行方位、リングはレーダ 80 km / IRST 120 km / MWS 10 km、
+      赤線は被弾警報の方位です。高度はユース部門で固定のため平面表示です。</p>`;
 
   document.getElementById("traj-sel").addEventListener("change", e => openTraj(e.target.value));
   document.getElementById("traj-reload").addEventListener("click", () => loadTrajEntries(true));
@@ -670,15 +670,15 @@ function buildTrajShell() {
 
 async function openTraj(log) {
   const btn = document.getElementById("traj-play");
-  if (btn) { traj.playing = false; clearInterval(traj.timer); traj.timer = null; btn.textContent = "â¶ åç"; }
+  if (btn) { traj.playing = false; clearInterval(traj.timer); traj.timer = null; btn.textContent = "▶ 再生"; }
   const info = document.getElementById("traj-info");
-  if (info) info.innerHTML = '<div class="empty">èª­ã¿è¾¼ã¿ä¸­â¦</div>';
+  if (info) info.innerHTML = '<div class="empty">読み込み中…</div>';
   let payload;
   try {
     const res = await fetch("/api/replay?log=" + encodeURIComponent(log), { cache: "no-store" });
     payload = await res.json();
   } catch (err) {
-    if (info) info.innerHTML = '<div class="empty">èª­ã¿è¾¼ã¿å¤±æ: ' + esc(err) + '</div>';
+    if (info) info.innerHTML = '<div class="empty">読み込み失敗: ' + esc(err) + '</div>';
     return;
   }
   if (payload.error) {
@@ -699,7 +699,7 @@ async function openTraj(log) {
 function toggleTraj() {
   const btn = document.getElementById("traj-play");
   traj.playing = !traj.playing;
-  btn.textContent = traj.playing ? "ââ ä¸æåæ­¢" : "â¶ åç";
+  btn.textContent = traj.playing ? "❚❚ 一時停止" : "▶ 再生";
   clearInterval(traj.timer);
   traj.timer = null;
   if (!traj.playing) return;
@@ -715,13 +715,13 @@ function toggleTraj() {
 function renderTrajLegend() {
   const d = traj.data;
   const items = d.slots.map(s =>
-    `<span><span class="sw" style="background:${trajColor(s)}"></span>${esc(s)}å·</span>`).join("");
+    `<span><span class="sw" style="background:${trajColor(s)}"></span>${esc(s)}号</span>`).join("");
   const rings = Object.keys(d.sensor_ranges || {}).map(k =>
     `<span><span class="sw" style="background:${TRAJ_RING_COLORS[k]}"></span>${esc(k)} ${d.sensor_ranges[k]} km</span>`).join("");
   document.getElementById("traj-legend").innerHTML =
-    `<span><span class="sw" style="background:#f85149"></span>è¢«å¼¾è­¦å ±</span>`
-    + `<span><span class="sw" style="background:#e6edf3"></span>æ¢ç¥ããæµ</span>`
-    + `<span><span class="sw" style="background:#ffd33d"></span>è­·è¡å¯¾è±¡æ©ãã©ã°</span>`
+    `<span><span class="sw" style="background:#f85149"></span>被弾警報</span>`
+    + `<span><span class="sw" style="background:#e6edf3"></span>探知した敵</span>`
+    + `<span><span class="sw" style="background:#ffd33d"></span>護衛対象機フラグ</span>`
     + items + rings;
 }
 
@@ -729,7 +729,7 @@ function renderTrajEvents() {
   const box = document.getElementById("traj-events");
   const events = traj.data.events || [];
   if (!events.length) {
-    box.innerHTML = '<div class="empty">ã¤ãã³ããªã</div>';
+    box.innerHTML = '<div class="empty">イベントなし</div>';
     return;
   }
   box.innerHTML = events.map((e, i) =>
@@ -795,8 +795,8 @@ function drawTraj() {
     if (sy > 12 && sy < cssH - 6) ctx.fillText(String(g), 6, sy - 3);
   }
   ctx.fillStyle = "rgba(147,161,176,0.8)";
-  ctx.fillText("x=+ æµé£å´ â", cssW - 96, 14);
-  ctx.fillText("â x=- èªé£å´", 8, cssH - 20);
+  ctx.fillText("x=+ 敵陣側 →", cssW - 96, 14);
+  ctx.fillText("← x=- 自陣側", 8, cssH - 20);
 
   if (traj.rings) {
     Object.entries(d.sensor_ranges || {}).forEach(([k, km]) => {
@@ -864,7 +864,7 @@ function drawTraj() {
     ctx.restore();
     ctx.fillStyle = col;
     ctx.font = "11px Consolas, monospace";
-    ctx.fillText(slot + "å·", sx + 9, sy - 6);
+    ctx.fillText(slot + "号", sx + 9, sy - 6);
   });
 
   (frame.events || []).forEach(ev => {
@@ -876,18 +876,18 @@ function drawTraj() {
   });
 
   document.getElementById("traj-seek").value = traj.t;
-  document.getElementById("traj-time").textContent = `${traj.t + 1} / ${d.frame_count}  ï¼ptime ${frame.ptime}sï¼`;
+  document.getElementById("traj-time").textContent = `${traj.t + 1} / ${d.frame_count}  （ptime ${frame.ptime}s）`;
   const r = d.result || {};
   const alive = Object.keys(frame.own || {}).length;
   document.getElementById("traj-info").innerHTML = cards([
-    { k: "ã­ã°", v: (d.log || "").split("/").slice(-2).join("/") },
-    { k: "èªæ©å¿ç­", v: alive + " / " + d.slots.length, cls: alive < d.slots.length ? "warn" : "ok" },
-    { k: "æ¨å®æµä½ç½®", v: trajFoeCount(frame) },
-    { k: "ãã®ãã¬ã¼ã ã®ã¤ãã³ã", v: (frame.events || []).length },
-    { k: "çµäºçç±", v: r.endReason || "â" },
-    { k: "èªé£ã¹ã³ã¢", v: r.own ? num(r.scores ? r.scores[r.own] : null, 3) : "â" },
-    { k: "å½ä¸­ç", v: r.hit_rate === null || r.hit_rate === undefined ? "â" : num(r.hit_rate, 3) },
-    { k: "çå­ï¼èª/æµï¼", v: r.numAlives ? `${r.numAlives.Red ?? "â"} / ${r.numAlives.Blue ?? "â"}` : "â" },
+    { k: "ログ", v: (d.log || "").split("/").slice(-2).join("/") },
+    { k: "自機応答", v: alive + " / " + d.slots.length, cls: alive < d.slots.length ? "warn" : "ok" },
+    { k: "推定敵位置", v: trajFoeCount(frame) },
+    { k: "このフレームのイベント", v: (frame.events || []).length },
+    { k: "終了理由", v: r.endReason || "—" },
+    { k: "自陣スコア", v: r.own ? num(r.scores ? r.scores[r.own] : null, 3) : "—" },
+    { k: "命中率", v: r.hit_rate === null || r.hit_rate === undefined ? "—" : num(r.hit_rate, 3) },
+    { k: "生存（自/敵）", v: r.numAlives ? `${r.numAlives.Red ?? "—"} / ${r.numAlives.Blue ?? "—"}` : "—" },
   ]);
 
   const box = document.getElementById("traj-events");
@@ -922,13 +922,13 @@ async function load(force) {
     const res = await fetch("/api/summary" + (force ? "?force=1" : ""), { cache: "no-store" });
     const data = await res.json();
     state.data = data;
-    document.getElementById("stamp").textContent = "æ´æ° " + data.generated_at;
+    document.getElementById("stamp").textContent = "更新 " + data.generated_at;
     // Compute evidence diffs before rendering
     markEvidenceDiffs(data);
     renderEnv(data); renderSub(data); renderEval(data); renderLogs(data);
     renderHypothesis(data); renderSession(data); renderGit(data); renderCmd(data); renderRules(data);
   } catch (err) {
-    document.getElementById("stamp").textContent = "èª­ã¿è¾¼ã¿å¤±æ: " + err;
+    document.getElementById("stamp").textContent = "読み込み失敗: " + err;
   }
 }
 
