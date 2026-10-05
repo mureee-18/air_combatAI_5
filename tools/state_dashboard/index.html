@@ -281,6 +281,27 @@ function renderEval(d) {
     {label:"avg_our_alive", num:true}, {label:"avg_enemy_alive", num:true}, {label:"更新", num:false},
   ], rows);
 
+  if (p.history && p.history.length) {
+    h += "<h2>強化推移（時系列）</h2>";
+    h += table([
+      {label:"mtime", num:false}, {label:"label", num:false}, {label:"ファイル", num:false},
+      {label:"対戦数", num:true}, {label:"win/draw/loss", num:false},
+      {label:"avg_score", num:true}, {label:"avg_our_alive", num:true}, {label:"avg_enemy_alive", num:true},
+    ], p.history.map(hf => {
+      const m = hf.metrics || {};
+      return [
+        esc(hf.mtime),
+        esc(m.label || hf.name),
+        esc(hf.name),
+        m.games ?? "—",
+        `${m.win ?? "—"}/${m.draw ?? "—"}/${m.loss ?? "—"}`,
+        num(m.avg_score, 3),
+        num(m.avg_our_alive, 2),
+        num(m.avg_enemy_alive, 2),
+      ];
+    }));
+  }
+
   h += "<h2>avg_score 比較</h2>";
   const max = Math.max(1, ...p.files.map(f => (f.metrics || {}).avg_score || 0));
   p.files.forEach(f => {

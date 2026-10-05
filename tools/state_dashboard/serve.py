@@ -597,6 +597,7 @@ def collect_submission() -> dict:
 def collect_paired() -> dict:
     paired_dir = WORKSPACE / "paired"
     files = []
+    history = []
     if paired_dir.exists():
         for path in sorted(paired_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
             data = load_json(path)
@@ -604,19 +605,28 @@ def collect_paired() -> dict:
                 continue
             metrics = data.get("metrics", {})
             stat = path.stat()
+            mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
             files.append(
                 {
                     "name": path.name,
-                    "mtime": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)),
+                    "mtime": mtime,
                     "metrics": metrics,
                     "rows": data.get("rows", []),
+                }
+            )
+            history.append(
+                {
+                    "name": path.name,
+                    "mtime": mtime,
+                    "metrics": metrics,
                 }
             )
     best = None
     with_metrics = [f for f in files if f["metrics"].get("avg_score") is not None]
     if with_metrics:
         best = max(with_metrics, key=lambda f: f["metrics"]["avg_score"])
-    return {"files": files, "best": best["name"] if best else None}
+    history.sort(key=lambda x: (time.mktime(time.strptime(x["mtime"], "%Y-%m-%d %H:%M:%S")), x["name"]))
+    return {"files": files, "best": best["name"] if best else None, "history": history}
 
 
 def collect_logs() -> dict:
