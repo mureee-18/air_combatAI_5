@@ -987,10 +987,10 @@ def collect_steps(target: str, sessions: list[dict]) -> list[dict]:
             "key": "verify",
             "label": "1戦で挙動確認",
             "hint": "1戦だけ回して、意図した行動（接近・射撃・回避）が起きたか見る",
-            "detail": "verify 済み" if cycle_kind("verify") else "未実行",
+            "detail": "検証済み（1戦）" if cycle_kind("verify") else "未実行",
             "where": "powershell",
             "command": f"python analysis/tools/improvement_session.py verify --specialist {target} --games 1",
-            "command_label": "1戦を自動実行して verify を記録",
+            "command_label": "1戦を実行して検証結果を記録する",
             "command2": f"python tools/battle_analyzer/battle_stats.py {log_path}",
             "command2_label": "同じログの挙動指標を確認する",
             "files": [],
@@ -999,7 +999,7 @@ def collect_steps(target: str, sessions: list[dict]) -> list[dict]:
             "key": "validate",
             "label": "seed 固定ペア評価",
             "hint": "勝率ではなく avg_score / avg_our_alive / avg_enemy_alive で判定",
-            "detail": "validate 済み" if cycle_kind("validate") else "未実行",
+            "detail": "検証済み（ペア評価）" if cycle_kind("validate") else "未実行",
             "where": "powershell",
             "command": (
                 'docker exec atla5-cpu bash -lc "cd /workspace && '
@@ -1011,7 +1011,7 @@ def collect_steps(target: str, sessions: list[dict]) -> list[dict]:
                 f"python analysis/tools/improvement_session.py validate "
                 f"--specialist {target} --paired {paired_out}"
             ),
-            "command2_label": "結果を validate サイクルとして記録する",
+            "command2_label": "ペア評価の結果を記録する",
             "files": [],
         },
         {
@@ -1026,7 +1026,7 @@ def collect_steps(target: str, sessions: list[dict]) -> list[dict]:
                 '--changes "<変更したファイルと変数>" --verification "<実測値>" '
                 '--next-steps "<次で試す1変数>"'
             ),
-            "command_label": "記録する（<…> を実測値に置き換えて実行）",
+            "command_label": "サイクルの結果を improvement.md に記録する（<…> を実測値に置き換えて実行）",
             "files": [],
         },
     ]

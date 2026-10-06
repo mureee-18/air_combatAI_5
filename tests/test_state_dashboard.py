@@ -237,6 +237,30 @@ def test_index_renders_session_steps_and_fact_cards():
     assert 'data-cmd="${esc(' not in html
 
 
+def test_index_has_verify_tab_with_commands_and_copy():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    # 「検証」タブが追加されている
+    assert 'id="tab-verify"' in html
+    assert '<div id="verify"></div>' in html
+    assert '"verify", "検証"' in html
+    # renderVerify が verify / validate ステップのコマンドをコピー付きで描画する
+    start = html.index("function renderVerify")
+    end = html.index("function renderGit")
+    block = html[start:end]
+    assert '"verify" || x.key === "validate"' in block
+    assert "cmdRow(st.command" in block
+    assert "cmdRow(st.command2" in block
+    assert 'bindCopy(document.getElementById("verify"))' in block
+
+
+def test_index_improvement_cycle_tab_unchanged():
+    # 「改善サイクル」タブ（renderSteps）は読み取り専用のまま。コマンドは描画しない
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    start = html.index("function renderSteps")
+    end = html.index("function renderFact")
+    assert "cmdRow" not in html[start:end]
+
+
 def test_http_endpoints():
     server = ThreadingHTTPServer(("127.0.0.1", 0), serve.Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
