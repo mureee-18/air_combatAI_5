@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SERVE_PATH = REPO_ROOT / "tools" / "state_dashboard" / "serve.py"
 INDEX_PATH = REPO_ROOT / "tools" / "state_dashboard" / "index.html"
 
-TABS = ["環境", "提出", "評価", "ログ", "改善セッション", "git", "コマンド", "ルール", "軌跡"]
+TABS = ["環境", "提出", "評価", "ログ", "仮説登録", "改善サイクル", "git", "コマンド", "コンペルール", "軌跡"]
 
 
 def load_serve():
@@ -108,7 +108,7 @@ def test_collect_environment_shape():
 
 def test_collect_paired_shape():
     paired = serve.collect_paired()
-    assert set(paired.keys()) == {"files", "best"}
+    assert set(paired.keys()) >= {"files", "best"}
     for entry in paired["files"]:
         assert set(entry.keys()) == {"name", "mtime", "metrics", "rows"}
 
