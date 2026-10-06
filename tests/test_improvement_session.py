@@ -39,6 +39,9 @@ def make_args(**kwargs):
         "changes": "変更",
         "verification": "検証",
         "next_steps": "",
+        "hypothesis": "",
+        "paired": "",
+        "games": 1,
     }
     base.update(kwargs)
     return argparse.Namespace(**base)
@@ -102,6 +105,32 @@ def test_hypothesis_is_stored_as_inference_with_source(session):
     assert hypothesis["kind"] == "inference"
     assert hypothesis["source"] == "log"
     assert hypothesis["id"].startswith("N-")
+
+
+def test_hypothesis_ids_are_unique(session):
+    for _ in range(3):
+        session.cmd_hypothesis(make_args(source="log"))
+    ids = [h["id"] for h in session.load_state("baseline")["hypotheses"]]
+    assert ids == ["N-001", "N-002", "N-003"]
+
+
+def test_verify_records_linked_hypothesis(session, monkeypatch):
+    monkeypatch.setattr(session, "run_games", lambda games: [])
+    monkeypatch.setattr(session, "summarize", lambda label, results: {"avg_score": 0.1})
+    session.cmd_verify(make_args(hypothesis="N-002"))
+    cycle = session.load_state("baseline")["cycles"][-1]
+    assert cycle["kind"] == "verify"
+    assert cycle["hypothesis"] == "N-002"
+
+
+def test_validate_records_linked_hypothesis(session, monkeypatch, tmp_path):
+    monkeypatch.setattr(session, "summarize_paired", lambda path: {"avg_score": 0.5})
+    paired = tmp_path / "paired.json"
+    paired.write_text("{}", encoding="utf-8")
+    session.cmd_validate(make_args(hypothesis="N-003", paired=str(paired)))
+    cycle = session.load_state("baseline")["cycles"][-1]
+    assert cycle["kind"] == "validate"
+    assert cycle["hypothesis"] == "N-003"
 
 
 def test_normalize_text_collapses_repeated_sentence(session):

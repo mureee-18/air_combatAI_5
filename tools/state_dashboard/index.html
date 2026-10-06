@@ -89,6 +89,11 @@
 .verify-block.current { border-color: var(--accent); background: #14202c; }
 .verify-block h3 { margin: 0 0 4px; font-size: 14px; }
 .verify-block .badge { margin-left: 6px; }
+.verify-block .verify-text { font-size: 13px; line-height: 1.5; margin: 4px 0; }
+.verify-pick { display: flex; align-items: center; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.verify-pick label { color: var(--muted); font-size: 13px; }
+.verify-pick select { background: #0e151c; color: var(--fg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 4px 8px; font-size: 13px; max-width: 560px; }
   .facts { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
   .fact { flex: 1 1 460px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: #131b23; }
   .fact.hyp { border-color: #3d5a2e; } .fact.rule { border-color: #3b4a6b; }
@@ -169,7 +174,7 @@ const TABS = [
   ["traj", "軌跡"],
 ];
 const nav = document.getElementById("nav");
-const state = { data: null, timer: null, selected: null };
+const state = { data: null, timer: null, selected: null, verifyHyp: "" };
 
 function esc(s) {
   return String(s === null || s === undefined ? "" : s)
@@ -560,18 +565,58 @@ function renderSession(d) {
   document.getElementById("session").innerHTML = h;
 }
 
+function hypOptionLabel(h) {
+  const t = String(h.text || "").replace(/\s+/g, " ").trim();
+  const short = t.length > 54 ? t.slice(0, 53) + "…" : t;
+  return `${h.id || "?"} — ${short}`;
+}
+
+function withHypothesis(cmd, id) {
+  if (!cmd || !id) return cmd;
+  return `${cmd} --hypothesis ${id}`;
+}
+
 function renderVerify(d) {
   const s = d.session || {};
-  const steps = (s.steps || []).filter(x => x.key === "verify" || x.key === "validate");
+  const hyps = s.hypotheses || [];
+  const cycles = s.cycles || [];
+  const keys = ["verify", "validate", "record"];
+  const steps = (s.steps || []).filter(x => keys.includes(x.key));
   const nxt = s.next || {};
+  if (!state.verifyHyp || !hyps.some(h => h.id === state.verifyHyp)) {
+    state.verifyHyp = hyps.length ? hyps[hyps.length - 1].id : "";
+  }
+  const sel = state.verifyHyp;
   let h = cards([
     { k: "対象 specialist", v: s.target || "—", cls: s.target === s.submitted ? "" : "warn" },
+    { k: "検証する仮説", v: sel || "—", cls: hyps.length ? "ok" : "warn" },
     { k: "現在地", v: nxt.total ? `${nxt.index}/${nxt.total}　${nxt.label || ""}` : "—" },
   ]);
-  h += '<p class="meta">検証コマンドをコピーして Terminal で実行します（このタブは読み取り専用）。' +
+  h += '<p class="meta">仮説を選ぶと、その id を <code>--hypothesis</code> として検証コマンドに差し込みます。' +
+       'コマンドをコピーして Terminal で実行（このタブは読み取り専用）。' +
        '判定は勝率ではなく <b>avg_score / avg_our_alive / avg_enemy_alive</b>。</p>';
-  if (!steps.length) {
-    h += '<div class="empty">検証ステップがありません（対象 specialist 未設定）。</div>';
+  if (!hyps.length) {
+    h += '<div class="empty">仮説がありません。' +
+         '<code>python analysis/tools/improvement_session.py hypothesis "..." --specialist ' +
+         esc(s.target || "default") + ' --source log</code> で登録してください。</div>';
+  } else {
+    h += '<div class="verify-pick"><label for="verify-hyp">検証する仮説</label>' +
+         `<select id="verify-hyp">` +
+         hyps.map(x => `<option value="${attr(x.id)}"${x.id === sel ? " selected" : ""}>` +
+                       `${esc(hypOptionLabel(x))}</option>`).join("") +
+         `</select></div>`;
+    const cur = hyps.find(x => x.id === sel);
+    if (cur) {
+      const verified = cycles.some(c => c.kind === "verify" && c.hypothesis === sel);
+      const validated = cycles.some(c => c.kind === "validate" && c.hypothesis === sel);
+      h += '<div class="verify-block">' +
+           `<h3>${esc(cur.id)}<span class="badge">${esc(cur.source || "")}</span>` +
+           `<span class="badge${verified ? "" : " warn"}">1戦 ${verified ? "済" : "未"}</span>` +
+           `<span class="badge${validated ? "" : " warn"}">ペア評価 ${validated ? "済" : "未"}</span></h3>` +
+           `<div class="verify-text">${esc(cur.text || "")}</div>` +
+           `<div class="meta">${esc((cur.at || "").replace("T", " "))}</div>` +
+           "</div>";
+    }
   }
   steps.forEach((st, i) => {
     h += `<div class="verify-block ${esc(st.state)}">`;
@@ -579,11 +624,17 @@ function renderVerify(d) {
          `<span class="badge">${esc(STEP_STATE_LABEL[st.state] || "?")}</span></h3>`;
     if (st.detail) h += `<div class="meta">${esc(st.detail)}</div>`;
     if (st.hint) h += `<div class="meta">${esc(st.hint)}</div>`;
-    h += cmdRow(st.command, st.command_label);
-    h += cmdRow(st.command2, st.command2_label);
+    const cmd = st.hyp_arg === "command" ? withHypothesis(st.command, sel) : st.command;
+    const cmd2 = st.hyp_arg === "command2" ? withHypothesis(st.command2, sel) : st.command2;
+    h += cmdRow(cmd, st.command_label);
+    h += cmdRow(cmd2, st.command2_label);
     h += "</div>";
   });
   document.getElementById("verify").innerHTML = h;
+  const pick = document.getElementById("verify-hyp");
+  if (pick) {
+    pick.addEventListener("change", () => { state.verifyHyp = pick.value; renderVerify(d); });
+  }
   bindCopy(document.getElementById("verify"));
 }
 

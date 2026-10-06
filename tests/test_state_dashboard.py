@@ -162,6 +162,7 @@ def test_collect_session_keeps_legacy_keys_and_adds_workflow():
         assert {"specialist", "started", "assumptions", "hypotheses", "cycles"} <= set(entry.keys())
     # 追加情報
     assert {"target", "submitted", "steps", "evidence"} <= set(session.keys())
+    assert {"hypotheses", "cycles"} <= set(session.keys())
     assert session["submitted"] == (serve.load_json(serve.REPO_ROOT / "agent" / "args.json") or {}).get(
         "specialist"
     )
@@ -179,6 +180,10 @@ def test_session_steps_are_ordered_and_labelled():
         assert step["label"] and step["hint"] and step["detail"]
         if step["key"] != "change":
             assert step["command"].startswith("python ") or "docker exec" in step["command"]
+    # verify / validate / record は --hypothesis を差し込む対象を指定する
+    assert steps[2]["hyp_arg"] == "command"
+    assert steps[3]["hyp_arg"] == "command2"
+    assert steps[4]["hyp_arg"] == "command"
 
 
 def test_session_evidence_cards_are_observable_and_have_sources():
@@ -237,19 +242,22 @@ def test_index_renders_session_steps_and_fact_cards():
     assert 'data-cmd="${esc(' not in html
 
 
-def test_index_has_verify_tab_with_commands_and_copy():
+def test_index_has_verify_tab_with_hypothesis_selector():
     html = INDEX_PATH.read_text(encoding="utf-8")
     # 「検証」タブが追加されている
     assert 'id="tab-verify"' in html
     assert '<div id="verify"></div>' in html
     assert '"verify", "検証"' in html
-    # renderVerify が verify / validate ステップのコマンドをコピー付きで描画する
+    # renderVerify が仮説セレクタを持ち、選択 id を --hypothesis として差し込む
     start = html.index("function renderVerify")
-    end = html.index("function renderGit")
+    end = html.index("const GIT_INSTRUCTIONS")
     block = html[start:end]
-    assert '"verify" || x.key === "validate"' in block
-    assert "cmdRow(st.command" in block
-    assert "cmdRow(st.command2" in block
+    assert 'id="verify-hyp"' in block
+    assert "withHypothesis(st.command" in block
+    assert "withHypothesis(st.command2" in block
+    assert "--hypothesis" in html
+    assert "cmdRow(cmd, st.command_label)" in block
+    assert "cmdRow(cmd2, st.command2_label)" in block
     assert 'bindCopy(document.getElementById("verify"))' in block
 
 

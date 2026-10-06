@@ -833,6 +833,7 @@ def collect_session(paired: dict | None = None) -> dict:
             "finished": cycle_done or current["state"] == "done",
         }
     evidence = collect_evidence(target)
+    target_session = next((s for s in sessions if s.get("specialist") == target), {})
     return {
         "sessions": sessions,
         "target": target,
@@ -840,6 +841,8 @@ def collect_session(paired: dict | None = None) -> dict:
         "started": started,
         "steps": steps,
         "next": nxt,
+        "hypotheses": target_session.get("hypotheses", []),
+        "cycles": target_session.get("cycles", []),
         "paired": paired,
         "metric_sources": METRIC_SOURCES,
         "policy": collect_hypothesis_policy(),
@@ -993,6 +996,7 @@ def collect_steps(target: str, sessions: list[dict]) -> list[dict]:
             "command_label": "1戦を実行して検証結果を記録する",
             "command2": f"python tools/battle_analyzer/battle_stats.py {log_path}",
             "command2_label": "同じログの挙動指標を確認する",
+            "hyp_arg": "command",
             "files": [],
         },
         {
@@ -1012,6 +1016,7 @@ def collect_steps(target: str, sessions: list[dict]) -> list[dict]:
                 f"--specialist {target} --paired {paired_out}"
             ),
             "command2_label": "ペア評価の結果を記録する",
+            "hyp_arg": "command2",
             "files": [],
         },
         {
@@ -1027,6 +1032,7 @@ def collect_steps(target: str, sessions: list[dict]) -> list[dict]:
                 '--next-steps "<次で試す1変数>"'
             ),
             "command_label": "サイクルの結果を improvement.md に記録する（<…> を実測値に置き換えて実行）",
+            "hyp_arg": "command",
             "files": [],
         },
     ]

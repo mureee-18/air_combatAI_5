@@ -133,6 +133,17 @@ def next_record_id(path: Path, kind: str) -> str:
     return f"{prefix}-{used + 1:03d}"
 
 
+def next_hypothesis_id(state: dict) -> str:
+    """session_state.json に既にある仮説から次の ID を返す（N-001 形式・重複しない）."""
+
+    max_n = 0
+    for hyp in state.get("hypotheses", []):
+        match = re.fullmatch(r"N-(\d+)", str(hyp.get("id", "")))
+        if match:
+            max_n = max(max_n, int(match.group(1)))
+    return f"N-{max_n + 1:03d}"
+
+
 def run_games(games: int) -> dict:
     cmd = [
         "docker", "exec", "atla5-cpu", "bash", "-lc",
@@ -243,7 +254,7 @@ def cmd_hypothesis(args) -> None:
     state = load_state(args.specialist)
     text = normalize_text(args.text)
     state.setdefault("hypotheses", []).append({
-        "id": next_record_id(note_path(args.specialist), "inference"),
+        "id": next_hypothesis_id(state),
         "kind": "inference",
         "source": args.source,
         "text": text,
@@ -259,7 +270,12 @@ def cmd_verify(args) -> None:
     metrics = summarize("1ゲーム検証", run_games(args.games))
     state = load_state(args.specialist)
     state.setdefault("cycles", []).append(
-        {"kind": "verify", "metrics": metrics, "at": datetime.now().isoformat(timespec="seconds")}
+        {
+            "kind": "verify",
+            "hypothesis": getattr(args, "hypothesis", "") or "",
+            "metrics": metrics,
+            "at": datetime.now().isoformat(timespec="seconds"),
+        }
     )
     save_state(args.specialist, state)
     stats_log = f"workspace/{RESULT_DIR}/0/log_0.json"
@@ -282,6 +298,7 @@ def cmd_validate(args) -> None:
     state.setdefault("cycles", []).append(
         {
             "kind": "validate",
+            "hypothesis": getattr(args, "hypothesis", "") or "",
             "metrics": metrics,
             "paired": paired,
             "at": datetime.now().isoformat(timespec="seconds"),
@@ -305,6 +322,8 @@ def cmd_record(args) -> None:
         f.write(f"- 種別: {args.kind}（{KIND_LABEL[args.kind]}）\n")
         f.write(f"- 出所: {args.source}（{SOURCE_LABEL[args.source]}）\n")
         f.write(f"- 方向性: {args.direction}\n")
+        if getattr(args, "hypothesis", ""):
+            f.write(f"- 仮説: {args.hypothesis}\n")
         f.write(f"- 変更: {args.changes}\n")
         f.write(f"- 検証: {args.verification}\n")
         if latest:
@@ -315,6 +334,7 @@ def cmd_record(args) -> None:
         "id": record_id,
         "kind": args.kind,
         "source": args.source,
+        "hypothesis": getattr(args, "hypothesis", "") or "",
         "at": datetime.now().isoformat(timespec="seconds"),
     })
     save_state(args.specialist, state)
@@ -376,6 +396,7 @@ def main() -> None:
 
     p = sub.add_parser("verify")
     p.add_argument("--games", type=int, default=1)
+    p.add_argument("--hypothesis", default="", help="紐付ける仮説の id（例: N-002）。省略可")
     p.add_argument("--specialist", required=True)
     p.set_defaults(func=cmd_verify)
 
@@ -387,6 +408,7 @@ def main() -> None:
         help="判定基準となる seed 固定ペア評価の JSON（workspace/paired/<label>.json）。"
         "指定すると対戦を再開せず、その指標を validate サイクルとして記録する",
     )
+    p.add_argument("--hypothesis", default="", help="紐付ける仮説の id（例: N-002）。省略可")
     p.add_argument("--specialist", required=True)
     p.set_defaults(func=cmd_validate)
 
@@ -408,6 +430,7 @@ def main() -> None:
     p.add_argument("--changes", default="")
     p.add_argument("--verification", default="")
     p.add_argument("--next-steps", dest="next_steps", default="")
+    p.add_argument("--hypothesis", default="", help="紐付ける仮説の id（例: N-002）。省略可")
     p.set_defaults(func=cmd_record)
 
     p = sub.add_parser("check")
