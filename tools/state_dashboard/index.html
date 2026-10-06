@@ -1036,7 +1036,7 @@ function renderHistoryChart(history) {
     const hf = history[idx];
     svgStr += `<line x1="${xx}" y1="${M.t+h}" x2="${xx}" y2="${M.t+h+3}" class="axis"/>`;
     const mtimeStr = hf.mtime || "";
-    const t = mtimeStr.includes("T") ? mtimeStr.split("T")[1].slice(0,5) : mtimeStr.slice(11,16); // HH:MM (handle space or T)
+    const t = mtimeStr.includes("T") ? mtimeStr.slice(5,16).replace("T"," ") : mtimeStr.slice(5,16); // MM-DD HH:MM
     svgStr += `<text x="${xx}" y="${M.t+h+14}" text-anchor="middle" class="tick">${t}</text>`;
   }
 
