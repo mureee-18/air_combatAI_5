@@ -290,7 +290,12 @@ function renderEval(d) {
     h += '<button class="btn small" data-hist-metric="win_rate">勝率(%)</button>';
     h += '<button class="btn small" data-hist-metric="avg_our_alive">avg_our_alive</button>';
     h += '<button class="btn small" data-hist-metric="avg_enemy_alive">avg_enemy_alive</button>';
-    h += '<span class="muted" style="margin-left:8px">全履歴を時系列順に表示</span>';
+    const histLabels = [...new Set(p.history.map(hf => (hf.metrics || {}).label || hf.name))];
+    h += '<span class="muted" style="margin-left:8px">系列：</span>';
+    h += '<select id="hist-series" class="btn small">';
+    h += '<option value="__all__">すべて（時系列順）</option>';
+    h += histLabels.map(l => `<option value="${attr(l)}">${esc(l)}</option>`).join("");
+    h += '</select>';
     h += '</div>';
     h += '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--bg-soft)">';
     h += '<svg id="hist-chart" width="960" height="240" viewBox="0 0 960 240" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:320px"></svg>';
@@ -991,13 +996,18 @@ function renderHistoryChart(history) {
     if (metric === "avg_enemy_alive") return (m.avg_enemy_alive === null || m.avg_enemy_alive === undefined) ? null : Number(m.avg_enemy_alive);
     return null;
   };
-  const entries = [...history].sort((a,b) => (a.mtime||"").localeCompare(b.mtime||""));
+  const sel = document.getElementById("hist-series");
+  const chosen = sel ? sel.value : "__all__";
+  const entries = [...history]
+    .sort((a,b) => (a.mtime||"").localeCompare(b.mtime||""))
+    .filter(hf => chosen === "__all__" || ((hf.metrics || {}).label || hf.name) === chosen);
   const points = entries.map((hf, i) => {
     const m = hf.metrics || {};
     const label = m.label || hf.name || "default";
     return { i, label, v: valueOf(hf), mtime: hf.mtime, name: hf.name, games: m.games, wdl: `${m.win||0}/${m.draw||0}/${m.loss||0}` };
   });
   const valid = points.filter(p => p.v !== null);
+  if (sel) sel.onchange = () => renderHistoryChart(history);
 
   const W = 960, H = 240, M = { l: 40, r: 20, t: 20, b: 40 };
   const w = W - M.l - M.r, h = H - M.t - M.b;
@@ -1054,7 +1064,11 @@ function renderHistoryChart(history) {
   });
 
   svg.innerHTML = svgStr;
-  if (legend) legend.innerHTML = `<span class="muted">古い順 → 新しい順（点にホバーでラベル表示）</span>`;
+  if (legend) {
+    const labelText = chosen === "__all__" ? "すべて（時系列順）" : chosen;
+    const note = valid.length < 2 ? " ※同一系列の履歴が1件のみ（点1つ）" : "";
+    legend.innerHTML = `<span class="muted">系列: ${esc(labelText)} / ${valid.length}件${note}</span>`;
+  }
 }
 
 function showTab(key) {
