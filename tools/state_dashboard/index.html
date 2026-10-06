@@ -283,6 +283,20 @@ function renderEval(d) {
 
   if (p.history && p.history.length) {
     h += "<h2>強化推移（時系列・古い順）</h2>";
+    h += '<div class="section" style="margin-top:8px">';
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
+    h += '<span class="muted">指標：</span>';
+    h += '<button class="btn small active" data-hist-metric="avg_score">avg_score</button>';
+    h += '<button class="btn small" data-hist-metric="win_rate">勝率(%)</button>';
+    h += '<button class="btn small" data-hist-metric="avg_our_alive">avg_our_alive</button>';
+    h += '<button class="btn small" data-hist-metric="avg_enemy_alive">avg_enemy_alive</button>';
+    h += '<span class="muted" style="margin-left:8px">系列：label別</span>';
+    h += '</div>';
+    h += '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--bg-soft)">';
+    h += '<svg id="hist-chart" width="960" height="240" viewBox="0 0 960 240" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:320px"></svg>';
+    h += '</div>';
+    h += '<div id="hist-legend" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"></div>';
+    h += '</div>';
     h += table([
       {label:"mtime", num:false}, {label:"label", num:false}, {label:"ファイル", num:false},
       {label:"対戦数", num:true}, {label:"win/draw/loss", num:false},
@@ -300,6 +314,8 @@ function renderEval(d) {
         num(m.avg_enemy_alive, 2),
       ];
     }));
+    // defer chart render
+    setTimeout(() => renderHistoryChart(p.history), 0);
   }
 
   h += "<h2>avg_score 比較</h2>";
@@ -944,9 +960,122 @@ function drawTraj() {
   ]);
 
   const box = document.getElementById("traj-events");
-  box.querySelectorAll("div[data-t]").forEach(el => {
-    el.classList.toggle("cur", Number(el.dataset.t) === traj.t);
+  if (box) {
+    box.querySelectorAll("div[data-t]").forEach(el => {
+      el.classList.toggle("cur", Number(el.dataset.t) === traj.t);
+    });
+  }
+}
+
+function renderHistoryChart(history) {
+  const svg = document.getElementById("hist-chart");
+  const legend = document.getElementById("hist-legend");
+  if (!svg || !history.length) return;
+  const metricBtns = document.querySelectorAll("[data-hist-metric]");
+  let metric = "avg_score";
+  metricBtns.forEach(b => { if (b.classList.contains("active")) metric = b.dataset.histMetric; });
+  metricBtns.forEach(b => {
+    b.onclick = () => {
+      metricBtns.forEach(x => x.classList.toggle("active", x === b));
+      renderHistoryChart(history);
+    };
   });
+
+  // get series by label
+  const seriesMap = {};
+  history.forEach((hf, idx) => {
+    const m = hf.metrics || {};
+    const lbl = m.label || hf.name || `series-${idx}`;
+    if (!seriesMap[lbl]) seriesMap[lbl] = [];
+    let v = null;
+    if (metric === "avg_score") v = (m.avg_score === null || m.avg_score === undefined) ? null : Number(m.avg_score);
+    if (metric === "win_rate") {
+      const g = Number(m.games || 0);
+      const w = Number(m.win || 0); v = g > 0 ? (w / g) * 100 : null;
+    }
+    if (metric === "avg_our_alive") v = (m.avg_our_alive === null || m.avg_our_alive === undefined) ? null : Number(m.avg_our_alive);
+    if (metric === "avg_enemy_alive") v = (m.avg_enemy_alive === null || m.avg_enemy_alive === undefined) ? null : Number(m.avg_enemy_alive);
+    seriesMap[lbl].push({ idx, v, mtime: hf.mtime, games: m.games, wdl: `${m.win||0}/${m.draw||0}/${m.loss||0}` });
+  });
+  const series = Object.entries(seriesMap).map(([name, pts]) => ({ name, pts }));
+
+  const W = 960, H = 240, M = { l: 40, r: 20, t: 20, b: 40 };
+  const w = W - M.l - M.r, h = H - M.t - M.b;
+  let allVals = [];
+  series.forEach(s => s.pts.forEach(p => { if (p.v !== null) allVals.push(p.v); }));
+  let vmin = allVals.length ? Math.min(...allVals) : 0;
+  let vmax = allVals.length ? Math.max(...allVals) : 1;
+  if (vmax === vmin) { vmax = vmin + 0.01; }
+  // padding
+  const pad = (vmax - vmin) * 0.1 || 0.05;
+  vmin -= pad; vmax += pad;
+  const x = (i) => M.l + (history.length <= 1 ? w/2 : i * (w / (history.length - 1)));
+  const y = (v) => M.t + h - ((v - vmin) / (vmax - vmin)) * h;
+
+  let svgStr = `
+<defs>
+  <style>.axis{stroke:var(--muted);stroke-width:1;opacity:.5}.tick{font-size:10px;fill:var(--muted);font-family:Consolas,monospace}.line{fill:none;stroke-width:2;vector-effect:non-scaling-stroke}.pt{stroke-width:1.5;fill:var(--bg)}</style>
+</defs>
+<line x1="${M.l}" y1="${M.t}" x2="${M.l}" y2="${M.t+h}" class="axis"/>
+<line x1="${M.l}" y1="${M.t+h}" x2="${M.l+w}" y2="${M.t+h}" class="axis"/>`;
+
+  // ticks y
+  const yticks = 4;
+  for (let i = 0; i <= yticks; i++) {
+    const tv = vmin + (vmax - vmin) * (i / yticks);
+    const yy = y(tv);
+    svgStr += `<line x1="${M.l-3}" y1="${yy}" x2="${M.l}" y2="${yy}" class="axis"/>`;
+    const fmt = (metric === "win_rate") ? Math.round(tv*10)/10 : (tv >= 10 ? Math.round(tv) : Math.round(tv*100)/100);
+    svgStr += `<text x="${M.l-6}" y="${yy+3}" text-anchor="end" class="tick">${fmt}</text>`;
+  }
+  // ticks x (max 6)
+  const xt = Math.min(history.length, 6);
+  for (let i = 0; i < xt; i++) {
+    const idx = Math.floor(i * (history.length - 1) / Math.max(1, xt-1));
+    const xx = x(idx);
+    const hf = history[idx];
+    svgStr += `<line x1="${xx}" y1="${M.t+h}" x2="${xx}" y2="${M.t+h+3}" class="axis"/>`;
+    const t = (hf.mtime||"").slice(11,16); // HH:MM
+    svgStr += `<text x="${xx}" y="${M.t+h+14}" text-anchor="middle" class="tick">${t}</text>`;
+  }
+
+  const colors = ["#58a6ff","#3fb950","#d2a8ff","#ff7b72","#ffa657","#f85149","#79c0ff"];
+  series.forEach((s, si) => {
+    const col = colors[si % colors.length];
+    let path = "";
+    s.pts.forEach((p, i) => {
+      if (p.v === null) return;
+      const cmd = (i === 0 || s.pts[i-1].v === null) ? "M" : "L";
+      path += `${cmd}${x(history.indexOf(history.find(h=>h===history.filter(hh=>hh.mtime===p.mtime)[0])?history.filter(hh=>hh.mtime===p.mtime)[0]:history[0]))},${y(p.v)} `; // simplify
+    });
+    // better: use original index
+    path = "";
+    history.forEach((hf, hi) => {
+      const pp = s.pts.find(p => p.mtime === hf.mtime);
+      if (!pp || pp.v === null) return;
+      const cmd = (path === "") ? "M" : "L";
+      path += `${cmd}${x(hi)},${y(pp.v)} `;
+    });
+    svgStr += `<path d="${path.trim()}" class="line" stroke="${col}"/>`;
+  });
+  // points
+  series.forEach((s, si) => {
+    const col = colors[si % colors.length];
+    history.forEach((hf, hi) => {
+      const pp = s.pts.find(p => p.mtime === hf.mtime);
+      if (!pp || pp.v === null) return;
+      svgStr += `<circle cx="${x(hi)}" cy="${y(pp.v)}" r="2.5" class="pt" stroke="${col}"><title>${s.name}: ${pp.v.toFixed(3)} (${pp.wdl}, ${pp.games||0}戦)</title></circle>`;
+    });
+  });
+
+  svg.innerHTML = svgStr;
+  // legend
+  if (legend) {
+    legend.innerHTML = series.map((s, si) => {
+      const col = colors[si % colors.length];
+      return `<div style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:2px;background:${col};display:inline-block"></span><span class="muted">${esc(s.name)}</span></div>`;
+    }).join("");
+  }
 }
 
 function showTab(key) {
