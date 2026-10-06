@@ -290,7 +290,7 @@ function renderEval(d) {
     h += '<button class="btn small" data-hist-metric="win_rate">勝率(%)</button>';
     h += '<button class="btn small" data-hist-metric="avg_our_alive">avg_our_alive</button>';
     h += '<button class="btn small" data-hist-metric="avg_enemy_alive">avg_enemy_alive</button>';
-    h += '<span class="muted" style="margin-left:8px">系列：label別</span>';
+    h += '<span class="muted" style="margin-left:8px">全履歴を時系列順に表示</span>';
     h += '</div>';
     h += '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--bg-soft)">';
     h += '<svg id="hist-chart" width="960" height="240" viewBox="0 0 960 240" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:320px"></svg>';
@@ -981,9 +981,8 @@ function renderHistoryChart(history) {
     };
   });
 
-  // one point per history entry, in time order; color by label
-  const labelColor = {};
-  const colors = ["#58a6ff","#3fb950","#d2a8ff","#ff7b72","#ffa657","#f85149","#79c0ff"];
+  // one point per history entry, in time order (single series)
+  const ACCENT = "#58a6ff";
   const valueOf = (hf) => {
     const m = hf.metrics || {};
     if (metric === "avg_score") return (m.avg_score === null || m.avg_score === undefined) ? null : Number(m.avg_score);
@@ -996,7 +995,6 @@ function renderHistoryChart(history) {
   const points = entries.map((hf, i) => {
     const m = hf.metrics || {};
     const label = m.label || hf.name || "default";
-    if (!(label in labelColor)) labelColor[label] = colors[Object.keys(labelColor).length % colors.length];
     return { i, label, v: valueOf(hf), mtime: hf.mtime, name: hf.name, games: m.games, wdl: `${m.win||0}/${m.draw||0}/${m.loss||0}` };
   });
   const valid = points.filter(p => p.v !== null);
@@ -1047,22 +1045,16 @@ function renderHistoryChart(history) {
     const cmd = trend === "" ? "M" : "L";
     trend += cmd + x(p.i) + "," + y(p.v) + " ";
   });
-  svgStr += `<path d="${trend.trim()}" class="line" stroke="var(--muted)" stroke-dasharray="3 3" opacity="0.6"/>`;
+  svgStr += `<path d="${trend.trim()}" class="line" stroke="${ACCENT}"/>`;
 
-  // points colored by label
+  // points (single color)
   points.forEach(p => {
     if (p.v === null) return;
-    const col = labelColor[p.label];
-    svgStr += `<circle cx="${x(p.i)}" cy="${y(p.v)}" r="3" class="pt" stroke="${col}" fill="${col}"><title>${esc(p.label)} [${esc(p.name)}] ${p.mtime}: ${p.v.toFixed(3)} (${p.wdl}, ${p.games||0}戦)</title></circle>`;
+    svgStr += `<circle cx="${x(p.i)}" cy="${y(p.v)}" r="3" class="pt" stroke="${ACCENT}" fill="${ACCENT}"><title>${esc(p.label)} [${esc(p.name)}] ${p.mtime}: ${p.v.toFixed(3)} (${p.wdl}, ${p.games||0}戦)</title></circle>`;
   });
 
   svg.innerHTML = svgStr;
-  // legend by label
-  if (legend) {
-    legend.innerHTML = Object.entries(labelColor).map(([label, col]) =>
-      `<div style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:${col};display:inline-block"></span><span class="muted">${esc(label)}</span></div>`
-    ).join("");
-  }
+  if (legend) legend.innerHTML = `<span class="muted">古い順 → 新しい順（点にホバーでラベル表示）</span>`;
 }
 
 function showTab(key) {
