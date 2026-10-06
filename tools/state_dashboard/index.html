@@ -282,7 +282,7 @@ function renderEval(d) {
   ], rows);
 
   if (p.history && p.history.length) {
-    h += "<h2>強化推移（時系列）</h2>";
+    h += "<h2>強化推移（時系列・古い順）</h2>";
     h += table([
       {label:"mtime", num:false}, {label:"label", num:false}, {label:"ファイル", num:false},
       {label:"対戦数", num:true}, {label:"win/draw/loss", num:false},
