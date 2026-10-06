@@ -1045,8 +1045,7 @@ function renderHistoryChart(history) {
     let path = "";
     s.pts.forEach((p, i) => {
       if (p.v === null) return;
-      const cmd = (i === 0 || s.pts[i-1].v === null) ? "M" : "L";
-      path += `${cmd}${x(history.indexOf(history.find(h=>h===history.filter(hh=>hh.mtime===p.mtime)[0])?history.filter(hh=>hh.mtime===p.mtime)[0]:history[0]))},${y(p.v)} `; // simplify
+      
     });
     // better: use original index
     path = "";
