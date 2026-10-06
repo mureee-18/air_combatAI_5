@@ -981,11 +981,11 @@ function renderHistoryChart(history) {
     };
   });
 
-  // get series by label
+  // get series by time (each history entry as a point in time series)
   const seriesMap = {};
   history.forEach((hf, idx) => {
     const m = hf.metrics || {};
-    const lbl = m.label || "default";
+    const lbl = m.label || hf.name || "default";
     if (!seriesMap[lbl]) seriesMap[lbl] = [];
     let v = null;
     if (metric === "avg_score") v = (m.avg_score === null || m.avg_score === undefined) ? null : Number(m.avg_score);
@@ -997,6 +997,8 @@ function renderHistoryChart(history) {
     if (metric === "avg_enemy_alive") v = (m.avg_enemy_alive === null || m.avg_enemy_alive === undefined) ? null : Number(m.avg_enemy_alive);
     seriesMap[lbl].push({ idx, v, mtime: hf.mtime, games: m.games, wdl: `${m.win||0}/${m.draw||0}/${m.loss||0}`, name: hf.name });
   });
+  // also build a single time series across all entries if we want connected line? or just keep by label but connect in order
+  // Better: build one series per file/entry? Or connect all points in time order as one series
   const series = Object.entries(seriesMap).map(([name, pts]) => ({ name, pts }));
 
   const W = 960, H = 240, M = { l: 40, r: 20, t: 20, b: 40 };
@@ -1050,12 +1052,14 @@ function renderHistoryChart(history) {
     });
     // better: use original index
     path = "";
-    history.forEach((hf, hi) => {
-      const pp = s.pts.find(p => p.mtime === hf.mtime && p.name === hf.name);
-      if (!pp || pp.v === null) return;
-      const off = (si - (series.length-1)/2) * 1.5;
+    // sort points by time order
+    const ptsSorted = [...s.pts].sort((a,b) => a.mtime.localeCompare(b.mtime));
+    ptsSorted.forEach((pp, pi) => {
+      if (pp.v === null) return;
+      const hi = history.findIndex(hf => hf.mtime === pp.mtime && hf.name === pp.name);
+      const off = 0; // no offset for time series
       const cmd = path === "" ? "M" : "L";
-      path += cmd + (x(hi) + off) + "," + y(pp.v) + " ";
+      path += cmd + (x(hi >=0 ? hi : pi) + off) + "," + y(pp.v) + " ";
     });
     svgStr += `<path d="${path.trim()}" class="line" stroke="${col}"/>`;
   });
@@ -1065,8 +1069,7 @@ function renderHistoryChart(history) {
     history.forEach((hf, hi) => {
       const pp = s.pts.find(p => p.mtime === hf.mtime && p.name === hf.name);
       if (!pp || pp.v === null) return;
-      const off = (si - (series.length-1)/2) * 3;
-      svgStr += `<circle cx="${x(hi) + off}" cy="${y(pp.v)}" r="2.5" class="pt" stroke="${col}" fill="${col}"><title>${s.name} [${hf.name}] / ${hf.mtime}: ${pp.v.toFixed(3)} (${pp.wdl}, ${pp.games||0}戦)</title></circle>`;
+      svgStr += `<circle cx="${x(hi)}" cy="${y(pp.v)}" r="2.5" class="pt" stroke="${col}" fill="${col}"><title>${s.name} [${hf.name}] / ${hf.mtime}: ${pp.v.toFixed(3)} (${pp.wdl}, ${pp.games||0}戦)</title></circle>`;
     });
   });
 
