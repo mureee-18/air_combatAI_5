@@ -259,6 +259,10 @@ def test_index_has_verify_tab_with_hypothesis_selector():
     assert "cmdRow(cmd, st.command_label)" in block
     assert "cmdRow(cmd2, st.command2_label)" in block
     assert 'bindCopy(document.getElementById("verify"))' in block
+    # 仮説が無いときはコマンドを描画しない（早期 return 後にステップを描く）
+    assert block.index("steps.forEach") > block.index("return;")
+    # 仮説が無いときはカードも出さず、案内文だけにする
+    assert block.index("cards([") > block.index("return;")
 
 
 def test_index_improvement_cycle_tab_unchanged():

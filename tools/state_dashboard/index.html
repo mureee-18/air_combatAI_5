@@ -587,37 +587,40 @@ function renderVerify(d) {
     state.verifyHyp = hyps.length ? hyps[hyps.length - 1].id : "";
   }
   const sel = state.verifyHyp;
+  if (!hyps.length) {
+    document.getElementById("verify").innerHTML =
+      '<div class="empty">検証する仮説がありません。<br>' +
+      '「改善サイクル」タブで仮説を登録すると、ここに検証コマンドが表示されます。<br>' +
+      '<code>python analysis/tools/improvement_session.py hypothesis "..." --specialist ' +
+      esc(s.target || "default") + ' --source log</code></div>';
+    return;
+  }
   let h = cards([
     { k: "対象 specialist", v: s.target || "—", cls: s.target === s.submitted ? "" : "warn" },
-    { k: "検証する仮説", v: sel || "—", cls: hyps.length ? "ok" : "warn" },
+    { k: "検証する仮説", v: sel || "—", cls: "ok" },
     { k: "現在地", v: nxt.total ? `${nxt.index}/${nxt.total}　${nxt.label || ""}` : "—" },
   ]);
-  h += '<p class="meta">仮説を選ぶと、その id を <code>--hypothesis</code> として検証コマンドに差し込みます。' +
-       'コマンドをコピーして Terminal で実行（このタブは読み取り専用）。' +
+  h += '<p class="meta">下の <b>検証する仮説</b> を選ぶと、その id を <code>--hypothesis</code> として' +
+       '検証コマンドに差し込みます。コマンドをコピーして Terminal で実行（このタブは読み取り専用）。' +
        '判定は勝率ではなく <b>avg_score / avg_our_alive / avg_enemy_alive</b>。</p>';
-  if (!hyps.length) {
-    h += '<div class="empty">仮説がありません。' +
-         '<code>python analysis/tools/improvement_session.py hypothesis "..." --specialist ' +
-         esc(s.target || "default") + ' --source log</code> で登録してください。</div>';
-  } else {
-    h += '<div class="verify-pick"><label for="verify-hyp">検証する仮説</label>' +
-         `<select id="verify-hyp">` +
-         hyps.map(x => `<option value="${attr(x.id)}"${x.id === sel ? " selected" : ""}>` +
-                       `${esc(hypOptionLabel(x))}</option>`).join("") +
-         `</select></div>`;
-    const cur = hyps.find(x => x.id === sel);
-    if (cur) {
-      const verified = cycles.some(c => c.kind === "verify" && c.hypothesis === sel);
-      const validated = cycles.some(c => c.kind === "validate" && c.hypothesis === sel);
-      h += '<div class="verify-block">' +
-           `<h3>${esc(cur.id)}<span class="badge">${esc(cur.source || "")}</span>` +
-           `<span class="badge${verified ? "" : " warn"}">1戦 ${verified ? "済" : "未"}</span>` +
-           `<span class="badge${validated ? "" : " warn"}">ペア評価 ${validated ? "済" : "未"}</span></h3>` +
-           `<div class="verify-text">${esc(cur.text || "")}</div>` +
-           `<div class="meta">${esc((cur.at || "").replace("T", " "))}</div>` +
-           "</div>";
-    }
+  h += '<div class="verify-pick"><label for="verify-hyp">検証する仮説</label>' +
+       `<select id="verify-hyp">` +
+       hyps.map(x => `<option value="${attr(x.id)}"${x.id === sel ? " selected" : ""}>` +
+                     `${esc(hypOptionLabel(x))}</option>`).join("") +
+       `</select></div>`;
+  const cur = hyps.find(x => x.id === sel);
+  if (cur) {
+    const verified = cycles.some(c => c.kind === "verify" && c.hypothesis === sel);
+    const validated = cycles.some(c => c.kind === "validate" && c.hypothesis === sel);
+    h += '<div class="verify-block">' +
+         `<h3>${esc(cur.id)}<span class="badge">${esc(cur.source || "")}</span>` +
+         `<span class="badge${verified ? "" : " warn"}">1戦 ${verified ? "済" : "未"}</span>` +
+         `<span class="badge${validated ? "" : " warn"}">ペア評価 ${validated ? "済" : "未"}</span></h3>` +
+         `<div class="verify-text">${esc(cur.text || "")}</div>` +
+         `<div class="meta">${esc((cur.at || "").replace("T", " "))}</div>` +
+         "</div>";
   }
+  h += `<h2>この仮説（${esc(sel)}）の検証コマンド</h2>`;
   steps.forEach((st, i) => {
     h += `<div class="verify-block ${esc(st.state)}">`;
     h += `<h3>${i + 1}. ${esc(st.label)}` +
