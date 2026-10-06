@@ -1052,8 +1052,9 @@ function renderHistoryChart(history) {
     history.forEach((hf, hi) => {
       const pp = s.pts.find(p => p.mtime === hf.mtime);
       if (!pp || pp.v === null) return;
-      const cmd = (path === "") ? "M" : "L";
-      path += `${cmd}${x(hi)},${y(pp.v)} `;
+      const off = (si - (series.length-1)/2) * 1.5;
+      const cmd = path === "" ? "M" : "L";
+      path += cmd + (x(hi) + off) + "," + y(pp.v) + " ";
     });
     svgStr += `<path d="${path.trim()}" class="line" stroke="${col}"/>`;
   });
@@ -1063,7 +1064,8 @@ function renderHistoryChart(history) {
     history.forEach((hf, hi) => {
       const pp = s.pts.find(p => p.mtime === hf.mtime);
       if (!pp || pp.v === null) return;
-      svgStr += `<circle cx="${x(hi)}" cy="${y(pp.v)}" r="2.5" class="pt" stroke="${col}"><title>${s.name}: ${pp.v.toFixed(3)} (${pp.wdl}, ${pp.games||0}戦)</title></circle>`;
+      const off = (si - (series.length-1)/2) * 3;
+      svgStr += `<circle cx="${x(hi) + off}" cy="${y(pp.v)}" r="2.5" class="pt" stroke="${col}" fill="${col}"><title>${s.name}@${hf.mtime.slice(11,19)}: ${pp.v.toFixed(3)} (${pp.wdl}, ${pp.games||0}戦)</title></circle>`;
     });
   });
 
