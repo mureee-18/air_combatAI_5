@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -105,6 +106,20 @@ def validate_record(kind: str, source: str) -> None:
             f"種別の型制約違反: kind={kind} は source={'/'.join(allowed)} のみ。"
             f"（{KIND_LABEL[kind]} に {SOURCE_LABEL[source]} は使えない）"
         )
+
+
+def normalize_text(text: str) -> str:
+    """入力の貼り付けミスを正規化する。
+
+    全体が「A A」と同じ文の2回繰り返しになっていれば A に畳む
+    （コマンド例からのコピーで二重に貼り付いたケースの防止）。
+    """
+
+    text = text.strip()
+    match = re.match(r"^(.+?)\s+\1[.。]?$", text, flags=re.DOTALL)
+    if match:
+        text = match.group(1).strip()
+    return text
 
 
 def next_record_id(path: Path, kind: str) -> str:
@@ -210,26 +225,32 @@ def cmd_start(args) -> None:
 
 def cmd_assumption(args) -> None:
     state = load_state(args.specialist)
-    state.setdefault("assumptions", []).append({
-        "text": args.text,
+    text = normalize_text(args.text)
+    assumptions = state.setdefault("assumptions", [])
+    if assumptions and assumptions[-1]["text"] == text:
+        print(f"前提は既に記録済み（重複スキップ）: {text}")
+        return
+    assumptions.append({
+        "text": text,
         "at": datetime.now().isoformat(timespec="seconds"),
     })
     save_state(args.specialist, state)
-    print(f"前提を記録: {args.text}")
+    print(f"前提を記録: {text}")
 
 
 def cmd_hypothesis(args) -> None:
     validate_record("inference", args.source)
     state = load_state(args.specialist)
+    text = normalize_text(args.text)
     state.setdefault("hypotheses", []).append({
         "id": next_record_id(note_path(args.specialist), "inference"),
         "kind": "inference",
         "source": args.source,
-        "text": args.text,
+        "text": text,
         "at": datetime.now().isoformat(timespec="seconds"),
     })
     save_state(args.specialist, state)
-    print(f"仮説（推論）を記録: {args.text}")
+    print(f"仮説（推論）を記録: {text}")
     print(f"  出所: {args.source}（{SOURCE_LABEL[args.source]}）")
     print("変更前に数値で予測を書くこと。書けない場合は変更しない。")
 

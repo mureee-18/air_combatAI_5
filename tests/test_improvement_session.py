@@ -104,6 +104,20 @@ def test_hypothesis_is_stored_as_inference_with_source(session):
     assert hypothesis["id"].startswith("N-")
 
 
+def test_normalize_text_collapses_repeated_sentence(session):
+    assert session.normalize_text("abc abc") == "abc"
+    assert session.normalize_text("abc abc。") == "abc"
+    assert session.normalize_text("  重複しない文  ") == "重複しない文"
+
+
+def test_assumption_dedupes_repeat_and_consecutive(session, capsys):
+    session.cmd_start(make_args())
+    session.cmd_assumption(make_args(text="MWS は 10km までしか効かない MWS は 10km までしか効かない。"))
+    session.cmd_assumption(make_args(text="MWS は 10km までしか効かない"))
+    state = session.load_state("baseline")
+    assert [a["text"] for a in state["assumptions"]] == ["MWS は 10km までしか効かない"]
+
+
 def test_check_reports_records_by_kind(session, capsys):
     session.cmd_start(make_args())
     session.cmd_record(make_args(kind="observation", source="log"))
