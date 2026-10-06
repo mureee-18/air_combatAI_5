@@ -985,7 +985,7 @@ function renderHistoryChart(history) {
   const seriesMap = {};
   history.forEach((hf, idx) => {
     const m = hf.metrics || {};
-    const lbl = m.label || hf.name || `series-${idx}`;
+    const lbl = m.label || "default";
     if (!seriesMap[lbl]) seriesMap[lbl] = [];
     let v = null;
     if (metric === "avg_score") v = (m.avg_score === null || m.avg_score === undefined) ? null : Number(m.avg_score);
@@ -995,7 +995,7 @@ function renderHistoryChart(history) {
     }
     if (metric === "avg_our_alive") v = (m.avg_our_alive === null || m.avg_our_alive === undefined) ? null : Number(m.avg_our_alive);
     if (metric === "avg_enemy_alive") v = (m.avg_enemy_alive === null || m.avg_enemy_alive === undefined) ? null : Number(m.avg_enemy_alive);
-    seriesMap[lbl].push({ idx, v, mtime: hf.mtime, games: m.games, wdl: `${m.win||0}/${m.draw||0}/${m.loss||0}` });
+    seriesMap[lbl].push({ idx, v, mtime: hf.mtime, games: m.games, wdl: `${m.win||0}/${m.draw||0}/${m.loss||0}`, name: hf.name });
   });
   const series = Object.entries(seriesMap).map(([name, pts]) => ({ name, pts }));
 
@@ -1051,7 +1051,7 @@ function renderHistoryChart(history) {
     // better: use original index
     path = "";
     history.forEach((hf, hi) => {
-      const pp = s.pts.find(p => p.mtime === hf.mtime);
+      const pp = s.pts.find(p => p.mtime === hf.mtime && p.name === hf.name);
       if (!pp || pp.v === null) return;
       const off = (si - (series.length-1)/2) * 1.5;
       const cmd = path === "" ? "M" : "L";
@@ -1063,10 +1063,10 @@ function renderHistoryChart(history) {
   series.forEach((s, si) => {
     const col = colors[si % colors.length];
     history.forEach((hf, hi) => {
-      const pp = s.pts.find(p => p.mtime === hf.mtime);
+      const pp = s.pts.find(p => p.mtime === hf.mtime && p.name === hf.name);
       if (!pp || pp.v === null) return;
       const off = (si - (series.length-1)/2) * 3;
-      svgStr += `<circle cx="${x(hi) + off}" cy="${y(pp.v)}" r="2.5" class="pt" stroke="${col}" fill="${col}"><title>${s.name} / ${hf.mtime}: ${pp.v.toFixed(3)} (${pp.wdl}, ${pp.games||0}戦)</title></circle>`;
+      svgStr += `<circle cx="${x(hi) + off}" cy="${y(pp.v)}" r="2.5" class="pt" stroke="${col}" fill="${col}"><title>${s.name} [${hf.name}] / ${hf.mtime}: ${pp.v.toFixed(3)} (${pp.wdl}, ${pp.games||0}戦)</title></circle>`;
     });
   });
 
