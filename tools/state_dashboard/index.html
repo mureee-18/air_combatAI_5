@@ -1066,7 +1066,7 @@ function renderHistoryChart(history) {
       const pp = s.pts.find(p => p.mtime === hf.mtime);
       if (!pp || pp.v === null) return;
       const off = (si - (series.length-1)/2) * 3;
-      svgStr += `<circle cx="${x(hi) + off}" cy="${y(pp.v)}" r="2.5" class="pt" stroke="${col}" fill="${col}"><title>${s.name}@${hf.mtime.slice(11,19)}: ${pp.v.toFixed(3)} (${pp.wdl}, ${pp.games||0}戦)</title></circle>`;
+      svgStr += `<circle cx="${x(hi) + off}" cy="${y(pp.v)}" r="2.5" class="pt" stroke="${col}" fill="${col}"><title>${s.name} / ${hf.mtime}: ${pp.v.toFixed(3)} (${pp.wdl}, ${pp.games||0}戦)</title></circle>`;
     });
   });
 
