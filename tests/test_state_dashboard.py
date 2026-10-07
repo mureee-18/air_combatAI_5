@@ -6,6 +6,9 @@
 
 import importlib.util
 import json
+import re
+import shutil
+import subprocess
 import threading
 import urllib.error
 import urllib.parse
@@ -253,16 +256,32 @@ def test_index_has_verify_tab_with_hypothesis_selector():
     end = html.index("const GIT_INSTRUCTIONS")
     block = html[start:end]
     assert 'id="verify-hyp"' in block
-    assert "withHypothesis(st.command" in block
-    assert "withHypothesis(st.command2" in block
+    assert "withHypothesis(val.command2" in block
     assert "--hypothesis" in html
-    assert "cmdRow(cmd, st.command_label)" in block
-    assert "cmdRow(cmd2, st.command2_label)" in block
+    # 1〜3 に分割せず、ペア評価+記録を1コマンドに集約する
+    assert "cmdRow([runPair, recPair]" in block
+    assert 'join(" ; ")' in block
+    assert "steps.forEach" not in block
+    # 検証タブにはカード（対象 specialist / 検証する仮説 / 現在地）を出さない
+    assert "cards(" not in block
+    assert "現在地" not in block
+    # 検証済みの仮説はセレクタから除外し、未検証の仮説だけ表示する
+    assert "hyps.filter(h => !verified.has(h.id))" in block
+    assert "検証済み" in block  # 全件検証済みのときのメッセージ
     assert 'bindCopy(document.getElementById("verify"))' in block
-    # 仮説が無いときはコマンドを描画しない（早期 return 後にステップを描く）
-    assert block.index("steps.forEach") > block.index("return;")
-    # 仮説が無いときはカードも出さず、案内文だけにする
-    assert block.index("cards([") > block.index("return;")
+    # 仮説が無いときはコマンドを描画しない（早期 return 後に1コマンドを描く）
+    assert block.index("cmdRow([runPair, recPair]") > block.index("return;")
+
+
+def test_index_hypothesis_tab_hides_registered_fact_cards():
+    # 「仮説登録」タブは登録済み（過去の検証）を材料にした事実カードを出さない
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    start = html.index("function renderHypothesis")
+    end = html.index("function renderSession")
+    block = html[start:end]
+    assert 'c.id !== "paired"' in block
+    assert "facts.map(renderFact)" in block
+    assert "s.evidence.map(renderFact)" not in block
 
 
 def test_index_improvement_cycle_tab_unchanged():
@@ -271,6 +290,138 @@ def test_index_improvement_cycle_tab_unchanged():
     start = html.index("function renderSteps")
     end = html.index("function renderFact")
     assert "cmdRow" not in html[start:end]
+
+
+def test_fact_cards_have_phrase_for_the_hypothesis_builder():
+    # 仮説ビルダーへ差し込む短句（phrase）が各カードに用意されていること
+    cards = serve.collect_session()["evidence"]
+    for card in cards:
+        assert card.get("phrase"), f"{card['id']} に phrase がない"
+        assert len(card["phrase"]) <= 120, f"{card['id']} の phrase が長すぎる"
+    for card in cards:
+        if card["id"] == "constraints":
+            for item in card["items"]:
+                assert item.get("phrase")
+
+
+def test_hypothesis_builder_has_inputs_and_one_copy_button():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    for key in ("fact", "cause", "change", "metric", "judge", "source"):
+        assert f'data-hy="{key}"' in html
+    assert 'id="hypho-text"' in html
+    assert 'id="hypho-copy"' in html
+    assert "bindHypothesisBuilder" in html
+    assert "renderHypothesisBuilder(s, d)" in html
+
+
+HARNESS_JS = r"""
+const fs = require("fs");
+const html = fs.readFileSync(process.argv[2], "utf-8");
+const js = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join("\n");
+const payload = JSON.parse(fs.readFileSync(process.argv[3], "utf-8"));
+function stubEl() {
+  return {
+    value: "", textContent: "", dataset: {}, listeners: {},
+    addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); },
+    fire(t) { (this.listeners[t] || []).forEach(fn => fn()); },
+  };
+}
+const els = {};
+function el(id) {
+  if (!els[id]) {
+    els[id] = Object.assign(stubEl(), {
+      innerHTML: "",
+      classList: { toggle() {}, add() {}, remove() {} },
+      appendChild() {}, prepend() {}, getContext() { return null; },
+      querySelectorAll() { return []; },
+    });
+  }
+  return els[id];
+}
+global.document = { getElementById: el, querySelectorAll: () => [], createElement: () => el("c"),
+  addEventListener() {} };
+global.window = { addEventListener() {} };
+global.location = { hash: "" };
+global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+global.setInterval = () => 0;
+global.clearInterval = () => {};
+global.fetch = () => Promise.resolve({ json: () => Promise.resolve(payload) });
+eval(js);
+
+const s = payload.session, d = payload;
+const hy = {};
+["fact","cause","change","metric","judge","source",
+ "fact-text","cause-text","metric-text","judge-text"].forEach(n => { hy[n] = stubEl(); });
+const out = stubEl(), btn = stubEl();
+const box = {
+  querySelector(sel) {
+    const m = sel.match(/data-hy="([^"]+)"/);
+    if (m) return hy[m[1]];
+    return sel === "#hypho-text" ? out : null;
+  },
+  querySelectorAll(sel) { return sel === "button[data-cmd]" ? [btn] : []; },
+};
+const root = { querySelector(sel) { return sel === ".hypho" ? box : null; } };
+
+const card = (s.evidence || []).find(c => c.id === "trajectory");
+const metric = ((d.custom_metrics || {}).rows || []).find(m => m.id === "launch_count");
+const files = (d.paired || {}).files || [];
+const def = files.filter(f => String(f.name).indexOf("default") >= 0)[0];
+if (!card || !metric || !def) { console.log("SKIP"); process.exit(0); }
+
+hy.fact.value = "trajectory";
+hy.metric.value = "launch_count";
+hy.judge.value = "paired:" + def.name;
+hy.change.value = "maxSimulShot の上限を 4 から 6 に上げる";
+bindHypothesisBuilder(root, s, d);
+hy.fact.fire("change");
+hy.metric.fire("change");
+hy.judge.fire("change");
+console.log("TEXT<<<" + out.textContent + ">>>");
+console.log("CMD<<<" + btn.dataset.cmd + ">>>");
+"""
+
+
+def card_phrase_appears(text: str) -> bool:
+    cards = serve.collect_session()["evidence"]
+    card = next((c for c in cards if c.get("id") == "trajectory"), None)
+    if not card:
+        return True
+    return card["phrase"][:20] in text
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js がない")
+def test_hypothesis_builder_generates_command_in_browser_logic(tmp_path):
+    # 選択 → 文 → hypothesis コマンドが実際に組まれること（Node で実行）
+    payload = tmp_path / "summary.json"
+    payload.write_text(
+        json.dumps(serve.collect_summary(), ensure_ascii=False), encoding="utf-8"
+    )
+    script = tmp_path / "harness.js"
+    script.write_text(HARNESS_JS, encoding="utf-8")
+    proc = subprocess.run(
+        ["node", str(script), str(INDEX_PATH), str(payload)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert proc.returncode == 0, proc.stderr
+    if "SKIP" in proc.stdout:
+        pytest.skip("軌跡・独自指標・ペア評価のデータがない")
+    text = re.search(r"TEXT<<<(.*?)>>>", proc.stdout, re.S).group(1)
+    cmd = re.search(r"CMD<<<(.*?)>>>", proc.stdout, re.S).group(1)
+    assert card_phrase_appears(text), text
+    data = json.loads(payload.read_text(encoding="utf-8"))
+    row = next(m for m in data["custom_metrics"]["rows"] if m["id"] == "launch_count")
+    digits = row.get("digits", 2)
+    for v in (row["value"], row["target"]):
+        if v is not None:
+            assert f"{float(v):.{digits}f}" in text, text
+    assert "<事実>" not in text and "undefined" not in text and "NaN" not in text
+    assert "、、" not in text
+    assert cmd.startswith('python analysis/tools/improvement_session.py hypothesis "')
+    assert f"--specialist {serve.collect_session()['target']}" in cmd
+    assert re.search(r"--source (log|analysis|code|official)$", cmd)
 
 
 def test_http_endpoints():

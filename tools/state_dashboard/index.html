@@ -126,6 +126,20 @@
   .fact-grid .more-toggle { grid-column: 1 / -1; }
   .more-toggle button { padding: 1px 8px; font-size: 11px; border: 1px dashed var(--line); background: transparent; color: var(--muted); border-radius: 6px; cursor: pointer; }
   .more-toggle button:hover { color: var(--fg); border-color: var(--accent); }
+  .hypho { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #131b23; }
+  .hy-row { display: grid; grid-template-columns: 84px minmax(150px, 260px) 1fr; gap: 8px;
+            align-items: center; margin-bottom: 6px; }
+  .hy-row label { font-size: 12px; color: var(--muted); }
+  .hy-row select, .hy-row input { font-size: 12px; padding: 4px 6px; background: #0b0f14;
+            color: var(--fg); border: 1px solid var(--line); border-radius: 4px; width: 100%; }
+  .hy-out { margin: 10px 0 6px; border-left: 3px solid var(--accent); padding: 6px 10px; background: #0b0f14; }
+  .hy-out .k { font-size: 11px; color: var(--muted); }
+  .hy-out .text { font-size: 13px; line-height: 1.7; margin-top: 2px; white-space: pre-wrap; }
+  .hy-copy-bar { position: sticky; bottom: 4px; background: #131b23;
+                 padding: 6px 4px 4px; border-top: 1px solid var(--line);
+                 margin-top: 6px; z-index: 1; }
+  button.big { background: var(--accent); color: #0b0f14; border-color: var(--accent);
+               font-weight: 600; padding: 6px 16px; width: 100%; }
 </style>
 </head>
 <body>
@@ -174,7 +188,7 @@ const TABS = [
   ["traj", "軌跡"],
 ];
 const nav = document.getElementById("nav");
-const state = { data: null, timer: null, selected: null, verifyHyp: "" };
+const state = { data: null, timer: null, selected: null, verifyHyp: "", hy: {} };
 
 function esc(s) {
   return String(s === null || s === undefined ? "" : s)
@@ -494,7 +508,156 @@ function renderFact(card) {
   return h + "</div>";
 }
 
+// 再描画の前にビルダーの入力値を保存する（自動更新で消えないように）
+function syncHypothesis() {
+  const box = document.querySelector(".hypho");
+  if (!box) return;
+  box.querySelectorAll("[data-hy]").forEach(el => {
+    state.hy[el.getAttribute("data-hy")] = el.value;
+  });
+}
+
+function restoreHypothesis() {
+  const box = document.querySelector(".hypho");
+  if (!box) return;
+  box.querySelectorAll("[data-hy]").forEach(el => {
+    const v = state.hy[el.getAttribute("data-hy")];
+    if (v !== undefined && v !== null) el.value = v;
+  });
+}
+
+// 事実・原因・変数・指標を選ぶだけで仮説の文と登録コマンドを組み立てる（読み取り専用）
+function renderHypothesisBuilder(s, d) {
+  const cm = (d.custom_metrics && d.custom_metrics.rows) || [];
+  const facts = (s.evidence || []).filter(c => c.phrase && c.id !== "paired");
+  const causes = [];
+  (s.evidence || []).forEach(c => {
+    if (c.id === "constraints" && c.items) {
+      c.items.forEach(it => causes.push({ label: it.title, phrase: it.phrase || it.text }));
+    }
+  });
+  const opt = (v, t) => `<option value="${attr(v)}">${esc(t)}</option>`;
+  let h = '<p class="meta">選ぶだけで仮説の文と登録コマンドができる（読み取り専用・登録はコピーのみ）。' +
+          '数値が無い欄は <code>&lt;…&gt;</code> のままなので Terminal で書き換える。</p>';
+  h += '<div class="hypho">';
+  h += '<div class="hy-row"><label>事実</label><select data-hy="fact">' +
+       opt("", "（事実カードから選ぶ）") +
+       facts.map(c => opt(c.id, c.title)).join("") + "</select>" +
+       '<input data-hy="fact-text" placeholder="選択すると入る。手で書き直してよい"></div>';
+  h += '<div class="hy-row"><label>原因</label><select data-hy="cause">' +
+       opt("", "（制約から選ぶ）") +
+       causes.map((c, i) => opt(String(i), c.label)).join("") + "</select>" +
+       '<input data-hy="cause-text" placeholder="選択すると入る。1変数だけ書く"></div>';
+  h += '<div class="hy-row"><label>変数</label>' +
+       '<input data-hy="change" placeholder="1変数だけ書く（例: maxSimulShot の上限を 4 → 6）"></div>';
+  h += '<div class="hy-row"><label>挙動指標</label><select data-hy="metric">' +
+       opt("", "（選ぶ）") +
+       cm.map(m => opt(m.id, `${m.label}（${m.value === null ? "値なし" : m.value} → ${m.target === null ? "目標なし" : m.target}）`)).join("") +
+       "</select>" +
+       '<input data-hy="metric-text" placeholder="何から何に変わるか（例: 8 発 → 20 発以上）"></div>';
+  h += '<div class="hy-row"><label>判定指標</label><select data-hy="judge">' +
+       opt("", "（選ぶ）") +
+       ((d.paired && d.paired.files) || []).map(f => {
+         const m = f.metrics || {};
+         return opt("paired:" + f.name,
+           `${f.name}: avg_score ${m.avg_score} / 自機生存 ${m.avg_our_alive} / 敵生存 ${m.avg_enemy_alive}`);
+       }).join("") +
+       "</select>" +
+       '<input data-hy="judge-text" placeholder="目標値（例: avg_score 0.5 超え / 敵生存 3.0 以下）"></div>';
+  h += '<div class="hy-row"><label>--source</label><select data-hy="source">' +
+       ["log", "analysis", "code", "official"].map(v => opt(v, v)).join("") +
+       "</select>" +
+       '<span class="meta">事実カードを選ぶと自動で入る</span></div>';
+  h += '<div class="hy-out"><div class="k">組み立てた仮説</div>' +
+       '<div id="hypho-text" class="text">—</div></div>';
+  h += '<div class="hy-copy-bar"><button id="hypho-copy" class="big" data-cmd="">' +
+       "この内容で仮説を登録する（コピー）</button></div>";
+  h += "</div>";
+  return h;
+}
+
+function bindHypothesisBuilder(root, s, d) {
+  if (!root || typeof root.querySelector !== "function") return;
+  const box = root.querySelector(".hypho");
+  if (!box) return;
+  const q = name => box.querySelector(`[data-hy="${name}"]`);
+  const facts = (s.evidence || []).filter(c => c.phrase && c.id !== "paired");
+  const causes = [];
+  (s.evidence || []).forEach(c => {
+    if (c.id === "constraints" && c.items) {
+      c.items.forEach(it => causes.push({ label: it.title, phrase: it.phrase || it.text }));
+    }
+  });
+  const cm = (d.custom_metrics && d.custom_metrics.rows) || [];
+  const pairedFiles = (d.paired && d.paired.files) || [];
+  const base = 'python analysis/tools/improvement_session.py hypothesis "';
+  const fmt = (v, digits) => (v === null || v === undefined ? null : num(v, digits === undefined ? 2 : digits));
+  function metricText() {
+    const row = cm.find(m => m.id === q("metric").value);
+    if (!row) return "";
+    const now = fmt(row.value, row.digits);
+    const goal = fmt(row.target, row.digits);
+    const unit = row.unit || "";
+    if (now === null) return `${row.label} が改善する`;
+    return goal === null
+      ? `${row.label} が ${now}${unit} より増える`
+      : `${row.label} が ${now}${unit} から ${goal}${unit} になる`;
+  }
+  function judgeText() {
+    const v = q("judge").value;
+    if (!v) return "";
+    const name = v.replace("paired:", "").replace(".json", "");
+    const f = pairedFiles.find(x => String(x.name).replace(".json", "") === name);
+    const m = (f && f.metrics) || {};
+    return `判定は ${name} の avg_score ${m.avg_score ?? "<…>"}（0.5 超えが必要）と敵生存 ${m.avg_enemy_alive ?? "<…>"} で見る`;
+  }
+  function rebuild() {
+    const card = facts.find(c => c.id === q("fact").value);
+    const fact = q("fact-text").value || (card ? card.phrase : "");
+    const ctext = q("cause-text").value;
+    const change = q("change").value;
+    const mtext = q("metric-text").value || metricText();
+    const jtext = q("judge-text").value || judgeText();
+    const parts = [];
+    parts.push(fact ? `${fact} の結果` : "<事実>");
+    if (ctext) parts.push(`${ctext} ため`);
+    if (change) parts.push(`${change} とすると`);
+    parts.push(mtext || "<挙動指標の予測>");
+    parts.push(jtext ? `${jtext} と予測する。` : "<判定指標の目標> と予測する。");
+    const text = parts.join("、").replace(/、、/g, "、");
+    const out = box.querySelector("#hypho-text");
+    if (out) out.textContent = text;
+    const line = base + text + '" --specialist ' + (s.target || "default") +
+      " --source " + q("source").value;
+    box.querySelectorAll("button[data-cmd]").forEach(b => { b.dataset.cmd = line; });
+  }
+  const factEl = q("fact");
+  if (factEl) factEl.addEventListener("change", () => {
+    const card = facts.find(c => c.id === factEl.value);
+    q("fact-text").value = card ? card.phrase : "";
+    if (card) q("source").value = card.source || "log";
+    rebuild();
+  });
+  const causeEl = q("cause");
+  if (causeEl) causeEl.addEventListener("change", () => {
+    const c = causes[Number(causeEl.value)];
+    q("cause-text").value = c ? c.phrase : "";
+    if (c) q("source").value = "code";
+    rebuild();
+  });
+  ["metric", "judge", "source"].forEach(name => {
+    const el = q(name);
+    if (el) el.addEventListener("change", rebuild);
+  });
+  ["fact-text", "cause-text", "change", "metric-text", "judge-text"].forEach(name => {
+    const el = q(name);
+    if (el) el.addEventListener("input", rebuild);
+  });
+  rebuild();
+}
+
 function renderHypothesis(d) {
+  syncHypothesis();
   const s = d.session;
   const sessions = s.sessions || [];
   const cur = sessions.find(x => x.specialist === s.target) || sessions[sessions.length - 1];
@@ -518,15 +681,21 @@ function renderHypothesis(d) {
   }
 
   h += "<h2>事実カード（ここから仮説を立てる材料）</h2>";
-  if (!s.evidence || !s.evidence.length) {
-    h += '<div class="empty">事実カードを組み立てるデータがありません（ペア評価・ログ・軌跡）。</div>';
+  const facts = (s.evidence || []).filter(c => c.id !== "paired");
+  if (!facts.length) {
+    h += '<div class="empty">事実カードを組み立てるデータがありません（ログ・軌跡）。</div>';
   } else {
-    h += '<div class="facts">' + s.evidence.map(renderFact).join("") + "</div>";
+    h += '<div class="facts">' + facts.map(renderFact).join("") + "</div>";
   }
 
+  h += "<h2>仮説ビルダー（選んで登録）</h2>";
+  h += renderHypothesisBuilder(s, d);
+
   document.getElementById("hyp").innerHTML = h;
+  restoreHypothesis();
   bindCopy(document.getElementById("hyp"));
   bindFactToggle(document.getElementById("hyp"));
+  bindHypothesisBuilder(document.getElementById("hyp"), s, d);
 }
 
 function renderSession(d) {
@@ -580,13 +749,11 @@ function renderVerify(d) {
   const s = d.session || {};
   const hyps = s.hypotheses || [];
   const cycles = s.cycles || [];
-  const keys = ["verify", "validate", "record"];
-  const steps = (s.steps || []).filter(x => keys.includes(x.key));
-  const nxt = s.next || {};
-  if (!state.verifyHyp || !hyps.some(h => h.id === state.verifyHyp)) {
-    state.verifyHyp = hyps.length ? hyps[hyps.length - 1].id : "";
-  }
-  const sel = state.verifyHyp;
+  const steps = s.steps || [];
+  const val = steps.find(x => x.key === "validate") || {};
+  const verified = new Set(cycles.filter(c => c.kind === "validate" && c.hypothesis)
+                                 .map(c => c.hypothesis));
+  const pend = hyps.filter(h => !verified.has(h.id));
   if (!hyps.length) {
     document.getElementById("verify").innerHTML =
       '<div class="empty">検証する仮説がありません。<br>' +
@@ -595,44 +762,33 @@ function renderVerify(d) {
       esc(s.target || "default") + ' --source log</code></div>';
     return;
   }
-  let h = cards([
-    { k: "対象 specialist", v: s.target || "—", cls: s.target === s.submitted ? "" : "warn" },
-    { k: "検証する仮説", v: sel || "—", cls: "ok" },
-    { k: "現在地", v: nxt.total ? `${nxt.index}/${nxt.total}　${nxt.label || ""}` : "—" },
-  ]);
-  h += '<p class="meta">下の <b>検証する仮説</b> を選ぶと、その id を <code>--hypothesis</code> として' +
-       '検証コマンドに差し込みます。コマンドをコピーして Terminal で実行（このタブは読み取り専用）。' +
-       '判定は勝率ではなく <b>avg_score / avg_our_alive / avg_enemy_alive</b>。</p>';
-  h += '<div class="verify-pick"><label for="verify-hyp">検証する仮説</label>' +
-       `<select id="verify-hyp">` +
-       hyps.map(x => `<option value="${attr(x.id)}"${x.id === sel ? " selected" : ""}>` +
-                     `${esc(hypOptionLabel(x))}</option>`).join("") +
-       `</select></div>`;
-  const cur = hyps.find(x => x.id === sel);
+  if (!pend.length) {
+    document.getElementById("verify").innerHTML =
+      '<div class="empty">未検証の仮説はありません（' + hyps.length + ' 件すべて検証済み）。</div>';
+    return;
+  }
+  if (!state.verifyHyp || !pend.some(h => h.id === state.verifyHyp)) {
+    state.verifyHyp = pend[pend.length - 1].id;
+  }
+  const sel = state.verifyHyp;
+  let h = '<div class="verify-pick"><label for="verify-hyp">検証する仮説</label>' +
+          `<select id="verify-hyp">` +
+          pend.map(x => `<option value="${attr(x.id)}"${x.id === sel ? " selected" : ""}>` +
+                        `${esc(hypOptionLabel(x))}</option>`).join("") +
+          `</select></div>`;
+  const cur = pend.find(x => x.id === sel);
   if (cur) {
-    const verified = cycles.some(c => c.kind === "verify" && c.hypothesis === sel);
-    const validated = cycles.some(c => c.kind === "validate" && c.hypothesis === sel);
     h += '<div class="verify-block">' +
-         `<h3>${esc(cur.id)}<span class="badge">${esc(cur.source || "")}</span>` +
-         `<span class="badge${verified ? "" : " warn"}">1戦 ${verified ? "済" : "未"}</span>` +
-         `<span class="badge${validated ? "" : " warn"}">ペア評価 ${validated ? "済" : "未"}</span></h3>` +
-         `<div class="verify-text">${esc(cur.text || "")}</div>` +
-         `<div class="meta">${esc((cur.at || "").replace("T", " "))}</div>` +
-         "</div>";
+         `<h3>${esc(cur.id)}<span class="badge">${esc(cur.source || "")}</span></h3>` +
+         `<div class="verify-text">${esc(cur.text || "")}</div></div>`;
   }
   h += `<h2>この仮説（${esc(sel)}）の検証コマンド</h2>`;
-  steps.forEach((st, i) => {
-    h += `<div class="verify-block ${esc(st.state)}">`;
-    h += `<h3>${i + 1}. ${esc(st.label)}` +
-         `<span class="badge">${esc(STEP_STATE_LABEL[st.state] || "?")}</span></h3>`;
-    if (st.detail) h += `<div class="meta">${esc(st.detail)}</div>`;
-    if (st.hint) h += `<div class="meta">${esc(st.hint)}</div>`;
-    const cmd = st.hyp_arg === "command" ? withHypothesis(st.command, sel) : st.command;
-    const cmd2 = st.hyp_arg === "command2" ? withHypothesis(st.command2, sel) : st.command2;
-    h += cmdRow(cmd, st.command_label);
-    h += cmdRow(cmd2, st.command2_label);
-    h += "</div>";
-  });
+  h += '<p class="meta">コピーして Terminal で実行（このタブは読み取り専用）。判定は ' +
+       '<b>avg_score / avg_our_alive / avg_enemy_alive</b>。</p>';
+  const runPair = val.command || "";
+  const recPair = val.hyp_arg === "command2" ? withHypothesis(val.command2, sel) : (val.command2 || "");
+  h += cmdRow([runPair, recPair].filter(Boolean).join(" ; "),
+              "ペア評価を実行して結果を記録する（1コマンド）");
   document.getElementById("verify").innerHTML = h;
   const pick = document.getElementById("verify-hyp");
   if (pick) {
