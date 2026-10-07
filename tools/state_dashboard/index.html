@@ -598,10 +598,12 @@ function bindHypothesisBuilder(root, s, d) {
     const now = fmt(row.value, row.digits);
     const goal = fmt(row.target, row.digits);
     const unit = row.unit || "";
-    if (now === null) return `${row.label} が改善する`;
-    return goal === null
-      ? `${row.label} が ${now}${unit} より増える`
-      : `${row.label} が ${now}${unit} から ${goal}${unit} になる`;
+    const higher = row.direction !== "lower";
+    if (goal === null) return higher ? `${row.label} を増やす` : `${row.label} を減らす`;
+    const head = higher
+      ? `${row.label} を ${goal}${unit} 以上に増やす`
+      : `${row.label} を ${goal}${unit} 以下に減らす`;
+    return now === null ? head : `${head}（現在 ${now}${unit}）`;
   }
   function judgeText() {
     const v = q("judge").value;
