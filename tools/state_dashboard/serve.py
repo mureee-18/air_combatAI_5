@@ -41,7 +41,7 @@ INDEX_HTML = Path(__file__).resolve().parent / "index.html"
 RULES_JSON = Path(__file__).resolve().parent / "rules.json"
 TRAJECTORY_DIR = REPO_ROOT / "tools" / "battle_analyzer"
 CACHE_EPOCH = REPO_ROOT / "analysis" / "ops" / "dashboard_cache_epoch.txt"
-ALLOWED_SPECIALISTS = {"baseline"}
+ALLOWED_SPECIALISTS = {"baseline", "default"}
 REQUIRED_ZIP_ENTRIES = ["__init__.py", "args.json", "config.json"]
 
 COMMANDS = [

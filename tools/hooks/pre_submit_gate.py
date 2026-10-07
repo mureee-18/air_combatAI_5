@@ -31,7 +31,7 @@ ARGS_PATH = REPO_ROOT / "agent" / "args.json"
 ZIP_PATH = REPO_ROOT / "submission" / "submit.zip"
 CONFIRM_ENV = "ATLA5_SUBMIT_CONFIRM"
 
-ALLOWED_SPECIALISTS = {"baseline"}
+ALLOWED_SPECIALISTS = {"baseline", "default"}
 REQUIRED_ENTRIES = ["__init__.py", "args.json", "config.json"]
 
 

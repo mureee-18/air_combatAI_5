@@ -11,9 +11,11 @@ x86 CPU・Linux 上で初期行動判断モデル（BenchMark）と対戦させ�
 
 ## Anti-Regression Rules (CRITICAL — これを破る変更はバグとみなす)
 
-1. **提出されるのは `agent/` を zip 化した1モジュールのみ。** 提出用 specialist は現在 `baseline`。
-   `default`（自作ルールベース）はローカル評価専用で、**絶対に提出してはならない**。
-   `tools/hooks/pre_submit_gate.py` が `args.json` の `specialist` を検証して弾く。
+1. **提出されるのは `agent/` を zip 化した1モジュールのみ。** 提出用 specialist は現在 `default`
+   （自作ルールベース。seeds1-5×両面の10戦ペア評価で avg_score 0.500 ＝ `baseline` と同値、
+   敗戦0（10/10 引き分け）だったため 2026-10-07 に切り替え）。
+   `tools/hooks/pre_submit_gate.py` が `args.json` の `specialist` を検証し、
+   `baseline` / `default` のいずれでもないもの（ローカル評価専用の実験）は弾く。
 2. **提出はユーザーの明示指示がある時のみ。** `signate submit` は環境変数
    `ATLA5_SUBMIT_CONFIRM=1` 付きで実行する（ゲートが無指示の提出をブロック）。
 3. **スタンドアロンな実装を増やさない。** Agent 本体は `agent/strategy/agents/`、
@@ -113,8 +115,8 @@ agent/
     ├── agents/              Agent クラス本体（S方式: 1機に1エージェント）
     │   └── escort_hunter.py makeObs / deploy / control
     └── specialists/         方針（Policy）と Agent クラスの組
-        ├── baseline.py      提出用: 配布の初期行動判断モデル BasicAACRuleBasedAgent01
-        └── default.py      ローカル評価用: 自作ルールベース Policy
+        ├── baseline.py      比較基準: 配布の初期行動判断モデル BasicAACRuleBasedAgent01
+        └── default.py      提出用: 自作ルールベース Policy（ビーム機動＋境界回避）
 ```
 
 提出に必須の4関数: `getUserAgentClass` / `getUserAgentModelConfig` /
