@@ -285,25 +285,47 @@ function renderEval(d) {
       '<div class="empty">workspace/paired/*.json がありません。<br>docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --label baseline --out /workspace/paired/baseline.json"</div>';
     return;
   }
-  const rows = p.files.map(f => {
+  const bestScore = Math.max(1, ...p.files.map(f => (f.metrics || {}).avg_score || 0));
+  const pickLabel = lbl => p.files.find(f => (f.metrics || {}).label === lbl) || null;
+  const focusNames = [];
+  [(pickLabel("default") || {}).name, p.best, (pickLabel("baseline") || {}).name]
+    .forEach(n => { if (n && !focusNames.includes(n)) focusNames.push(n); });
+  const focus = focusNames.map(n => p.files.find(f => f.name === n)).filter(Boolean);
+  const roleTags = f => {
     const m = f.metrics || {};
-    const best = f.name === p.best ? " ★" : "";
+    const t = [];
+    if (f.name === p.best) t.push("★最良");
+    if (m.label === "default") t.push("現行");
+    if (m.label === "baseline") t.push("基準");
+    return t.join(" / ");
+  };
+  const scoreCell = f => {
+    const m = f.metrics || {};
+    const w = Math.round(((m.avg_score || 0) / bestScore) * 140);
+    return `<span style="display:inline-flex;align-items:center;gap:6px">` +
+      `<span class="bar ${f.name === p.best ? "" : "alt"}" style="width:${w}px;height:12px"></span>` +
+      `<span>${num(m.avg_score, 3)}</span></span>`;
+  };
+  const evalHeaders = [
+    {label:"label / 役割", num:false}, {label:"ファイル", num:false}, {label:"対戦数", num:true},
+    {label:"win/draw/loss", num:false}, {label:"avg_score", num:false},
+    {label:"avg_our_alive", num:true}, {label:"avg_enemy_alive", num:true}, {label:"更新", num:false},
+  ];
+  const evalRow = f => {
+    const m = f.metrics || {};
+    const role = roleTags(f);
     return [
-      esc((m.label || f.name) + best), f.name,
+      esc((m.label || f.name) + (role ? ` (${role})` : "")), esc(f.name),
       m.games ?? "—", `${m.win ?? "—"}/${m.draw ?? "—"}/${m.loss ?? "—"}`,
-      num(m.avg_score, 3), num(m.avg_our_alive, 2), num(m.avg_enemy_alive, 2), esc(f.mtime),
+      scoreCell(f), num(m.avg_our_alive, 2), num(m.avg_enemy_alive, 2), esc(f.mtime),
     ];
-  });
+  };
   let h = cards([
     { k: "評価ファイル", v: p.files.length },
     { k: "最良", v: p.best || "—" },
   ]);
-  h += "<h2>比較（★ が avg_score 最良）</h2>";
-  h += table([
-    {label:"label", num:false}, {label:"ファイル", num:false}, {label:"対戦数", num:true},
-    {label:"win/draw/loss", num:false}, {label:"avg_score", num:true},
-    {label:"avg_our_alive", num:true}, {label:"avg_enemy_alive", num:true}, {label:"更新", num:false},
-  ], rows);
+  h += "<h2>注目（現行 default／★最良／基準 baseline）</h2>";
+  h += table(evalHeaders, focus.map(evalRow));
 
   if (p.history && p.history.length) {
     h += "<h2>強化推移（時系列・古い順）</h2>";
@@ -326,36 +348,16 @@ function renderEval(d) {
     h += '</div>';
     h += '<div id="hist-legend" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"></div>';
     h += '</div>';
-    h += table([
-      {label:"mtime", num:false}, {label:"label", num:false}, {label:"ファイル", num:false},
-      {label:"対戦数", num:true}, {label:"win/draw/loss", num:false},
-      {label:"avg_score", num:true}, {label:"avg_our_alive", num:true}, {label:"avg_enemy_alive", num:true},
-    ], p.history.map(hf => {
-      const m = hf.metrics || {};
-      return [
-        esc(hf.mtime),
-        esc(m.label || hf.name),
-        esc(hf.name),
-        m.games ?? "—",
-        `${m.win ?? "—"}/${m.draw ?? "—"}/${m.loss ?? "—"}`,
-        num(m.avg_score, 3),
-        num(m.avg_our_alive, 2),
-        num(m.avg_enemy_alive, 2),
-      ];
-    }));
+    // 時系列の全件表は「過去の実験」に集約（重複表示を避ける）
     // defer chart render
     setTimeout(() => renderHistoryChart(p.history), 0);
   }
 
-  h += "<h2>avg_score 比較</h2>";
-  const max = Math.max(1, ...p.files.map(f => (f.metrics || {}).avg_score || 0));
-  p.files.forEach(f => {
-    const m = f.metrics || {};
-    const w = Math.round(((m.avg_score || 0) / max) * 100);
-    h += `<div class="bar-row"><span class="label">${esc(m.label || f.name)}</span>` +
-         `<span class="bar ${f.name === p.best ? "" : "alt"}" style="width:${w}%"></span>` +
-         `<span>${num(m.avg_score, 3)}</span></div>`;
-  });
+  const rest = p.files.filter(f => !focusNames.includes(f.name));
+  h += `<details style="margin-top:10px">` +
+    `<summary style="cursor:pointer;color:var(--muted);font-size:13px">過去の実験 ${rest.length} 件（クリックで展開）</summary>`;
+  h += table(evalHeaders, rest.map(evalRow));
+  h += "</details>";
 
   h += "<h2>明細</h2>";
   h += '<div id="rows"></div>';
@@ -381,7 +383,8 @@ function renderEval(d) {
   };
   sel.addEventListener("change", renderRows);
   box.prepend(sel);
-  sel.value = state.selected && p.files.some(f => f.name === state.selected) ? state.selected : p.files[0].name;
+  const defaultName = (pickLabel("default") || p.files[0]).name;
+  sel.value = state.selected && p.files.some(f => f.name === state.selected) ? state.selected : defaultName;
   renderRows();
   sel.addEventListener("change", () => { state.selected = sel.value; });
 }
