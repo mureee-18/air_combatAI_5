@@ -31,6 +31,7 @@ class DefaultPolicy(StandalonePolicy):
         self.engageRangeKm = float(args.get("engageRangeKm", 60.0))
         self.marginKm = float(args.get("marginKm", 25.0))
         self.beamRangeKm = float(args.get("beamRangeKm", 45.0))
+        self.marginAzDeg = float(args.get("marginAzDeg", 120.0))
 
     def step(self, observation, reward, done, info, agentFullName, observation_space, action_space):
         own = np.asarray(observation["own"], dtype=np.float64)
@@ -67,7 +68,7 @@ class DefaultPolicy(StandalonePolicy):
 
         marginSide, marginFront, marginBack = own[5], own[6], own[7]
         if marginFront < self.marginKm:
-            desiredAz = 90.0 if own[1] < 0.0 else -90.0
+            desiredAz = self.marginAzDeg if own[1] < 0.0 else -self.marginAzDeg
         elif marginBack < self.marginKm:
             desiredAz = 0.0
         if marginSide < self.marginKm:
