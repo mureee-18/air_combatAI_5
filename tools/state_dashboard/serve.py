@@ -27,6 +27,7 @@ import subprocess
 import sys
 import time
 import webbrowser
+import re
 import zipfile
 from pathlib import Path
 
@@ -40,7 +41,7 @@ INDEX_HTML = Path(__file__).resolve().parent / "index.html"
 RULES_JSON = Path(__file__).resolve().parent / "rules.json"
 TRAJECTORY_DIR = REPO_ROOT / "tools" / "battle_analyzer"
 CACHE_EPOCH = REPO_ROOT / "analysis" / "ops" / "dashboard_cache_epoch.txt"
-ALLOWED_SPECIALISTS = {"baseline"}
+ALLOWED_SPECIALISTS = {"baseline", "default"}
 REQUIRED_ZIP_ENTRIES = ["__init__.py", "args.json", "config.json"]
 
 COMMANDS = [
@@ -132,8 +133,310 @@ COMMANDS = [
     },
 ]
 
+# 判定指標が「ダッシュボードのどこのデータから来るか」。仮説に書く --source もここから選ぶ。
+METRIC_SOURCES = [
+    {
+        "metric": "avg_score / avg_our_alive / avg_enemy_alive / win-draw-loss / games",
+        "label": "ペア評価（勝敗・スコアの唯一の判定基準）",
+        "tab": "評価",
+        "path": "workspace/paired/<label>.json",
+        "source": "log",
+        "source_label": "対戦ログ / 計測値",
+        "command": (
+            'docker exec atla5-cpu bash -lc "cd /workspace && '
+            "python /repo/local_test/run_eval_paired.py "
+            '--seeds 1,2,3 --colors both --label <label> --out /workspace/paired/<label>.json"'
+        ),
+        "note": "更新は 評価タブ の「seed 固定ペア評価（判定基準）」と同じコマンド。判定はこの値だけで行う。",
+    },
+    {
+        "metric": "初探知 t / 初発射 t / 探知→初発の空白 / 総発射数 / 消費弾 / 敵方位の分散",
+        "label": "軌跡（時系列・いつ撃ったか）",
+        "tab": "自機視点",
+        "path": "workspace/results*/**/log_*.json（自作エージェントのログのみ）",
+        "source": "log",
+        "source_label": "対戦ログ / 計測値",
+        "command": "python tools/battle_analyzer/trajectory.py <log>",
+        "note": "実測値（例: 初発 t=164 / 空白 147 秒）。戦っていない原因がここに出る。",
+    },
+    {
+        "metric": "敵探知 回数 / 射撃指示 / 被弾警報 / 最近接距離 / 護衛対象機の発見",
+        "label": "挙動指標（各機が何を見たか）",
+        "tab": "ログ",
+        "path": "workspace/results*/**/log_*.json",
+        "source": "log",
+        "source_label": "対戦ログ / 計測値",
+        "command": "python tools/battle_analyzer/battle_stats.py <log>",
+        "note": "射撃指示は発射を保証しない。発射数は自機視点タブの launch イベントで数える。",
+    },
+    {
+        "metric": "推定敵位置の一致誤差・復元式の検証結果",
+        "label": "復元・解析の検証値",
+        "tab": "自機視点",
+        "path": "tools/battle_analyzer/trajectory.py",
+        "source": "analysis",
+        "source_label": "解析結果・ダッシュボード",
+        "command": "python tools/battle_analyzer/trajectory.py <log> --json",
+        "note": "ログそのものの構造から導いた検証値。対戦ログ由来，但不是実測スコア。",
+    },
+    {
+        "metric": "採点式（TIMEUP=0.5 / 0.6+ は撃墜時のみ）/ 初期配置 / 探知距離の制約",
+        "label": "公式ルール",
+        "tab": "ルール",
+        "path": "workspace/src/fight.py, tools/state_dashboard/rules.json",
+        "source": "official",
+        "source_label": "公式ルール / シミュレータ実装",
+        "command": "",
+        "note": "推測で値を作らないこと。",
+    },
+    {
+        "metric": "deploy() の制約（isLaunchableAt / _countFlyingMissiles / maxSimulShot）",
+        "label": "自作コードの読み取り",
+        "tab": "—",
+        "path": "agent/strategy/agents/escort_hunter.py",
+        "source": "code",
+        "source_label": "自作コードの読み取り",
+        "command": "",
+        "note": "「発射できない」理由を切り分けるときに読む。",
+    },
+]
+
+CUSTOM_METRICS_FILE = INDEX_HTML.parent / "custom_metrics.json"
+CAUSE_BANK_FILE = INDEX_HTML.parent / "cause_bank.json"
+METRIC_FROM_HINT = {
+    "paired": "評価タブ / workspace/paired/<label>.json",
+    "trajectory": "軌跡タブ / tools/battle_analyzer/trajectory.py",
+    "logstats": "ログタブ / tools/battle_analyzer/battle_stats.py",
+}
+METRIC_FROM_TAB = {"paired": "評価", "trajectory": "自機視点", "logstats": "ログ"}
+
+
+def _scalar(value) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _min_of(value) -> float | None:
+    """{機体名: 距離} や [距離] から最小値を取る."""
+
+    if isinstance(value, dict):
+        vals = [_scalar(v) for v in value.values()]
+    elif isinstance(value, (list, tuple)):
+        vals = [_scalar(v) for v in value]
+    else:
+        return _scalar(value)
+    vals = [v for v in vals if v is not None]
+    return min(vals) if vals else None
+
+
+def _trajectory_values(traj: dict) -> dict:
+    """軌跡の内部キーを『独自指標の ID と同じ名前』へ揃える."""
+
+    if not traj:
+        return {}
+    out = {
+        "first_detect": traj.get("first_detect"),
+        "first_launch": traj.get("first_launch"),
+        "first_launch_lag": traj.get("lag"),
+        "launch_count": traj.get("launch_count"),
+        "aircraft": traj.get("aircraft"),
+        "bearing_spread": traj.get("spread_max"),
+        "ammo_used": sum(
+            max(0.0, (traj.get("ammo_start", {}).get(s) or 0) - (traj.get("ammo_end", {}).get(s) or 0))
+            for s in traj.get("slots", [])
+        ),
+    }
+    out["min_dist_km"] = _min_of(traj.get("min_dist"))
+    out["lost_range_km"] = _scalar(traj.get("lost_max"))
+    return out
+
+
+def _logstats_values(stats: dict) -> dict:
+    """挙動指標の agents 配列を『独自指標の ID』へ合計する."""
+
+    if not stats or "error" in stats or not isinstance(stats.get("agents"), list):
+        return {}
+    out: dict = {}
+    for key in ("fire_orders", "enemy_seen", "alerts"):
+        vals = [_scalar(a.get(key)) for a in stats["agents"] if isinstance(a, dict)]
+        vals = [v for v in vals if v is not None]
+        if vals:
+            out[key] = sum(vals)
+    mins = [_scalar(a.get("min_dist")) for a in stats["agents"] if isinstance(a, dict)]
+    mins = [v for v in mins if v is not None]
+    if mins:
+        out["min_dist_km"] = min(mins)
+    return out
+
+
+def _metric_snapshot(spec: dict, values: dict) -> dict:
+    """定義 1 件に「今の値」と「どこで見たか」を付ける."""
+
+    origin = spec.get("from", "paired")
+    raw = values.get(spec.get("key") or spec.get("id"))
+    value = _scalar(raw)
+    target = _scalar(spec.get("target"))
+    direction = spec.get("direction", "higher")
+    status = "unknown"
+    if value is not None and target is not None:
+        reached = value >= target if direction == "higher" else value <= target
+        status = "reached" if reached else "open"
+    entry = dict(spec)
+    entry.update(
+        {
+            "value": value,
+            "target": target,
+            "status": status,
+            "direction": direction,
+            "tab": METRIC_FROM_TAB.get(origin, "—"),
+            "where": METRIC_FROM_HINT.get(origin, origin),
+            "key": spec.get("key") or spec.get("id"),
+        }
+    )
+    return entry
+
+
+def collect_custom_metrics(paired: dict | None = None, target: str = "default") -> dict:
+    """評価タブに出す『独自指標』。定義は custom_metrics.json に集約する."""
+
+    defn = load_json(CUSTOM_METRICS_FILE) or {"version": 1, "metrics": []}
+    rows = defn.get("metrics", [])
+    paired = paired if paired is not None else collect_paired()
+    try:
+        newest_logs = collect_replays(limit=1)["entries"]
+    except Exception:  # noqa: BLE001
+        newest_logs = []
+    traj = _trajectory_facts(newest_logs[0]["log"]) if newest_logs else {}
+    stats = collect_logs().get("newest_stats") or {}
+
+    paired_values: dict = {}
+    files = [f for f in paired.get("files", []) if isinstance(f, dict)]
+    pick = next((f for f in files if Path(str(f.get("name", ""))).stem == target), None)
+    if pick is None:
+        pick = next(
+            (f for f in files if (f.get("metrics") or {}).get("label") == target), None
+        )
+    if pick is None:
+        pick = files[-1] if files else None
+    if pick:
+        paired_values = {
+            k: v for k, v in (pick.get("metrics") or {}).items() if _scalar(v) is not None
+        }
+    buckets = {
+        "paired": paired_values,
+        "trajectory": _trajectory_values(traj or {}),
+        "logstats": _logstats_values(stats),
+    }
+    return {
+        "store": str(CUSTOM_METRICS_FILE.relative_to(REPO_ROOT)).replace("\\", "/"),
+        "note": defn.get("note", ""),
+        "hints": [f"{k}: {v}" for k, v in METRIC_FROM_HINT.items()],
+        "rows": [_metric_snapshot(r, buckets.get(r.get("from", "paired"), {})) for r in rows],
+        "add_command": (
+            'python tools/state_dashboard/add_metric.py --label "<指標名>" '
+            "--from paired|trajectory|logstats --direction higher|lower "
+            '--target <目標値> --source log|analysis|code|official --note "<見る理由>"'
+        ),
+        "list_command": "python tools/state_dashboard/add_metric.py --list",
+    }
+
+
+HYPOTHESIS_POLICY_FILE = INDEX_HTML.parent / "HYPOTHESIS_POLICY.md"
+
+
+def collect_hypothesis_policy() -> dict:
+    """仮説の立案方針（HYPOTHESIS_POLICY.md）と、指標一覧・記入ひな形を返す."""
+
+    doc = HYPOTHESIS_POLICY_FILE
+    text = doc.read_text(encoding="utf-8") if doc.exists() else ""
+    sections: list[dict] = []
+    current = None
+    in_fence = False
+    fence: list[str] = []
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        if line.strip().startswith("```"):
+            in_fence = not in_fence
+            if in_fence:
+                fence = []
+            elif current is not None:
+                current["code"] = "\n".join(fence).strip()
+            continue
+        if in_fence:
+            fence.append(line)
+            continue
+        if line.startswith("## "):
+            current = {"title": line[3:].strip(), "items": [], "code": ""}
+            sections.append(current)
+        elif current is not None and line.strip().startswith("- "):
+            current["items"].append(line.strip()[2:].strip())
+
+    rules: list[dict] = []
+    example = ""
+    table: list[dict] = []
+    for sec in sections:
+        title = sec["title"]
+        if "必ず守ること" in title:
+            for item in sec["items"] or numbered_items(text, title):
+                head, sep, rest = item.partition("。")
+                if not sep:
+                    head, rest = item, ""
+                rules.append({"head": head.strip().strip("*"), "detail": rest.strip()})
+        elif title.startswith("書き方の型"):
+            for item in sec["items"]:
+                key, _, rest = item.partition(":")
+                if rest.strip():
+                    rules.append({"head": key.strip(), "detail": rest.strip()})
+        elif title.startswith("記入例"):
+            example = sec["code"]
+        elif "仮説が使う指標" in title:
+            table = _policy_metric_rows(text)
+    return {
+        "file": str(HYPOTHESIS_POLICY_FILE.relative_to(REPO_ROOT)).replace("\\", "/"),
+        "sections": sections,
+        "rules": rules,
+        "example": example,
+        "metrics": table,
+    }
+
+
+def numbered_items(text: str, title: str) -> list[str]:
+    """「## 必ず守ること」節の `1. ...` 行を取り出す."""
+
+    out = []
+    in_section = False
+    for line in text.splitlines():
+        if line.startswith("## "):
+            in_section = title in line
+            continue
+        if not in_section:
+            continue
+        body = line.strip()
+        if body[:1].isdigit() and ". " in body:
+            out.append(body.split(". ", 1)[1].strip())
+    return out
+
+
+def _policy_metric_rows(text: str) -> list[dict]:
+    rows = []
+    for line in text.splitlines():
+        parts = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(parts) != 3:
+            continue
+        name = parts[0].strip("`")
+        if not name or set(name) <= set("- "):
+            continue
+        if name in {"指標", "仮説に使える指標"}:
+            continue
+        rows.append({"name": name, "meaning": parts[1], "where": parts[2]})
+    return rows
+
+
 _cache: dict = {"at": 0.0, "payload": None}
 _trajectory_cache: dict = {}
+# collect_evidence() が計算した実測値を collect_causes() が再利用するための中置き
+_evidence_derived: dict = {}
 TTL_SECONDS = 15.0
 
 
@@ -294,6 +597,7 @@ def collect_submission() -> dict:
 def collect_paired() -> dict:
     paired_dir = WORKSPACE / "paired"
     files = []
+    history = []
     if paired_dir.exists():
         for path in sorted(paired_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
             data = load_json(path)
@@ -301,19 +605,28 @@ def collect_paired() -> dict:
                 continue
             metrics = data.get("metrics", {})
             stat = path.stat()
+            mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
             files.append(
                 {
                     "name": path.name,
-                    "mtime": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)),
+                    "mtime": mtime,
                     "metrics": metrics,
                     "rows": data.get("rows", []),
+                }
+            )
+            history.append(
+                {
+                    "name": path.name,
+                    "mtime": mtime,
+                    "metrics": metrics,
                 }
             )
     best = None
     with_metrics = [f for f in files if f["metrics"].get("avg_score") is not None]
     if with_metrics:
         best = max(with_metrics, key=lambda f: f["metrics"]["avg_score"])
-    return {"files": files, "best": best["name"] if best else None}
+    history.sort(key=lambda x: (time.mktime(time.strptime(x["mtime"], "%Y-%m-%d %H:%M:%S")), x["name"]))
+    return {"files": files, "best": best["name"] if best else None, "history": history}
 
 
 def collect_logs() -> dict:
@@ -465,7 +778,7 @@ def replay_payload(log_rel: str) -> dict:
     return module.build_trajectory(candidate)
 
 
-def collect_session() -> dict:
+def collect_session(paired: dict | None = None) -> dict:
     base = REPO_ROOT / "analysis" / "agents"
     sessions = []
     if base.exists():
@@ -485,12 +798,61 @@ def collect_session() -> dict:
             )
     submitted = (load_json(REPO_ROOT / "agent" / "args.json") or {}).get("specialist")
     target = sessions[-1]["specialist"] if sessions else submitted
+    paired = paired if paired is not None else collect_paired()
+    started = bool(_session_state(target))
+    steps = collect_steps(target, sessions)
+    current = next((s for s in steps if s["state"] == "current"), None)
+    cycle_done = False
+    if current is None and steps:
+        # 全ステップ完了 = 1サイクル終了。次のサイクルは仮説から。
+        # 「次に打つコマンド」はステップ一覧の枠で示すので、枠を 1 つ目に移す。
+        # 残りのステップは次サイクルの "todo" とする（単調順序保持のため）
+        cycle_done = True
+        current = steps[0]
+        current["state"] = "current"
+        for step in steps[1:]:
+            step["state"] = "todo"
+        last = _last_record_summary(target)
+        base = "サイクル完了。次のサイクルはここから"
+        current["detail"] = f"{base}／{last}" if last else base
+    nxt = {}
+    if current:
+        nxt = {
+            "index": steps.index(current) + 1,
+            "total": len(steps),
+            "key": current["key"],
+            "label": current["label"],
+            "hint": current["hint"],
+            "detail": current["detail"],
+            "where": current.get("where", "powershell"),
+            "command": current.get("command", ""),
+            "command_label": current.get("command_label", ""),
+            "command2": current.get("command2", ""),
+            "command2_label": current.get("command2_label", ""),
+            "files": current.get("files", []),
+            "finished": cycle_done or current["state"] == "done",
+        }
+    evidence = collect_evidence(target)
+    target_session = next((s for s in sessions if s.get("specialist") == target), {})
     return {
         "sessions": sessions,
         "target": target,
         "submitted": submitted,
-        "steps": collect_steps(target, sessions),
-        "evidence": collect_evidence(target),
+        "started": started,
+        "steps": steps,
+        "next": nxt,
+        "hypotheses": target_session.get("hypotheses", []),
+        "cycles": target_session.get("cycles", []),
+        "paired": paired,
+        "metric_sources": METRIC_SOURCES,
+        "policy": collect_hypothesis_policy(),
+        "evidence": evidence,
+        "causes": collect_causes(
+            target,
+            facts=_evidence_derived.get("facts"),
+            stats=_evidence_derived.get("stats"),
+            paired=_evidence_derived.get("paired"),
+        ),
     }
 
 
@@ -505,12 +867,71 @@ def _agent_dirty() -> list[str]:
     return [line[3:] for line in (status or "").splitlines() if line.strip()]
 
 
+def _last_record_summary(name: str) -> str:
+    md = REPO_ROOT / "analysis" / "agents" / name / "improvement.md"
+    if not md.exists():
+        return ""
+    try:
+        text = md.read_text(encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        return ""
+    blocks = re.split(r"^## (O|N)-\d+", text, flags=re.M)
+    if len(blocks) < 2:
+        return ""
+    last = blocks[-1]
+    lines = []
+    for line in last.splitlines():
+        sline = line.strip()
+        if not sline or sline.startswith("## "):
+            continue
+        if (
+            sline.startswith("- 種別:")
+            or sline.startswith("- 出所:")
+            or sline.startswith("- 指標:")
+            or sline.startswith("- at:")
+        ):
+            continue
+        if sline.startswith("- 方向性:"):
+            lines.append(f"前回: {sline[6:].strip()}")
+        elif sline.startswith("- 検証:"):
+            lines.append(f"実測: {sline[4:].strip()}")
+        elif sline.startswith("- 次の一手:"):
+            lines.append(f"次候補: {sline[7:].strip()}")
+        elif sline.startswith("- 変更:"):
+            lines.append(f"変更: {sline[4:].strip()}")
+    out = " / ".join(lines)
+    if len(out) > 160:
+        out = out[:157] + "…"
+    return out
+
+
 def collect_steps(target: str, sessions: list[dict]) -> list[dict]:
-    """改善サイクル 5 ステップの現在位置を、実データから判定する."""
+    """改善サイクルの現在位置と「次に打つコマンド」を、実データから判定する.
+
+    `where` は実行場所（powershell=リポジトリ直下の PowerShell / editor=エディタ）。
+    ダッシュボードは読み取り専用なので、コマンドは表示とコピーまでだけ。
+    """
 
     if not target:
         return []
     state = _session_state(target)
+    cmd_start = f"python analysis/tools/improvement_session.py start --specialist {target}"
+    if not state:
+        # セッション未開始なら start だけ案内する（他ステップはまだ意味を持たない）
+        return [
+            {
+                "key": "start",
+                "label": "セッションを開始する",
+                "hint": "チェックリスト（ログ仕様の再発見防止・敗因の特定・1変数）が出力される",
+                "state": "current",
+                "detail": "未開始",
+                "where": "powershell",
+                "command": cmd_start,
+                "command_label": "セッションを開始する",
+                "files": [],
+            }
+        ]
+
     hypotheses = state.get("hypotheses", [])
     cycles = state.get("cycles", [])
     records = state.get("records", [])
@@ -519,65 +940,115 @@ def collect_steps(target: str, sessions: list[dict]) -> list[dict]:
     def cycle_kind(kind: str) -> bool:
         return any(c.get("kind") == kind for c in cycles)
 
-    cmd_hypothesis = (
-        'python analysis/tools/improvement_session.py hypothesis "<事実に基づく因果と予測>" '
-        f"--specialist {target} --source log"
-    )
-    cmd_verify = f"python analysis/tools/improvement_session.py verify --specialist {target} --games 1"
-    cmd_validate = (
-        'docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py '
-        f'--seeds 1,2,3 --colors both --label {target} --out /workspace/paired/{target}.json"'
-    )
-    cmd_record = (
-        f"python analysis/tools/improvement_session.py record --specialist {target} "
-        '--kind observation --source log --direction "..." --changes "..." --verification "..." '
-        '--next-steps "..."'
-    )
+    paired_out = f"workspace/paired/{target}.json"
+    log_path = "workspace/results/0/log_0.json"
 
+    def stamp(entries: list[dict], kind: str | None = None) -> str:
+        picked = [e for e in entries if kind is None or e.get("kind") == kind]
+        return max((e.get("at") or "" for e in picked), default="")
+
+    last_validate = stamp(cycles, "validate")
+    # record は「最後の validate より後」で才算する（前サイクルの記録で完了扱いにするのを防ぐ）
+    record_done = bool(records) and (not last_validate or stamp(records) > last_validate)
+    done = {
+        "hypothesis": bool(hypotheses),
+        # verify を記録しているなら変更済み。コミットで agent/ が clean になっても戻さない
+        "change": bool(dirty) or cycle_kind("verify"),
+        "verify": cycle_kind("verify"),
+        "validate": cycle_kind("validate"),
+        "record": record_done,
+    }
     steps = [
         {
             "key": "hypothesis",
             "label": "仮説（出所つき）を登録",
             "hint": "下の「事実カード」を材料に、原因の当て推量と予測する指標の数値まで書く",
-            "state": "done" if hypotheses else "current",
             "detail": f"{len(hypotheses)} 件" if hypotheses else "0 件（ここが最後の空白）",
-            "command": cmd_hypothesis,
+            "where": "powershell",
+            "command": (
+                'python analysis/tools/improvement_session.py hypothesis '
+                '"<事実に基づく因果と予測：指標を何から何に何倍にするか>" '
+                f"--specialist {target} --source log"
+            ),
+            "command_label": "仮説を登録する（<…> を実際の文に置き換えて実行）",
+            "files": [],
         },
         {
             "key": "change",
             "label": "1変数だけ変更",
-            "hint": "同時に2つ変えると悪化時に原因が分からない。args.json / policy 1箇所だけ",
-            "state": "current" if dirty and not hypotheses else ("done" if dirty else "todo"),
+            "hint": "同時に2つ変えると悪化時に原因が分からない。1ファイル1箇所だけ",
             "detail": f"変更中: {', '.join(dirty[:3])}" if dirty else "agent/ は未変更",
+            "where": "editor",
             "command": "",
+            "command_label": "",
+            "files": [
+                f"agent/strategy/specialists/{target}.py",
+                "agent/args.json",
+            ],
         },
         {
             "key": "verify",
             "label": "1戦で挙動確認",
-            "hint": "意図した行動（接近・射撃・回避）が起きてるかログで見る",
-            "state": "done" if cycle_kind("verify") else ("current" if dirty else "todo"),
-            "detail": "verify 済み" if cycle_kind("verify") else "未実行",
-            "command": cmd_verify,
+            "hint": "1戦だけ回して、意図した行動（接近・射撃・回避）が起きたか見る",
+            "detail": "検証済み（1戦）" if cycle_kind("verify") else "未実行",
+            "where": "powershell",
+            "command": f"python analysis/tools/improvement_session.py verify --specialist {target} --games 1",
+            "command_label": "1戦を実行して検証結果を記録する",
+            "command2": f"python tools/battle_analyzer/battle_stats.py {log_path}",
+            "command2_label": "同じログの挙動指標を確認する",
+            "hyp_arg": "command",
+            "files": [],
         },
         {
             "key": "validate",
             "label": "seed 固定ペア評価",
             "hint": "勝率ではなく avg_score / avg_our_alive / avg_enemy_alive で判定",
-            "state": "done" if cycle_kind("validate") else ("current" if cycle_kind("verify") else "todo"),
-            "detail": "validate 済み" if cycle_kind("validate") else "未実行",
-            "command": cmd_validate,
+            "detail": "検証済み（ペア評価）" if cycle_kind("validate") else "未実行",
+            "where": "powershell",
+            "command": (
+                'docker exec atla5-cpu bash -lc "cd /workspace && '
+                "python /repo/local_test/run_eval_paired.py "
+                f'--seeds 1,2,3 --colors both --label {target} --out /workspace/paired/{target}.json"'
+            ),
+            "command_label": "ペア評価を実行する（同じ seed・両面）",
+            "command2": (
+                f"python analysis/tools/improvement_session.py validate "
+                f"--specialist {target} --paired {paired_out}"
+            ),
+            "command2_label": "ペア評価の結果を記録する",
+            "hyp_arg": "command2",
+            "files": [],
         },
         {
             "key": "record",
             "label": "記録（kind/source つき）",
             "hint": "実測値と予測を improvement.md に残す",
-            "state": "done" if records else ("current" if cycle_kind("validate") else "todo"),
-            "detail": f"{len(records)} 件" if records else "0 件",
-            "command": cmd_record,
+            "detail": f"{len(records)} 件" if record_done else ("0 件（このサイクル分）" if records else "0 件"),
+            "where": "powershell",
+            "command": (
+                f"python analysis/tools/improvement_session.py record --specialist {target} "
+                '--kind observation --source log --direction "<やったこと>" '
+                '--changes "<変更したファイルと変数>" --verification "<実測値>" '
+                '--next-steps "<次で試す1変数>"'
+            ),
+            "command_label": "サイクルの結果を improvement.md に記録する（<…> を実測値に置き換えて実行）",
+            "hyp_arg": "command",
+            "files": [],
         },
     ]
-    order = {"done": 0, "current": 1, "todo": 2}
-    steps.sort(key=lambda s: order[s["state"]])
+    # 最初の未完了ステップだけを "current" にする（完了位置は常に先頭から連続する）
+    state_of = {}
+    reached = True
+    for step in steps:
+        if done.get(step["key"]):
+            state_of[step["key"]] = "done"
+        elif reached:
+            state_of[step["key"]] = "current"
+            reached = False
+        else:
+            state_of[step["key"]] = "todo"
+    for step in steps:
+        step["state"] = state_of[step["key"]]
     return steps
 
 
@@ -588,7 +1059,11 @@ def _quote(text: str) -> str:
 
 
 def _known_constraints() -> list[dict]:
-    """BATTLELOG_FORMAT.md の「既知の制約」節を構造化して読む（毎回調べ直さない）。"""
+    """BATTLELOG_FORMAT.md の「既知の制約」節を構造化して読む（毎回調べ直さない）。
+
+    `**太字**` で始まる行は前半がタイトル。それ以外は最初の文をタイトルにして、
+    dropdown に空欄が出ないようにする。
+    """
 
     doc = REPO_ROOT / "tools" / "battle_analyzer" / "BATTLELOG_FORMAT.md"
     if not doc.exists():
@@ -607,7 +1082,11 @@ def _known_constraints() -> list[dict]:
             title, detail = body[2:].split("**", 1)
             out.append({"title": title.strip(), "detail": detail.strip(" ：:")})
         else:
-            out.append({"title": "", "detail": body})
+            # 太字タイトルが無い行は「最初の文」をタイトルにする（空 option を防ぐ）
+            head, sep, tail = body.partition("。")
+            title = head.strip() if head.strip() else body
+            detail = (head + sep + tail).strip() if sep else body
+            out.append({"title": title, "detail": detail})
     return out
 
 
@@ -703,12 +1182,16 @@ def collect_evidence(target: str) -> list[dict]:
 
     cards: list[dict] = []
     specialist = target or "default"
+    # collect_causes() が同じ実測値を再利用できるように残す（2 回計算しない）
+    _evidence_derived.clear()
+    _evidence_derived.update({"target": specialist})
 
     # 1) ペア評価の差分（最大の穴）
     paired = _paired_evidence()
+    _evidence_derived["paired"] = paired
     if paired:
         worst, best = paired["worst"], paired["best"]
-        wm, bm = worst["metrics"], best["metrics"]
+        wm, _ = worst["metrics"], best["metrics"]
         cards.append({
             "id": "paired",
             "kind": "observation",
@@ -720,8 +1203,14 @@ def collect_evidence(target: str) -> list[dict]:
                 "『有利な射撃機会を作れていない』ことにある。"
             ),
             "evidence": [
-                {"label": f"{worst['name']} avg_score", "value": wm.get("avg_score"), "num": True, "digits": 3},
-                {"label": f"{best['name']} avg_score", "value": bm.get("avg_score"), "num": True, "digits": 3},
+                {
+                    "label": f"{entry['name']} avg_score",
+                    "value": entry["metrics"].get("avg_score"),
+                    "num": True,
+                    "digits": 3,
+                }
+                for entry in paired["rows"]
+            ] + [
                 {"label": f"{worst['name']} 自機生存", "value": wm.get("avg_our_alive"), "num": True, "digits": 2},
                 {"label": f"{worst['name']} 敵生存", "value": wm.get("avg_enemy_alive"), "num": True, "digits": 2},
                 {"label": f"{worst['name']} 対戦数", "value": wm.get("games"), "num": True, "digits": 0},
@@ -730,7 +1219,13 @@ def collect_evidence(target: str) -> list[dict]:
                 f"{worst['name']} の全滅は、初発タイミング・編隊の収束・回避のいずれかが主因。"
                 "どれか1つを原因として1変数だけ変更して切り分ける。"
             ),
+            "phrase": (
+                f"{worst['name']} は avg_score {wm.get('avg_score')} / 自機生存 "
+                f"{wm.get('avg_our_alive')} / 敵生存 {wm.get('avg_enemy_alive')}"
+            ),
             "metric": "avg_score / avg_our_alive / avg_enemy_alive（ペア評価 6 戦）",
+            "from_tab": "評価",
+            "from_path": f"workspace/paired/{worst['file']}",
             "command": (
                 'docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py '
                 f'--seeds 1,2,3 --colors both --label {worst["name"]} --out /workspace/paired/{worst["name"]}.json"'
@@ -744,6 +1239,7 @@ def collect_evidence(target: str) -> list[dict]:
     except Exception:  # noqa: BLE001
         newest = []
     facts = _trajectory_facts(newest[0]["log"]) if newest else None
+    _evidence_derived["facts"] = facts
     if facts:
         lag_text = f"{facts['lag']} 秒" if facts["lag"] is not None else "—"
         ammo_used = sum(
@@ -782,7 +1278,13 @@ def collect_evidence(target: str) -> list[dict]:
                 "（fireRangeKm）なのか『同時発射上限で次の発射を待っている』のか"
                 "（maxSimulShot / 誘導弾の飛翔時間）なのかを、1変数だけ変えて切り分ける。"
             ),
+            "phrase": (
+                f"初探知 t={facts['first_detect']} に対し初発が t={facts['first_launch']}"
+                f"（空白 {lag_text} / 総発射数 {facts['launch_count']}）"
+            ),
             "metric": "初発 t / 総発射数 / 撃墜数（avg_enemy_alive の低下）",
+            "from_tab": "自機視点",
+            "from_path": facts["log"],
             "command": (
                 f'python tools/battle_analyzer/trajectory.py {facts["log"]}'
             ),
@@ -791,6 +1293,7 @@ def collect_evidence(target: str) -> list[dict]:
 
     # 3) 挙動指標（射撃指示 ≠ 発射 の切り分け）
     stats = collect_logs().get("newest_stats")
+    _evidence_derived["stats"] = stats
     if stats and "error" not in stats and stats.get("mode") == "自作エージェント":
         agents = stats["agents"]
         cards.append({
@@ -801,7 +1304,7 @@ def collect_evidence(target: str) -> list[dict]:
             "summary": (
                 "射撃指示の回数は『発射した』ことを保証しない（isLaunchableAt が False の場合や、"
                 "飛翔中の誘導弾で同時発射上限に達している場合は発射されない）。"
-                "実際の発射は軌跡タブの launch イベント（残弾の減少）で確認する。"
+                "実際の発射は自機視点タブの launch イベント（残弾の減少）で確認する。"
             ),
             "evidence": [
                 {
@@ -819,6 +1322,12 @@ def collect_evidence(target: str) -> list[dict]:
                 "deploy() の isLaunchableAt / _countFlyingMissiles 側にある。先にそこを疑う。"
             ),
             "metric": "fire_orders と launch イベント数の差",
+            "phrase": (
+                f"射撃指示 {sum(_scalar(a.get('fire_orders')) or 0 for a in agents)} 回に対して"
+                f" 発射は {facts['launch_count'] if facts else '—'} 回"
+            ),
+            "from_tab": "ログ",
+            "from_path": stats["log"],
             "command": f'python tools/battle_analyzer/battle_stats.py {stats["log"]}',
             "command_label": "挙動指標をターミナルで確認",
         })
@@ -839,6 +1348,7 @@ def collect_evidence(target: str) -> list[dict]:
                 {
                     "title": c["title"],
                     "text": c["detail"],
+                    "phrase": " ".join(x for x in (c["title"], c["detail"]) if x).strip(),
                     "command": (
                         'python analysis/tools/improvement_session.py assumption '
                         f'"{_quote(" ".join(x for x in (c["title"], c["detail"]) if x).strip())}" '
@@ -847,6 +1357,7 @@ def collect_evidence(target: str) -> list[dict]:
                 }
                 for c in constraints
             ],
+            "phrase": f"既知の制約 {len(constraints)} 件は変更対象にしない",
         })
 
     # 5) 採点式が作る目標値（official）
@@ -868,12 +1379,192 @@ def collect_evidence(target: str) -> list[dict]:
                 {"label": "TIMEUP", "value": "両者 0.5", "num": False},
             ],
             "hypothesis": None,
+            "phrase": "TIMEUP はスコア 0.5、0.6 以上は撃墜時だけ",
             "metric": "avg_score が 0.5 を超えてるか（超えて初めて改善）",
+            "from_tab": "ルール",
+            "from_path": "workspace/src/fight.py, tools/state_dashboard/rules.json",
             "command": "",
             "command_label": "",
         })
 
     return cards
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 原因候補（仮説ビルダーの「原因」dropdown）
+#
+# 供給源が 1 つに固定されると、制約が増えるたびに選択肢が足りなくなる。
+# そのため「その facts から機械的に出せそうな原因」「構造的な制約」
+# 「前回の検証で外した・効いた原因」を別グループで束ねて返す。
+# どれか 1 つが空でも、dropdown 自体は必ず埋まる。
+# ─────────────────────────────────────────────────────────────────────────
+CAUSE_GROUPS = (
+    ("measured", "この事実から出せそうな原因"),
+    ("constraint", "構造の制約（変えると壊れる）"),
+    ("history", "前回の検証で出た原因"),
+)
+CAUSE_GROUP_KEYS = {k for k, _ in CAUSE_GROUPS}
+RECORD_SOURCE_KEYS = {"log", "analysis", "code", "official"}
+
+
+def _cause(label: str, phrase: str, group: str, source: str, note: str = "") -> dict:
+    return {
+        "label": label,
+        "phrase": phrase,
+        "group": group,
+        "source": source,
+        "note": note,
+    }
+
+
+def _measured_causes(facts: dict | None, stats: dict | None, paired: dict | None) -> list[dict]:
+    """実測値から「ここが原因ならこう変わる」が言える原因候補 mechanically に作る。"""
+
+    out: list[dict] = []
+
+    # 空白（初探知→初発）が長い。射撃開始条件が高すぎるか、同時発射上限の可能性がある
+    if facts and facts.get("lag") is not None and facts["lag"] >= 30:
+        lag = facts["lag"]
+        out.append(_cause(
+            "射撃開始条件が高すぎて初発が遅い",
+            f"敵を初めて探知してから {lag} 秒も発射していない。射撃開始距離や"
+            "ロック解除条件が高すぎるため、射撃ループに入っていない",
+            "measured", "log",
+            "fireRangeKm など 1 変数だけ下げる",
+        ))
+        out.append(_cause(
+            "同時発射上限で次の発射を待っている",
+            f"探知から初発まで {lag} 秒空いている。誘導弾の飛翔中の数で"
+            "同時発射数の上限に達し、次の射撃を待っている可能性がある",
+            "measured", "log",
+            "maxSimulShot / nMslSimul を 1 変数だけ変える",
+        ))
+
+    # 射撃指示 >> 発射 なら Policy 側ではなく deploy() の制約
+    if stats and "error" not in stats and stats.get("mode") == "自作エージェント":
+        orders = sum(_scalar(a.get("fire_orders")) or 0 for a in stats["agents"])
+        launches = facts.get("launch_count") if facts else None
+        if orders and launches is not None and orders > launches:
+            out.append(_cause(
+                "Policy は発射を指示しているが deploy() で止めている",
+                f"射撃指示 {int(orders)} 回に対して発射は {int(launches)} 回。"
+                "方針ではなく isLaunchableAt / _countFlyingMissiles の制約で止まっている",
+                "measured", "code",
+                "isLaunchableAt 側の条件を読む",
+            ))
+
+    # 自機全滅 かつ 敵生存も高い → 「倒せていない」
+    if paired:
+        m = paired["worst"]["metrics"]
+        ours, theirs = m.get("avg_our_alive"), m.get("avg_enemy_alive")
+        if ours is not None and ours == 0 and (theirs or 0) >= 3:
+            out.append(_cause(
+                "有利な射撃機会を作れていない（交戦距離・タイミング）",
+                f"自機生存 {ours} / 敵生存 {theirs}。敵を1機も倒せないので、"
+                "距離や迎撃タイミングの作り方に問題がある",
+                "measured", "log",
+                "最短交戦距離 min_dist_km を読む",
+            ))
+        # 敵を倒せているのに自機全滅 → 回避が効いていない
+        if ours is not None and ours == 0 and (theirs or 4) < 3:
+            out.append(_cause(
+                "回避が間に合わず被弾で全滅している",
+                f"敵生存 {theirs} に対して自機生存 {ours}。敵は倒せているのに"
+                "被弾で全滅しており、被弾後の回避が効いていない",
+                "measured", "code",
+                "被弾警報の距離依存の扱いを見る",
+            ))
+
+    return out
+
+
+def _history_causes(target: str) -> list[dict]:
+    """前回までの記録（improvement.md）から原因候補を拾う。
+
+    「検証」に書いた実測と「次の一手」に書いた候補は、次のサイクルでも
+    そのまま原因候補として使えるので、毎回選び直す手間を省く。
+    """
+
+    md = REPO_ROOT / "analysis" / "agents" / (target or "default") / "improvement.md"
+    if not md.exists():
+        return []
+    try:
+        text = md.read_text(encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        return []
+    blocks = re.split(r"^## (O|N)-\d+", text, flags=re.M)
+    out: list[dict] = []
+    seen: set[str] = set()
+    for i in range(1, len(blocks) - 1, 2):
+        body = blocks[i + 1]
+        head = blocks[i].split("]")[0].strip()
+        for line in body.splitlines():
+            s = line.strip()
+            if s.startswith("- 次の一手:") or s.startswith("- 検証:"):
+                payload = s.split(":", 1)[1].strip().rstrip("。")
+                if len(payload) < 6 or payload in seen:
+                    continue
+                seen.add(payload)
+                label = "前回候補" if s.startswith("- 次の一手") else "前回実測"
+                out.append(_cause(
+                    f"{label}: {payload[:28]}{'…' if len(payload) > 28 else ''}",
+                    payload,
+                    "history", "log",
+                    f"{head} の記録",
+                ))
+    return out[:6]
+
+
+def collect_causes(target: str, facts: dict | None = None,
+                   stats: dict | None = None, paired: dict | None = None) -> dict:
+    """原因候補をグループ付きで返す（dropdown 用）。読み取り専用。
+
+    供給源は 4 つ。どれか 1 つが空でもdropdown は必ず埋まる:
+      measured   - 実測値から機械的に生成（`_measured_causes`）
+      constraint - BATTLELOG_FORMAT.md の既知の制約
+      history    - 前回の記録（improvement.md）
+      custom     - cause_bank.json（add_cause.py で追加）
+    """
+
+    measured = _measured_causes(facts, stats, paired)
+    constraint = [
+        _cause(c["title"], c["detail"], "constraint", "code")
+        for c in _known_constraints()
+        if c.get("title")
+    ]
+    history = _history_causes(target)
+
+    custom: list[dict] = []
+    bank = load_json(CAUSE_BANK_FILE)
+    for c in (bank or {}).get("causes", []) if isinstance(bank, dict) else []:
+        if not isinstance(c, dict) or not c.get("label"):
+            continue
+        group = c.get("group") if c.get("group") in CAUSE_GROUP_KEYS else "measured"
+        custom.append(_cause(
+            c["label"], c.get("phrase") or c["label"], group,
+            c.get("source") if c.get("source") in RECORD_SOURCE_KEYS else "log",
+            c.get("note", ""),
+        ))
+
+    by_group = {
+        "measured": measured + [c for c in custom if c["group"] == "measured"],
+        "constraint": constraint + [c for c in custom if c["group"] == "constraint"],
+        "history": history + [c for c in custom if c["group"] == "history"],
+    }
+    return {
+        "groups": [{"key": k, "label": v} for k, v in CAUSE_GROUPS],
+        "by_group": by_group,
+        "rows": [c for g in CAUSE_GROUPS for c in by_group[g[0]]],
+        "counts": {k: len(v) for k, v in by_group.items()},
+        "hint": (
+            "候補に無い原因でも『手で書く』欄は常に使える。"
+            "その場で定義を残すと次回から選べる（下の登録コマンド）。"
+        ),
+        "add_command": (
+            'python tools/state_dashboard/add_cause.py --label "<短い名前>" '
+            '--phrase "<仮説に入れる一文>" --group measured --source log'
+        ),
+    }
 
 
 def collect_git() -> dict:
@@ -924,14 +1615,16 @@ def collect_rules() -> dict:
 
 
 def collect_summary() -> dict:
+    session = collect_session()
     return {
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "repo_root": str(REPO_ROOT),
         "environment": collect_environment(),
         "submission": collect_submission(),
-        "paired": collect_paired(),
+        "paired": session["paired"],
+        "custom_metrics": collect_custom_metrics(session["paired"], session["target"]),
         "logs": collect_logs(),
-        "session": collect_session(),
+        "session": session,
         "git": collect_git(),
         "rules": collect_rules(),
         "commands": COMMANDS,
@@ -1039,6 +1732,30 @@ class Handler(BaseHTTPRequestHandler):
                 status = 500
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             self._send(status, body, "application/json; charset=utf-8")
+            return
+        if route == "/api/git":
+            body = json.dumps({
+                "branch": "main",
+                "head": "",
+                "remote": "",
+                "upstream": "",
+                "ahead_behind": None,
+                "dirty": {"modified": 0, "untracked": 0, "other": 0},
+                "recent": [],
+            }, ensure_ascii=False).encode("utf-8")
+            self._send(200, body, "application/json; charset=utf-8")
+            return
+        if route == "/api/commands":
+            body = json.dumps({"groups": []}, ensure_ascii=False).encode("utf-8")
+            self._send(200, body, "application/json; charset=utf-8")
+            return
+        if route == "/api/rules":
+            body = json.dumps([], ensure_ascii=False).encode("utf-8")
+            self._send(200, body, "application/json; charset=utf-8")
+            return
+        if route == "/api/policy":
+            body = json.dumps({}, ensure_ascii=False).encode("utf-8")
+            self._send(200, body, "application/json; charset=utf-8")
             return
         self._send(404, json.dumps({"error": "not found"}).encode(), "application/json; charset=utf-8")
 

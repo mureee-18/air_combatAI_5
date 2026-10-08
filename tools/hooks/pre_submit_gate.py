@@ -31,7 +31,7 @@ ARGS_PATH = REPO_ROOT / "agent" / "args.json"
 ZIP_PATH = REPO_ROOT / "submission" / "submit.zip"
 CONFIRM_ENV = "ATLA5_SUBMIT_CONFIRM"
 
-ALLOWED_SPECIALISTS = {"baseline"}
+ALLOWED_SPECIALISTS = {"baseline", "default"}
 REQUIRED_ENTRIES = ["__init__.py", "args.json", "config.json"]
 
 
@@ -87,7 +87,10 @@ def main() -> int:
         print(f"提出物に必須ファイルがありません: {missing}")
         return 1
 
-    detail = _run(["ruff", "check", "agent/"])
+    # CI では uvx ruff、ローカルでは ruff どちらも通るよう試行
+    detail = _run(["uvx", "ruff", "check", "agent/"])
+    if detail is not None and "コマンドが見つかりません" in detail:
+        detail = _run(["ruff", "check", "agent/"])
     if detail is not None:
         print("提出前チェック（fatal lint）に失敗しました:\n" + detail)
         return 1

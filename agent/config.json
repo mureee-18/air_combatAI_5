@@ -41,7 +41,7 @@
     "maxEnemyNum": 5,
     "altMin": 2000.0,
     "altMax": 15000.0,
-    "maxSimulShot": 2,
+    "maxSimulShot": 4,
     "altitudeKeeper": {
       "pGain": -0.3,
       "dGain": -0.1,

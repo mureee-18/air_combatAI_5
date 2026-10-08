@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "note": "評価タブの『独自指標』の定義。python tools/state_dashboard/add_metric.py で追加・更新できる。",
+  "metrics": [
+    {
+      "id": "first_launch_lag",
+      "label": "初発までの空白",
+      "unit": "秒",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "lower",
+      "target": 60,
+      "digits": 0,
+      "note": "敵を最初に探知してから最初の発射までの時間。長いほど攻撃機会を逃している。"
+    },
+    {
+      "id": "launch_count",
+      "label": "総発射数",
+      "unit": "発",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "higher",
+      "target": 12,
+      "digits": 0,
+      "note": "1戦あたりの誘導弾消費量。0 ならまったく発射できていない。"
+    },
+    {
+      "id": "min_dist_km",
+      "label": "最短交戦距離",
+      "unit": "km",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "lower",
+      "target": 25,
+      "digits": 1,
+      "note": "敵を最も近接したときの距離。近ければ近いほど射撃が楽になる。"
+    },
+    {
+      "id": "fire_orders",
+      "label": "射撃指示回数",
+      "unit": "回",
+      "from": "logstats",
+      "source": "log",
+      "direction": "higher",
+      "target": null,
+      "digits": 0,
+      "note": "全機の合計。目標値は置かず参考値として読む。発射数との差が発射できなかった回数の証拠になる。"
+    },
+    {
+      "id": "avg_enemy_alive",
+      "label": "敵平均生存数",
+      "unit": "機",
+      "from": "paired",
+      "source": "log",
+      "direction": "lower",
+      "target": 2.0,
+      "digits": 2,
+      "note": "ペア評価の判定指標。減っていれば敵を倒せている。"
+    }
+  ]
+}

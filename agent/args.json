@@ -1,6 +1,6 @@
 {
     "type": "Fixed",
-    "specialist": "baseline",
+    "specialist": "default",
     "fireRangeKm": 50.0,
     "marginKm": 25.0
 }

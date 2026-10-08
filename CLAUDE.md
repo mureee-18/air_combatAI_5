@@ -11,9 +11,11 @@ x86 CPU・Linux 上で初期行動判断モデル（BenchMark）と対戦させ�
 
 ## Anti-Regression Rules (CRITICAL — これを破る変更はバグとみなす)
 
-1. **提出されるのは `agent/` を zip 化した1モジュールのみ。** 提出用 specialist は現在 `baseline`。
-   `default`（自作ルールベース）はローカル評価専用で、**絶対に提出してはならない**。
-   `tools/hooks/pre_submit_gate.py` が `args.json` の `specialist` を検証して弾く。
+1. **提出されるのは `agent/` を zip 化した1モジュールのみ。** 提出用 specialist は現在 `default`
+   （自作ルールベース。seeds1-5×両面の10戦ペア評価で avg_score 0.500 ＝ `baseline` と同値、
+   敗戦0（10/10 引き分け）だったため 2026-10-07 に切り替え）。
+   `tools/hooks/pre_submit_gate.py` が `args.json` の `specialist` を検証し、
+   `baseline` / `default` のいずれでもないもの（ローカル評価専用の実験）は弾く。
 2. **提出はユーザーの明示指示がある時のみ。** `signate submit` は環境変数
    `ATLA5_SUBMIT_CONFIRM=1` 付きで実行する（ゲートが無指示の提出をブロック）。
 3. **スタンドアロンな実装を増やさない。** Agent 本体は `agent/strategy/agents/`、
@@ -67,7 +69,9 @@ python tools/battle_analyzer/battle_stats.py workspace/results/0/log_0.json
 python tools/battle_analyzer/trajectory.py workspace/results_tel/0/log_0.json
 
 # 開発状況ダッシュボード（環境・提出可否・ペア評価・ログ・軌跡・git を1画面）
-# 改善セッションタブは読み取り専用。事実カードとコピー用コマンドだけを出す（書き込みはしない）
+# 改善セッションタブは読み取り専用。事実カード・指標の出典表・仮説立案方針とコピー用コマンドだけを出す（書き込みはしない）
+# 仮説はタブ最下部の「仮説ビルダー」で事実/原因/変数/指標を選ぶと文と hypothesis コマンドができる（コピーして Terminal で実行）
+# 評価タブの独自指標は tools/state_dashboard/custom_metrics.json に定義し、add_metric.py で追加・更新する
 python tools/state_dashboard/serve.py --open
 python tools/state_dashboard/serve.py --once   # JSON を標準出力（CI/スクリプト用）
 python tools/state_dashboard/cache_bump.py     # ブラウザのキャッシュを確実に飛ばす
@@ -90,8 +94,10 @@ ruff check agent/ tools/ tests/ scripts/
 # 改善セッション（記録は「種別＋出所」の型制約つき。kind=rule は source=official のみ）
 python analysis/tools/improvement_session.py start --specialist default
 python analysis/tools/improvement_session.py hypothesis "..." --specialist default --source log
-python analysis/tools/improvement_session.py verify --specialist default
-python analysis/tools/improvement_session.py validate --specialist default --games 3
+python analysis/tools/improvement_session.py verify --specialist default --games 1
+# 判定はペア評価。validate --paired はその JSON を validate サイクルとして記録するだけ
+python analysis/tools/improvement_session.py validate --specialist default \
+    --paired workspace/paired/default.json
 python analysis/tools/improvement_session.py record --specialist default \
     --kind observation --source log \
     --direction "..." --changes "..." --verification "..." --next-steps "..."
@@ -109,8 +115,8 @@ agent/
     ├── agents/              Agent クラス本体（S方式: 1機に1エージェント）
     │   └── escort_hunter.py makeObs / deploy / control
     └── specialists/         方針（Policy）と Agent クラスの組
-        ├── baseline.py      提出用: 配布の初期行動判断モデル BasicAACRuleBasedAgent01
-        └── default.py      ローカル評価用: 自作ルールベース Policy
+        ├── baseline.py      比較基準: 配布の初期行動判断モデル BasicAACRuleBasedAgent01
+        └── default.py      提出用: 自作ルールベース Policy（ビーム機動＋境界回避）
 ```
 
 提出に必須の4関数: `getUserAgentClass` / `getUserAgentModelConfig` /
@@ -130,6 +136,8 @@ tools/
 ├── log_cleanup/            ログの世代管理（dry-run 既定）
 ├── ops/                    定期ヘルスチェック（heartbeat.log は analysis/ops/ Exclude）
 └── state_dashboard/        開発状況ダッシュボード（serve.py / index.html / cache_bump.py）
+    ├── custom_metrics.json  評価タブの独自指標定義（add_metric.py で追加・更新）
+    └── HYPOTHESIS_POLICY.md 仮説の立案方針（セッションタブに描画する）
 ```
 
 ## 改善の進め方（実測済みの前提）

@@ -6,6 +6,9 @@
 
 import importlib.util
 import json
+import re
+import shutil
+import subprocess
 import threading
 import urllib.error
 import urllib.parse
@@ -19,7 +22,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SERVE_PATH = REPO_ROOT / "tools" / "state_dashboard" / "serve.py"
 INDEX_PATH = REPO_ROOT / "tools" / "state_dashboard" / "index.html"
 
-TABS = ["環境", "提出", "評価", "ログ", "改善セッション", "git", "コマンド", "ルール", "軌跡"]
+TABS = ["環境", "提出", "評価", "ログ", "仮説登録", "改善サイクル", "git", "コマンド",
+        "コンペルール", "自機視点", "戦場俯瞰"]
 
 
 def load_serve():
@@ -47,7 +51,24 @@ def test_index_has_trajectory_replay_wiring():
     assert "api/replay?log=" in html
     for hook in ["traj-canvas", "traj-seek", "traj-play", "drawTraj", "openTraj"]:
         assert hook in html
+    for hook in ["traj-shots", "traj-aim", "missile_model", "frame.aim", "frame.shots", "戦域境界"]:
+        assert hook in html
+    for hook in ["drawAimLayer", "drawShotsLayer", "ロック", "残弾", "発射!", "shotTargetCache", "撃った相手"]:
+        assert hook in html
+    for hook in ["TRAJ_SENSOR_COLORS", "探知/再探知", "目標跟丟", "レーダ ≤80 km", "IRST ≤120 km"]:
+        assert hook in html
     assert "enemy_xy" not in html  # 座標復元は Python 側。JS で二重実装しない
+
+
+def test_index_has_battle_overview_wiring():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    assert 'id="tab-battle"' in html
+    for hook in ["battle-canvas", "battle-seek", "battle-play", "drawBattle", "openBattle",
+                 "buildBattleShell", "renderBattleLegend", "drawBattleIcon"]:
+        assert hook in html
+    for hook in ["frame.teams", "戦場俯瞰", "buildBattleShell"]:
+        assert hook in html
+    assert 'side === "own"' in html
 
 
 def test_commands_include_trajectory_restore():
@@ -87,14 +108,32 @@ def test_replay_payload_round_trip_on_real_log():
             "has_ammo",
             "bounds",
             "sensor_ranges",
+            "missile_model",
             "frames",
             "events",
             "result",
         }
         assert len(payload["frames"]) == payload["frame_count"]
         assert payload["slots"]
+        assert payload["missile_model"]["speed_kms"] > 0
         for frame in payload["frames"]:
-            assert set(frame.keys()) == {"t", "ptime", "own", "enemy", "threat", "action", "events"}
+            assert set(frame.keys()) == {
+                "t",
+                "ptime",
+                "own",
+                "enemy",
+                "threat",
+                "aim",
+                "shots",
+                "teams",
+                "action",
+                "events",
+            }
+            assert isinstance(frame["aim"], list)
+            assert isinstance(frame["shots"], list)
+            for shot in frame["shots"]:
+                assert shot["t0"] <= frame["t"]
+                assert shot["age"] <= shot["flight"]
         return
     pytest.skip("自作 Agent 形式のログがありません")
 
@@ -108,7 +147,7 @@ def test_collect_environment_shape():
 
 def test_collect_paired_shape():
     paired = serve.collect_paired()
-    assert set(paired.keys()) == {"files", "best"}
+    assert set(paired.keys()) >= {"files", "best"}
     for entry in paired["files"]:
         assert set(entry.keys()) == {"name", "mtime", "metrics", "rows"}
 
@@ -162,13 +201,17 @@ def test_collect_session_keeps_legacy_keys_and_adds_workflow():
         assert {"specialist", "started", "assumptions", "hypotheses", "cycles"} <= set(entry.keys())
     # 追加情報
     assert {"target", "submitted", "steps", "evidence"} <= set(session.keys())
+    assert {"hypotheses", "cycles"} <= set(session.keys())
     assert session["submitted"] == (serve.load_json(serve.REPO_ROOT / "agent" / "args.json") or {}).get(
         "specialist"
     )
 
 
 def test_session_steps_are_ordered_and_labelled():
-    steps = serve.collect_session()["steps"]
+    session = serve.collect_session()
+    if not session["sessions"]:
+        pytest.skip("セッション記録が無い環境ではスキップ")
+    steps = session["steps"]
     assert [s["key"] for s in steps] == ["hypothesis", "change", "verify", "validate", "record"]
     order = {"done": 0, "current": 1, "todo": 2}
     assert [order[s["state"]] for s in steps] == sorted(order[s["state"]] for s in steps)
@@ -176,6 +219,10 @@ def test_session_steps_are_ordered_and_labelled():
         assert step["label"] and step["hint"] and step["detail"]
         if step["key"] != "change":
             assert step["command"].startswith("python ") or "docker exec" in step["command"]
+    # verify / validate / record は --hypothesis を差し込む対象を指定する
+    assert steps[2]["hyp_arg"] == "command"
+    assert steps[3]["hyp_arg"] == "command2"
+    assert steps[4]["hyp_arg"] == "command"
 
 
 def test_session_evidence_cards_are_observable_and_have_sources():
@@ -234,6 +281,185 @@ def test_index_renders_session_steps_and_fact_cards():
     assert 'data-cmd="${esc(' not in html
 
 
+def test_index_has_verify_tab_with_hypothesis_selector():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    # 「検証」タブが追加されている
+    assert 'id="tab-verify"' in html
+    assert '<div id="verify"></div>' in html
+    assert '"verify", "検証"' in html
+    # renderVerify が仮説セレクタを持ち、選択 id を --hypothesis として差し込む
+    start = html.index("function renderVerify")
+    end = html.index("const GIT_INSTRUCTIONS")
+    block = html[start:end]
+    assert 'id="verify-hyp"' in block
+    assert "withHypothesis(val.command2" in block
+    assert "--hypothesis" in html
+    # 1〜3 に分割せず、ペア評価+記録を1コマンドに集約する
+    assert "cmdRow([runPair, recPair]" in block
+    assert 'join(" ; ")' in block
+    assert "steps.forEach" not in block
+    # 検証タブにはカード（対象 specialist / 検証する仮説 / 現在地）を出さない
+    assert "cards(" not in block
+    assert "現在地" not in block
+    # 検証済みの仮説はセレクタから除外し、未検証の仮説だけ表示する
+    assert "hyps.filter(h => !verified.has(h.id))" in block
+    assert "検証済み" in block  # 全件検証済みのときのメッセージ
+    assert 'bindCopy(document.getElementById("verify"))' in block
+    # 仮説が無いときはコマンドを描画しない（早期 return 後に1コマンドを描く）
+    assert block.index("cmdRow([runPair, recPair]") > block.index("return;")
+
+
+def test_index_hypothesis_tab_hides_registered_fact_cards():
+    # 「仮説登録」タブは登録済み（過去の検証）を材料にした事実カードを出さない
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    start = html.index("function renderHypothesis")
+    end = html.index("function renderSession")
+    block = html[start:end]
+    assert 'c.id !== "paired"' in block
+    assert "facts.map(renderFact)" in block
+    assert "s.evidence.map(renderFact)" not in block
+
+
+def test_index_improvement_cycle_tab_unchanged():
+    # 「改善サイクル」タブ（renderSteps）は読み取り専用のまま。コマンドは描画しない
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    start = html.index("function renderSteps")
+    end = html.index("function renderFact")
+    assert "cmdRow" not in html[start:end]
+
+
+def test_fact_cards_have_phrase_for_the_hypothesis_builder():
+    # 仮説ビルダーへ差し込む短句（phrase）が各カードに用意されていること
+    cards = serve.collect_session()["evidence"]
+    for card in cards:
+        assert card.get("phrase"), f"{card['id']} に phrase がない"
+        assert len(card["phrase"]) <= 120, f"{card['id']} の phrase が長すぎる"
+    for card in cards:
+        if card["id"] == "constraints":
+            for item in card["items"]:
+                assert item.get("phrase")
+
+
+def test_hypothesis_builder_has_inputs_and_one_copy_button():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    for key in ("fact", "cause", "change", "metric", "judge", "source"):
+        assert f'data-hy="{key}"' in html
+    assert 'id="hypho-text"' in html
+    assert 'id="hypho-copy"' in html
+    assert "bindHypothesisBuilder" in html
+    assert "renderHypothesisBuilder(s, d)" in html
+
+
+HARNESS_JS = r"""
+const fs = require("fs");
+const html = fs.readFileSync(process.argv[2], "utf-8");
+const js = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join("\n");
+const payload = JSON.parse(fs.readFileSync(process.argv[3], "utf-8"));
+function stubEl() {
+  return {
+    value: "", textContent: "", dataset: {}, listeners: {},
+    addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); },
+    fire(t) { (this.listeners[t] || []).forEach(fn => fn()); },
+  };
+}
+const els = {};
+function el(id) {
+  if (!els[id]) {
+    els[id] = Object.assign(stubEl(), {
+      innerHTML: "",
+      classList: { toggle() {}, add() {}, remove() {} },
+      appendChild() {}, prepend() {}, getContext() { return null; },
+      querySelectorAll() { return []; },
+    });
+  }
+  return els[id];
+}
+global.document = { getElementById: el, querySelectorAll: () => [], createElement: () => el("c"),
+  addEventListener() {} };
+global.window = { addEventListener() {} };
+global.location = { hash: "" };
+global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+global.setInterval = () => 0;
+global.clearInterval = () => {};
+global.fetch = () => Promise.resolve({ json: () => Promise.resolve(payload) });
+eval(js);
+
+const s = payload.session, d = payload;
+const hy = {};
+["fact","cause","change","metric","judge","source",
+ "fact-text","cause-text","metric-text","judge-text"].forEach(n => { hy[n] = stubEl(); });
+const out = stubEl(), btn = stubEl();
+const box = {
+  querySelector(sel) {
+    const m = sel.match(/data-hy="([^"]+)"/);
+    if (m) return hy[m[1]];
+    return sel === "#hypho-text" ? out : null;
+  },
+  querySelectorAll(sel) { return sel === "button[data-cmd]" ? [btn] : []; },
+};
+const root = { querySelector(sel) { return sel === ".hypho" ? box : null; } };
+
+const card = (s.evidence || []).find(c => c.id === "trajectory");
+const metric = ((d.custom_metrics || {}).rows || []).find(m => m.id === "launch_count");
+const files = (d.paired || {}).files || [];
+const def = files.filter(f => String(f.name).indexOf("default") >= 0)[0];
+if (!card || !metric || !def) { console.log("SKIP"); process.exit(0); }
+
+hy.fact.value = "trajectory";
+hy.metric.value = "launch_count";
+hy.judge.value = "paired:" + def.name;
+hy.change.value = "maxSimulShot の上限を 4 から 6 に上げる";
+bindHypothesisBuilder(root, s, d);
+hy.fact.fire("change");
+hy.metric.fire("change");
+hy.judge.fire("change");
+console.log("TEXT<<<" + out.textContent + ">>>");
+console.log("CMD<<<" + btn.dataset.cmd + ">>>");
+"""
+
+
+def card_phrase_appears(text: str) -> bool:
+    cards = serve.collect_session()["evidence"]
+    card = next((c for c in cards if c.get("id") == "trajectory"), None)
+    if not card:
+        return True
+    return card["phrase"][:20] in text
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js がない")
+def test_hypothesis_builder_generates_command_in_browser_logic(tmp_path):
+    # 選択 → 文 → hypothesis コマンドが実際に組まれること（Node で実行）
+    payload = tmp_path / "summary.json"
+    payload.write_text(
+        json.dumps(serve.collect_summary(), ensure_ascii=False), encoding="utf-8"
+    )
+    script = tmp_path / "harness.js"
+    script.write_text(HARNESS_JS, encoding="utf-8")
+    proc = subprocess.run(
+        ["node", str(script), str(INDEX_PATH), str(payload)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert proc.returncode == 0, proc.stderr
+    if "SKIP" in proc.stdout:
+        pytest.skip("軌跡・独自指標・ペア評価のデータがない")
+    text = re.search(r"TEXT<<<(.*?)>>>", proc.stdout, re.S).group(1)
+    cmd = re.search(r"CMD<<<(.*?)>>>", proc.stdout, re.S).group(1)
+    assert card_phrase_appears(text), text
+    data = json.loads(payload.read_text(encoding="utf-8"))
+    row = next(m for m in data["custom_metrics"]["rows"] if m["id"] == "launch_count")
+    digits = row.get("digits", 2)
+    for v in (row["value"], row["target"]):
+        if v is not None:
+            assert f"{float(v):.{digits}f}" in text, text
+    assert "<事実>" not in text and "undefined" not in text and "NaN" not in text
+    assert "、、" not in text
+    assert cmd.startswith('python analysis/tools/improvement_session.py hypothesis "')
+    assert f"--specialist {serve.collect_session()['target']}" in cmd
+    assert re.search(r"--source (log|analysis|code|official)$", cmd)
+
+
 def test_http_endpoints():
     server = ThreadingHTTPServer(("127.0.0.1", 0), serve.Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -266,6 +492,7 @@ def test_http_endpoints():
             "git",
             "rules",
             "commands",
+            "custom_metrics",
         }
         assert {"target", "submitted", "steps", "evidence"} <= set(payload["session"].keys())
 
