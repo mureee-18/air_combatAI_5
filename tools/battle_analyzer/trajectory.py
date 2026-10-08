@@ -1,4 +1,4 @@
-"""対戦ログから軌跡を復元する（ダッシュボードの「軌跡」タブ用）.
+"""対戦ログから軌跡を復元する（ダッシュボードの「自機視点」タブ用）.
 
 ログには自機の状態が陣営座標系で、自機の探知した敵が「方位・水平距離・高度」で
 入っている。敵の座標は次の式で復元できる（実測で検証済み: 4機が独立に探知した
@@ -430,7 +430,113 @@ def build_frames(log: dict) -> tuple[list[dict], list[str]]:
         frame["events"] = events
         frames.append(frame)
 
+    fuse_teams_into_frames(frames)
     return frames, slots_seen
+
+
+# 俯瞰表示（戦場全体）用の敵融合。敵の個体IDはログに無いため、全機の探知点を
+# 近傍クラスタで束ね、フレーム間を近傍マッチで繋いで「敵軍 n 機」の軌跡を作る。
+FUSE_CLUSTER_KM = 3.0
+FUSE_MAX_CRAFT = 5
+FUSE_RETURN_KM = 25.0  # 見失った敵が同じ辺りに再出現したら同一IDに戻す範囲
+
+
+def _cluster_enemies(points, threshold=FUSE_CLUSTER_KM):
+    """多機が探知した同一敵の点を近傍クラスタに束ねる（重心・出現数付き）."""
+    centers = []
+    for px, py in points:
+        best = None
+        best_d = threshold
+        for index, center in enumerate(centers):
+            d = math.hypot(px - center[0], py - center[1])
+            if d < best_d:
+                best, best_d = index, d
+        if best is None:
+            centers.append([px, py, 1])
+        else:
+            center = centers[best]
+            center[0] += (px - center[0]) / (center[2] + 1)
+            center[1] += (py - center[1]) / (center[2] + 1)
+            center[2] += 1
+    return centers
+
+
+def fuse_teams_into_frames(frames: list[dict]) -> list[dict]:
+    """`frame["teams"]` を追加する。両陣営の俯瞰マップ「戦場俯瞰」タブの入力。
+
+    - own … スロット 1..4。座標と方位は実測（ログの観測値）。
+    - enemy … 全機の探知点をクラスタで融合し最大 FUSE_MAX_CRAFT 機。フレーム間は
+      DETECT_MATCH_KM の近傍マッチで同一 ID（E1..）を振って軌跡を繋ぐ。
+      8 フレーム連続で見えなくなった敵は追跡打ち切り（ID は保持し、FUSE_RETURN_KM 以内の
+      再出現なら同じ敵とみなして復活＝ID 乱立を防ぐ）。
+      敵の番号・方位（前フレームとの差から推定）・`seen_by`（同時に何機が見ていたか）は
+      **推定値**。敵の個体IDはログに無いため。
+    """
+    enemy_tracks: list[dict] = []
+    next_id = 1
+    for frame in frames:
+        points = [
+            (float(e["x"]), float(e["y"]))
+            for e in frame.get("enemy", [])
+            if e.get("x") is not None
+        ]
+        teams = []
+        for slot in sorted(frame.get("own", {})):
+            p = frame["own"][slot]
+            if p.get("x") is None:
+                continue
+            teams.append(
+                {"side": "own", "id": slot, "x": p["x"], "y": p["y"], "heading": p.get("heading")}
+            )
+        centers = _cluster_enemies(points)[:FUSE_MAX_CRAFT]
+        matched: set[int] = set()
+        for cx, cy, count in centers:
+            best = None
+            best_d = DETECT_MATCH_KM
+            for index, track in enumerate(enemy_tracks):
+                if index in matched or not track["alive"]:
+                    continue
+                d = math.hypot(cx - track["x"], cy - track["y"])
+                if d < best_d:
+                    best, best_d = index, d
+            if best is None:
+                best_d = FUSE_RETURN_KM
+                for index, track in enumerate(enemy_tracks):
+                    if index in matched or track["alive"]:
+                        continue
+                    d = math.hypot(cx - track["x"], cy - track["y"])
+                    if d < best_d:
+                        best, best_d = index, d
+            if best is None:
+                track = {"id": f"E{next_id}", "x": cx, "y": cy, "miss": 0, "alive": True}
+                next_id += 1
+                enemy_tracks.append(track)
+                best = len(enemy_tracks) - 1
+            track = enemy_tracks[best]
+            matched.add(best)
+            prev_x, prev_y = track["x"], track["y"]
+            track.update({"x": cx, "y": cy, "miss": 0})
+            heading = None
+            if cx != prev_x or cy != prev_y:
+                heading = round(math.degrees(math.atan2(cy - prev_y, cx - prev_x)), 1)
+            teams.append(
+                {
+                    "side": "enemy",
+                    "id": track["id"],
+                    "x": round_or_none(cx),
+                    "y": round_or_none(cy),
+                    "heading": heading,
+                    "seen_by": count,
+                }
+            )
+        for index, track in enumerate(enemy_tracks):
+            if index in matched:
+                continue
+            track["miss"] += 1
+            if track["alive"] and track["miss"] > DETECT_MISS_FRAMES:
+                track["alive"] = False
+        frame["teams"] = teams
+    return enemy_tracks
 
 
 def build_trajectory(log_path: Path) -> dict:
@@ -461,6 +567,13 @@ def build_trajectory(log_path: Path) -> dict:
     }
 
 
+def _max_enemy_concurrent(frames: list[dict]) -> int:
+    return max(
+        (sum(1 for team in frame.get("teams", []) if team["side"] == "enemy") for frame in frames),
+        default=0,
+    )
+
+
 def summarize(trajectory: dict) -> str:
     result = trajectory.get("result") or {}
     scores = result.get("scores") or {}
@@ -475,6 +588,8 @@ def summarize(trajectory: dict) -> str:
         f"飛翔中の弾（推定）: {sum(len(f.get('shots') or []) for f in trajectory['frames'])} フレーム",
         f"探知: {sum(1 for e in trajectory['events'] if e['kind'] == 'detect')} 件 / "
         f"跟丟: {sum(1 for e in trajectory['events'] if e['kind'] == 'lose')} 件",
+        f"両軍（俯瞰）: 自軍 {len(trajectory['slots'])} 機 / "
+        f"敵軍 同時最大 {_max_enemy_concurrent(trajectory['frames'])} 機（推定）",
     ]
     if result:
         lines.append(

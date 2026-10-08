@@ -20,7 +20,7 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 - `python scripts/run_eval.py --games 3 --sweep fireRangeKm=25,35,50` … `args.json` の値を書き換えて走査
 - `python tools/battle_analyzer/battle_stats.py workspace/results/0/log_0.json` … 挙動指標の集計
 - `python tools/battle_analyzer/trajectory.py workspace/results_tel/0/log_0.json` … 軌跡の復元（要約）
-  （ダッシュボードの「軌跡」タブが同じデータを使う。HTTP は `/api/replays` と `/api/replay?log=<repo相対パス>`）
+  （ダッシュボードの「自機視点」タブが同じデータを使う。HTTP は `/api/replays` と `/api/replay?log=<repo相対パス>`）
 
 ## 2. validation_results.json
 
@@ -115,7 +115,7 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 - シミュレータ側の `isLaunchableAt()` が False の場合は action で target を指定しても発射されない。
   したがって「fire_orders」の数と実際の発射数は一致しない（残弾数の推移で確認する）。
 
-## 5. 軌跡の復元（trajectory.py / ダッシュボード「軌跡」タブ）
+## 5. 軌跡の復元（trajectory.py / ダッシュボード「自機視点」タブ）
 
 - 敵の座標は 3.1 の `own` と `enemy` から次の式で復元する（**実測で検証済み**:
   4機が独立に探知した同一敵の推定位置が平均 0.07 km で一致した）。
@@ -142,7 +142,7 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
     イベントには `row` / `dist` / `sensor` が付く。感度調整は「話しすぎ」なら `DETECT_MISS_FRAMES`、
     「別目標とくっつく」なら `DETECT_MATCH_KM` を増やす。
 - `own` が旧 8 列世代のログは残弾・燃料の列が無いため `launch` イベントは出ない。
-- フレームごとの追加フィールド（ダッシュボード「軌跡」タブの表示用）:
+- フレームごとの追加フィールド（ダッシュボード「自機視点」タブの表示用）:
   - `aim` … `action.target` が非 0 の間の狙い線。`{slot, row, x, y, dist, escort}`。
     そのフレームの `enemy[row-1]` を座標復元したもの。未探知行なら入らない。
   - `shots` … 飛翔中の誘導弾（**推定**）。`{slot, t0, age, x, y, fx, fy, tx, ty, dist, flight}`。
@@ -155,6 +155,14 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
   - `missile_model` … 上の推定パラメータ（`speed_kms` / `min_sec` / `max_sec`）。
   - `bounds` … 戦域境界 ±150 km。`own[5..7]`（各方向の余裕）と `own.x/y` から
     `x=±150, y=±150` の矩形に一致することを実測確認済み（越境で PENALTY）。
+  - `teams` … 両陣営の俯瞰マップ「戦場俯瞰」タブ用の `{side, id, x, y, heading}` 一覧。
+    - `own` … ログの **実測**座標（`side: "own"`、`id` はスロット番号）。
+    - `enemy` … 全機の探知点を近傍クラスタで融合して復元した**推定**位置・方位
+      （`side: "enemy"`、`id` は `E1..`、`heading` は前フレームとの移動方向、`seen_by` は同時探知機数）。
+      最大 `FUSE_MAX_CRAFT = 5` 機。フレーム間は `DETECT_MATCH_KM` の近傍マッチで同 ID を繋ぎ、
+      8 フレーム以上見失った track は死骸にし、`FUSE_RETURN_KM = 25` km 以内の再出現なら
+      同じ敵として復活させる（実ログ: 一意 ID は 45 個に乱立していたのが 9 個に収束、同時最大 4 機）。
+      敵の個体 ID・軌跡はログに無いため「見失っている間の動きは描けない」ことに注意。
 - **`infos` の `score` / `penalty` は全フレーム 0 のまま変化しない**（実測: 1800 フレームで
   値の変化はゼロ）。スコアの時間推移はログから復元できない。
 - **武装は誘導弾のみ**（`numMsls` / `remMsls`）。レーザー・ビーム兵器はシミュレータに存在しない

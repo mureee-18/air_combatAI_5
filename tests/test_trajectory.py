@@ -355,3 +355,85 @@ def test_detect_event_reports_sensor_and_distance(tmp_path):
     assert detect[0]["dist"] == 130.0
     assert "130.0 km" in detect[0]["text"]
     assert "RCS" in detect[0]["text"]
+
+
+def test_teams_list_own_and_fused_enemy(tmp_path):
+    result = traj.build_trajectory(sample_custom_log(tmp_path / "custom"))
+    teams = result["frames"][1]["teams"]
+    own = [t for t in teams if t["side"] == "own"]
+    enemy = [t for t in teams if t["side"] == "enemy"]
+    assert [(t["id"], t["x"]) for t in own] == [("1", 1.0)]
+    assert len(enemy) == 1
+    assert enemy[0]["id"] == "E1"
+    assert enemy[0]["x"] == pytest.approx(1.0, abs=0.01)
+    assert enemy[0]["y"] == pytest.approx(10.0, abs=0.01)
+    assert enemy[0]["seen_by"] == 1
+    # 自軍スロット数と同数の own が入る
+    assert sum(1 for t in result["frames"][0]["teams"] if t["side"] == "own") == 1
+
+
+def test_teams_merge_same_enemy_seen_by_multiple_craft(tmp_path):
+    own1 = payload([1.0, 0.0, 10.0, 300.0, 0.0, 150.0, 150.0, 150.0, 6.0, 1.0],
+                   [[1.0, 90.0, 10.0, 10.0, 0.0]] + ENEMY_ROWS[1:])
+    own2 = payload([11.0, 0.0, 10.0, 300.0, 0.0, 150.0, 150.0, 150.0, 6.0, 1.0],
+                   [[1.0, 135.0, 14.142, 10.0, 0.0]] + ENEMY_ROWS[1:])
+    log = write_log(
+        tmp_path / "0" / "log_0.json",
+        [{"1": own1, "2": own2}],
+        [{"1": action(0), "2": action(0)}],
+    )
+    result = traj.build_trajectory(log)
+    enemy = [t for t in result["frames"][0]["teams"] if t["side"] == "enemy"]
+    assert len(enemy) == 1
+    assert enemy[0]["seen_by"] == 2
+    # 2機の観測が同じ絶対位置（1,10）に融合される
+    assert enemy[0]["x"] == pytest.approx(1.0, abs=0.05)
+    assert enemy[0]["y"] == pytest.approx(10.0, abs=0.01)
+
+
+def test_fuse_teams_caps_enemies_at_five_and_dedups_same_point():
+    frames = [
+        {
+            "own": {"1": {"x": 0.0, "y": 0.0, "heading": 0.0}},
+            "enemy": [
+                {"x": 10.0, "y": 0.0}, {"x": 10.1, "y": 0.0},
+                {"x": -10.0, "y": 5.0}, {"x": -9.9, "y": 5.1},
+                {"x": -10.0, "y": -5.0}, {"x": -10.1, "y": -4.9},
+                {"x": 20.0, "y": 20.0}, {"x": 20.1, "y": 20.1},
+                {"x": 0.0, "y": 20.0}, {"x": -0.1, "y": 20.1},
+                {"x": 30.0, "y": 0.0}, {"x": 30.1, "y": 0.1},
+                {"x": 0.0, "y": -20.0}, {"x": 0.1, "y": -20.1},
+            ],
+        }
+    ]
+    traj.fuse_teams_into_frames(frames)
+    teams = frames[0]["teams"]
+    own = [t for t in teams if t["side"] == "own"]
+    enemy = [t for t in teams if t["side"] == "enemy"]
+    assert len(own) == 1 and own[0]["id"] == "1"
+    assert len(enemy) == traj.FUSE_MAX_CRAFT == 5
+    assert all(t["seen_by"] == 2 for t in enemy)
+    assert [t["id"] for t in enemy] == [f"E{i}" for i in range(1, 6)]
+
+
+def test_enemy_team_ids_stable_across_frames_and_heading_from_motion():
+    frames = []
+    x = 10.0
+    for _ in range(5):
+        frames.append(
+            {
+                "own": {"1": {"x": 0.0, "y": 0.0, "heading": 0.0}},
+                "enemy": [{"x": x, "y": 5.0}],
+            }
+        )
+        x += 1.0
+    traj.fuse_teams_into_frames(frames)
+    ids = {t["id"] for f in frames for t in f["teams"] if t["side"] == "enemy"}
+    assert ids == {"E1"}
+    headings = [
+        t["heading"]
+        for f in frames
+        for t in f["teams"]
+        if t["side"] == "enemy" and t["heading"] is not None
+    ]
+    assert headings == [0.0] * 4

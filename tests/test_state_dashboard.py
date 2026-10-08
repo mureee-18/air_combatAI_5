@@ -22,7 +22,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SERVE_PATH = REPO_ROOT / "tools" / "state_dashboard" / "serve.py"
 INDEX_PATH = REPO_ROOT / "tools" / "state_dashboard" / "index.html"
 
-TABS = ["環境", "提出", "評価", "ログ", "仮説登録", "改善サイクル", "git", "コマンド", "コンペルール", "軌跡"]
+TABS = ["環境", "提出", "評価", "ログ", "仮説登録", "改善サイクル", "git", "コマンド",
+        "コンペルール", "自機視点", "戦場俯瞰"]
 
 
 def load_serve():
@@ -52,9 +53,22 @@ def test_index_has_trajectory_replay_wiring():
         assert hook in html
     for hook in ["traj-shots", "traj-aim", "missile_model", "frame.aim", "frame.shots", "戦域境界"]:
         assert hook in html
+    for hook in ["drawAimLayer", "drawShotsLayer", "ロック", "残弾", "発射!", "shotTargetCache", "撃った相手"]:
+        assert hook in html
     for hook in ["TRAJ_SENSOR_COLORS", "探知/再探知", "目標跟丟", "レーダ ≤80 km", "IRST ≤120 km"]:
         assert hook in html
     assert "enemy_xy" not in html  # 座標復元は Python 側。JS で二重実装しない
+
+
+def test_index_has_battle_overview_wiring():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    assert 'id="tab-battle"' in html
+    for hook in ["battle-canvas", "battle-seek", "battle-play", "drawBattle", "openBattle",
+                 "buildBattleShell", "renderBattleLegend", "drawBattleIcon"]:
+        assert hook in html
+    for hook in ["frame.teams", "戦場俯瞰", "buildBattleShell"]:
+        assert hook in html
+    assert 'side === "own"' in html
 
 
 def test_commands_include_trajectory_restore():
@@ -111,6 +125,7 @@ def test_replay_payload_round_trip_on_real_log():
                 "threat",
                 "aim",
                 "shots",
+                "teams",
                 "action",
                 "events",
             }

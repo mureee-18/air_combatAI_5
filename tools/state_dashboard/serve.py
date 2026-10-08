@@ -152,7 +152,7 @@ METRIC_SOURCES = [
     {
         "metric": "初探知 t / 初発射 t / 探知→初発の空白 / 総発射数 / 消費弾 / 敵方位の分散",
         "label": "軌跡（時系列・いつ撃ったか）",
-        "tab": "軌跡",
+        "tab": "自機視点",
         "path": "workspace/results*/**/log_*.json（自作エージェントのログのみ）",
         "source": "log",
         "source_label": "対戦ログ / 計測値",
@@ -167,12 +167,12 @@ METRIC_SOURCES = [
         "source": "log",
         "source_label": "対戦ログ / 計測値",
         "command": "python tools/battle_analyzer/battle_stats.py <log>",
-        "note": "射撃指示は発射を保証しない。発射数は軌跡タブの launch イベントで数える。",
+        "note": "射撃指示は発射を保証しない。発射数は自機視点タブの launch イベントで数える。",
     },
     {
         "metric": "推定敵位置の一致誤差・復元式の検証結果",
         "label": "復元・解析の検証値",
-        "tab": "軌跡",
+        "tab": "自機視点",
         "path": "tools/battle_analyzer/trajectory.py",
         "source": "analysis",
         "source_label": "解析結果・ダッシュボード",
@@ -208,7 +208,7 @@ METRIC_FROM_HINT = {
     "trajectory": "軌跡タブ / tools/battle_analyzer/trajectory.py",
     "logstats": "ログタブ / tools/battle_analyzer/battle_stats.py",
 }
-METRIC_FROM_TAB = {"paired": "評価", "trajectory": "軌跡", "logstats": "ログ"}
+METRIC_FROM_TAB = {"paired": "評価", "trajectory": "自機視点", "logstats": "ログ"}
 
 
 def _scalar(value) -> float | None:
@@ -1283,7 +1283,7 @@ def collect_evidence(target: str) -> list[dict]:
                 f"（空白 {lag_text} / 総発射数 {facts['launch_count']}）"
             ),
             "metric": "初発 t / 総発射数 / 撃墜数（avg_enemy_alive の低下）",
-            "from_tab": "軌跡",
+            "from_tab": "自機視点",
             "from_path": facts["log"],
             "command": (
                 f'python tools/battle_analyzer/trajectory.py {facts["log"]}'
@@ -1304,7 +1304,7 @@ def collect_evidence(target: str) -> list[dict]:
             "summary": (
                 "射撃指示の回数は『発射した』ことを保証しない（isLaunchableAt が False の場合や、"
                 "飛翔中の誘導弾で同時発射上限に達している場合は発射されない）。"
-                "実際の発射は軌跡タブの launch イベント（残弾の減少）で確認する。"
+                "実際の発射は自機視点タブの launch イベント（残弾の減少）で確認する。"
             ),
             "evidence": [
                 {
