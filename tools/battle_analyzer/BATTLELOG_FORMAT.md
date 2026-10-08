@@ -130,11 +130,35 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 - 表示されるのは「そのフレームで当該機が探知していた敵」だけ。未探知の敵は出ない。
 - イベント:
   - `launch` … `own[8]`（残弾）が前フレームより減ったとき（`isLaunchableAt()` の都合で
-    `target` 指定回数と発射数は一致しない）
+    `target` 指定回数と発射数は一致しない）。`row`（`action.target` の観測行）と
+    `dist`（その行の水平距離）が付き、未探知なら `dist: null` /「標的未探知」。
   - `lock` … `actions[].data[].target` が 0 → 非 0 に変化
   - `warning` … `threat[0]` が 0 → 1（`threat[1]` が警報方位）
   - `lost` … あるスロットの観測が以降のフレームから消えた（=`previous_ammo` にあり `own` にない）
+  - `detect` / `lose` … **敵の個体IDはログに無い**ので、位置の近傍一致（`DETECT_MATCH_KM: 8.0` km）
+    で疑似追跡し、初見を `detect`（消えた track に同一位置で再マッチした場合は「再探知」）、
+    **8 フレーム以上連続（`DETECT_MISS_FRAMES`）で観測が切れた場合に `lose`（跟丟）** を出す。
+    実ログで多数を占める 1〜3 フレームの欠落（観測行の並び替えや探知のブレ）を跟丟と誤認しないためのしきい値。
+    イベントには `row` / `dist` / `sensor` が付く。感度調整は「話しすぎ」なら `DETECT_MISS_FRAMES`、
+    「別目標とくっつく」なら `DETECT_MATCH_KM` を増やす。
 - `own` が旧 8 列世代のログは残弾・燃料の列が無いため `launch` イベントは出ない。
+- フレームごとの追加フィールド（ダッシュボード「軌跡」タブの表示用）:
+  - `aim` … `action.target` が非 0 の間の狙い線。`{slot, row, x, y, dist, escort}`。
+    そのフレームの `enemy[row-1]` を座標復元したもの。未探知行なら入らない。
+  - `shots` … 飛翔中の誘導弾（**推定**）。`{slot, t0, age, x, y, fx, fy, tx, ty, dist, flight}`。
+    **弾の座標はログに入っていない**ので、発射点 `(fx,fy)` → 標的 `(tx,ty)` を直線補間する。
+    速度 `MISSILE_SPEED_KMS = 1.5` km/s、飛翔時間は `dist / 1.5` を 5〜60 秒に丸めた値。
+    発射点は実測（残弾減のフレームの自機位置）、標的は実測（`action.target` 行の復元位置）。
+  - 敵点の `sensor` … `classify_sensor(dist, escort)` による**探知センサの推定**。実ログ実測では
+    escort フラグは常に 0 のため、実際は奇数回 `radar`（レーダ ≤80 km）/`irst`（IRST ≤120 km）/
+    `far`（>120 km）の 3 種だけ。`rcs` は護衛対象機フラグが立つ場合の「RCS 拡大 ≤150 km」で、合成ログのテスト用。
+  - `missile_model` … 上の推定パラメータ（`speed_kms` / `min_sec` / `max_sec`）。
+  - `bounds` … 戦域境界 ±150 km。`own[5..7]`（各方向の余裕）と `own.x/y` から
+    `x=±150, y=±150` の矩形に一致することを実測確認済み（越境で PENALTY）。
+- **`infos` の `score` / `penalty` は全フレーム 0 のまま変化しない**（実測: 1800 フレームで
+  値の変化はゼロ）。スコアの時間推移はログから復元できない。
+- **武装は誘導弾のみ**（`numMsls` / `remMsls`）。レーザー・ビーム兵器はシミュレータに存在しない
+  （`workspace/` 全体を grep して該当 0 件。`beamRangeKm` は自作 Policy の機動パラメータで兵器ではない）。
 
 ## 6. ベンチマーク（BenchMark = BasicAACRuleBasedAgent01）
 

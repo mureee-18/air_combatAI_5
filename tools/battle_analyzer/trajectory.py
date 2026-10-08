@@ -43,6 +43,25 @@ OWN_INDEX = {
 SENSOR_RANGES_KM = {"radar": 80.0, "irst": 120.0, "mws": 10.0}
 BATTLE_AREA_KM = 150.0
 
+# 誘導弾の飛翔表示（推定）。弾の座標はログに無いため、発射点→標的を直線補間する。
+MISSILE_SPEED_KMS = 1.5
+MISSILE_FLIGHT_MIN_SEC = 5.0
+MISSILE_FLIGHT_MAX_SEC = 60.0
+
+# 探知イベントの検出（敵の個体IDはログに無いので位置の近傍一致で疑似追跡する）
+DETECT_MATCH_KM = 8.0
+# 実ログの欠落ギャップ分布（同スロット・行の再出現）は 1〜3 フレームのチラつきが大半。
+# それらを跟丟だと誤認すると再探知イベントが乱舞するため、8 フレーム連続で切れたら跟丟。
+DETECT_MISS_FRAMES = 8
+RCS_ESCORT_RANGE_KM = 150.0
+
+SENSOR_LABELS = {
+    "radar": "レーダ ≤80 km",
+    "irst": "IRST ≤120 km",
+    "rcs": "護衛対象機（RCS拡大）≤150 km",
+    "far": "遠距離 >120 km",
+}
+
 
 def round_or_none(value, digits: int = 2):
     if value is None:
@@ -60,6 +79,51 @@ def own_field(own: list, name: str):
 def enemy_xy(own_x: float, own_y: float, bearing_deg: float, dist_km: float) -> tuple[float, float]:
     rad = math.radians(bearing_deg)
     return own_x + dist_km * math.cos(rad), own_y + dist_km * math.sin(rad)
+
+
+def enemy_point(own: list, row) -> dict | None:
+    """`enemy` の1行を陣営座標系の点に復元する。未探知行は None。"""
+    values = list(row) + [0.0] * (5 - len(row))
+    flag, bearing, dist, alt, escort = values[:5]
+    if float(flag) < 0.5 or float(dist) <= 0.0:
+        return None
+    x, y = enemy_xy(own_field(own, "x"), own_field(own, "y"), float(bearing), float(dist))
+    return {
+        "x": round_or_none(x),
+        "y": round_or_none(y),
+        "alt": round_or_none(alt),
+        "bearing": round_or_none(float(bearing), 1),
+        "dist": round_or_none(float(dist)),
+        "escort": bool(float(escort) >= 0.5),
+    }
+
+
+def classify_sensor(dist_km: float, escort: bool) -> str:
+    """距離と護衛対象機フラグから、どのセンサで見えたと推定されるかを返す（推定）.
+
+    レーダ Lref=80 km / IRST=120 km、護衛対象機は rcsScale=16 でレーダ探知距離が
+    約2倍（~150 km）になるという既知制約に基づく分類。実際のセンサ切替はログに無い。
+    """
+    if dist_km <= SENSOR_RANGES_KM["radar"]:
+        return "radar"
+    if dist_km <= SENSOR_RANGES_KM["irst"]:
+        return "irst"
+    if escort and dist_km <= RCS_ESCORT_RANGE_KM:
+        return "rcs"
+    return "far"
+
+
+def _match_track(tracks: list[dict], point: dict, matched: set[int], alive: bool) -> int | None:
+    """検出点に最も近い追跡対象を返す（既に使った番号と生死が一致するものだけ）."""
+    best = None
+    best_dist = DETECT_MATCH_KM
+    for index, track in enumerate(tracks):
+        if index in matched or track["alive"] is not alive:
+            continue
+        distance = math.hypot(point["x"] - track["x"], point["y"] - track["y"])
+        if distance <= best_dist:
+            best, best_dist = index, distance
+    return best
 
 
 def load_log(log_path: Path) -> dict:
@@ -127,13 +191,24 @@ def build_frames(log: dict) -> tuple[list[dict], list[str]]:
     previous_ammo: dict[str, float | None] = {}
     previous_warn: dict[str, float] = {}
     previous_target: dict[str, int] = {}
+    launches: list[dict] = []
+    tracks: dict[str, list[dict]] = {}
 
     for index, entry in enumerate(log.get("observations") or []):
         ptime = entry.get("ptime", index)
         data = entry.get("data") or {}
         actions = _slot_actions(log, index)
-        frame = {"t": index, "ptime": round_or_none(ptime, 1), "own": {}, "enemy": [], "threat": []}
+        frame = {
+            "t": index,
+            "ptime": round_or_none(ptime, 1),
+            "own": {},
+            "enemy": [],
+            "threat": [],
+            "aim": [],
+            "shots": [],
+        }
         events = []
+        aim_by_slot: dict[str, dict] = {}
 
         for slot_key in sorted(data.keys()):
             payload = data[slot_key]
@@ -152,38 +227,139 @@ def build_frames(log: dict) -> tuple[list[dict], list[str]]:
                 "fuel": round_or_none(own_field(own, "fuel"), 0),
             }
 
+            action = actions.get(slot_key) or {}
+            target = int(action.get("target", 0) or 0)
+            rows = payload.get("enemy") or []
+            if 0 < target <= len(rows):
+                point = enemy_point(own, rows[target - 1])
+                if point:
+                    aim = {"slot": slot_key, "row": target}
+                    aim.update(point)
+                    frame["aim"].append(aim)
+                    aim_by_slot[slot_key] = aim
+
             ammo = own_field(own, "ammo")
             if ammo is not None:
                 before = previous_ammo.get(slot_key)
                 if before is not None and ammo < before:
+                    aim = aim_by_slot.get(slot_key)
+                    launch = {
+                        "t": index,
+                        "slot": slot_key,
+                        "fx": frame["own"][slot_key]["x"],
+                        "fy": frame["own"][slot_key]["y"],
+                    }
+                    if aim:
+                        launch.update({"tx": aim["x"], "ty": aim["y"], "dist": aim["dist"]})
+                        launch["flight"] = max(
+                            MISSILE_FLIGHT_MIN_SEC,
+                            min(MISSILE_FLIGHT_MAX_SEC, float(aim["dist"] or 0.0) / MISSILE_SPEED_KMS),
+                        )
+                        target_text = f"標的 行{aim['row']} {aim['dist']} km"
+                    else:
+                        launch.update({"tx": None, "ty": None, "dist": None})
+                        launch["flight"] = MISSILE_FLIGHT_MAX_SEC
+                        target_text = "標的未探知"
+                    launches.append(launch)
                     events.append(
                         {
                             "t": index,
                             "kind": "launch",
                             "slot": slot_key,
-                            "text": f"{slot_key}号 誘導弾発射（残弾 {int(before)}→{int(ammo)}）",
+                            "row": (aim or {}).get("row"),
+                            "dist": launch["dist"],
+                            "text": f"{slot_key}号 誘導弾発射（残弾 {int(before)}→{int(ammo)} / {target_text}）",
                         }
                     )
                 previous_ammo[slot_key] = ammo
 
-            for row in payload.get("enemy") or []:
-                values = list(row) + [0.0] * (5 - len(row))
-                flag, bearing, dist, alt, escort = values[:5]
-                valid = flag >= 0.5 and float(dist) > 0.0
-                if not valid:
+            detections = []
+            for row_index, row in enumerate(rows):
+                point = enemy_point(own, row)
+                if point is None or point["x"] is None or point["y"] is None:
                     continue
-                x, y = enemy_xy(own_field(own, "x"), own_field(own, "y"), float(bearing), float(dist))
-                frame["enemy"].append(
+                point["slot"] = slot_key
+                point["row"] = row_index + 1
+                point["sensor"] = classify_sensor(float(point["dist"]), point["escort"])
+                detections.append(point)
+                frame["enemy"].append(point)
+
+            slot_tracks = tracks.setdefault(slot_key, [])
+            matched: set[int] = set()
+            for point in detections:
+                track_index = _match_track(slot_tracks, point, matched, alive=True)
+                if track_index is None:
+                    track_index = _match_track(slot_tracks, point, matched, alive=False)
+                if track_index is None:
+                    slot_tracks.append(
+                        {
+                            "x": point["x"],
+                            "y": point["y"],
+                            "dist": point["dist"],
+                            "sensor": point["sensor"],
+                            "miss": 0,
+                            "alive": True,
+                        }
+                    )
+                    matched.add(len(slot_tracks) - 1)
+                    events.append(
+                        {
+                            "t": index,
+                            "kind": "detect",
+                            "slot": slot_key,
+                            "row": point["row"],
+                            "dist": point["dist"],
+                            "sensor": point["sensor"],
+                            "text": (
+                                f"{slot_key}号 敵を探知（{point['dist']} km / "
+                                f"{SENSOR_LABELS[point['sensor']]}）"
+                            ),
+                        }
+                    )
+                    continue
+                track = slot_tracks[track_index]
+                matched.add(track_index)
+                track.update(
                     {
-                        "slot": slot_key,
-                        "x": round_or_none(x),
-                        "y": round_or_none(y),
-                        "alt": round_or_none(alt),
-                        "bearing": round_or_none(bearing, 1),
-                        "dist": round_or_none(dist),
-                        "escort": bool(float(escort) >= 0.5),
+                        "x": point["x"],
+                        "y": point["y"],
+                        "dist": point["dist"],
+                        "sensor": point["sensor"],
+                        "miss": 0,
                     }
                 )
+                if not track["alive"]:
+                    track["alive"] = True
+                    events.append(
+                        {
+                            "t": index,
+                            "kind": "detect",
+                            "slot": slot_key,
+                            "row": point["row"],
+                            "dist": point["dist"],
+                            "sensor": point["sensor"],
+                            "text": (
+                                f"{slot_key}号 敵を再探知（{point['dist']} km / "
+                                f"{SENSOR_LABELS[point['sensor']]}）"
+                            ),
+                        }
+                    )
+            for track_index, track in enumerate(slot_tracks):
+                if track_index in matched:
+                    continue
+                track["miss"] += 1
+                if track["alive"] and track["miss"] > DETECT_MISS_FRAMES:
+                    track["alive"] = False
+                    events.append(
+                        {
+                            "t": index,
+                            "kind": "lose",
+                            "slot": slot_key,
+                            "dist": track["dist"],
+                            "sensor": track["sensor"],
+                            "text": f"{slot_key}号 目標跟丟（{track['dist']} km先を追跡できず）",
+                        }
+                    )
 
             threat = payload.get("threat") or []
             threat_values = list(threat) + [0.0] * (2 - len(threat))
@@ -202,8 +378,6 @@ def build_frames(log: dict) -> tuple[list[dict], list[str]]:
                     )
             previous_warn[slot_key] = warn
 
-            action = actions.get(slot_key) or {}
-            target = int(action.get("target", 0) or 0)
             if target and previous_target.get(slot_key, 0) == 0:
                 events.append(
                     {
@@ -214,6 +388,32 @@ def build_frames(log: dict) -> tuple[list[dict], list[str]]:
                     }
                 )
             previous_target[slot_key] = target
+
+        for launch in launches:
+            age = index - launch["t"]
+            if age < 0 or age > launch["flight"]:
+                continue
+            progress = age / launch["flight"]
+            if launch["tx"] is None:
+                x, y = launch["fx"], launch["fy"]
+            else:
+                x = launch["fx"] + (launch["tx"] - launch["fx"]) * progress
+                y = launch["fy"] + (launch["ty"] - launch["fy"]) * progress
+            frame["shots"].append(
+                {
+                    "slot": launch["slot"],
+                    "t0": launch["t"],
+                    "age": round_or_none(age, 1),
+                    "x": round_or_none(x),
+                    "y": round_or_none(y),
+                    "fx": launch["fx"],
+                    "fy": launch["fy"],
+                    "tx": launch["tx"],
+                    "ty": launch["ty"],
+                    "dist": launch["dist"],
+                    "flight": round_or_none(launch["flight"], 1),
+                }
+            )
 
         for slot_key in previous_ammo:
             if slot_key not in frame["own"]:
@@ -250,6 +450,11 @@ def build_trajectory(log_path: Path) -> dict:
         "has_ammo": len(payload.get("own") or []) >= 10,
         "bounds": {"x": BATTLE_AREA_KM, "y": BATTLE_AREA_KM},
         "sensor_ranges": SENSOR_RANGES_KM,
+        "missile_model": {
+            "speed_kms": MISSILE_SPEED_KMS,
+            "min_sec": MISSILE_FLIGHT_MIN_SEC,
+            "max_sec": MISSILE_FLIGHT_MAX_SEC,
+        },
         "frames": frames,
         "events": events,
         "result": _validation_result(log_path),
@@ -265,6 +470,11 @@ def summarize(trajectory: dict) -> str:
         f"フレーム: {trajectory['frame_count']} / 自機スロット: {', '.join(trajectory['slots']) or '-'}",
         f"own 長さ: {trajectory['own_length']}（残弾列: {'あり' if trajectory['has_ammo'] else 'なし'}）",
         f"イベント: {len(trajectory['events'])} 件",
+        f"発射: {sum(1 for e in trajectory['events'] if e['kind'] == 'launch')} 件 / "
+        f"射撃指示: {sum(len(f.get('aim') or []) for f in trajectory['frames'])} フレーム / "
+        f"飛翔中の弾（推定）: {sum(len(f.get('shots') or []) for f in trajectory['frames'])} フレーム",
+        f"探知: {sum(1 for e in trajectory['events'] if e['kind'] == 'detect')} 件 / "
+        f"跟丟: {sum(1 for e in trajectory['events'] if e['kind'] == 'lose')} 件",
     ]
     if result:
         lines.append(

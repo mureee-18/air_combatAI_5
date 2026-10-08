@@ -909,8 +909,11 @@ function renderRules(d) {
 
 const TRAJ_SLOT_COLORS = ["#58a6ff", "#3fb950", "#d29922", "#a371f7"];
 const TRAJ_RING_COLORS = { radar: "rgba(88,166,255,0.20)", irst: "rgba(163,113,247,0.18)", mws: "rgba(248,81,73,0.35)" };
+const TRAJ_SENSOR_COLORS = { radar: "#58a6ff", irst: "#a371f7", rcs: "#ffd33d", far: "#8b949e" };
+const TRAJ_EVENT_COLORS = { lost: "#f85149", lose: "#f85149", warning: "#f85149", launch: "#ff7b72",
+                            lock: "#58a6ff", detect: "#3fb950" };
 const traj = { entries: [], data: null, log: null, t: 0, playing: false, timer: null,
-               speed: 2, span: 300, rings: true, trail: true };
+               speed: 2, span: 300, rings: true, trail: true, shots: true, aim: true };
 
 function trajColor(slot) {
   const i = traj.data ? traj.data.slots.indexOf(slot) : -1;
@@ -975,6 +978,8 @@ function buildTrajShell() {
           </select>
           <label><input type="checkbox" id="traj-rings" checked>センサリング</label>
           <label><input type="checkbox" id="traj-trail" checked>軌跡</label>
+          <label><input type="checkbox" id="traj-shots" checked>誘導弾</label>
+          <label><input type="checkbox" id="traj-aim" checked>射撃指示</label>
         </div>
         <div class="traj-legend" id="traj-legend"></div>
       </div>
@@ -988,7 +993,14 @@ function buildTrajShell() {
       敵の点は <code>own + dist·(cos bearing, sin bearing)</code> で復元した推定位置で、
       <b>そのフレームで当該機が探知していた敵だけ</b>を表示します（ undetected の敵は出ません）。
       ▲ は自機の位置と進行方位、リングはレーダ 80 km / IRST 120 km / MWS 10 km、
-      赤線は被弾警報の方位です。高度はユース部門で固定のため平面表示です。</p>`;
+      赤線は被弾警報の方位です。高度はユース部門で固定のため平面表示です。<br>
+      <b>誘導弾</b>は残弾数の減少から発射を検出し、破線が発射点→標的、実線＋●が推定位置です
+      （弾の座標はログに無いため <span id="traj-missile-note">速度 1.5 km/s で直線補間、最大 60 s</span>の推定表示）。
+      <b>射撃指示</b>は <code>action.target</code> が非 0 の間の狙い線で、終点はそのフレームの観測行の敵位置。
+      破線の四角は戦域境界 150 km（越境で PENALTY）です。
+       <b>探知イベント</b>は敵の個体IDがログに無いため位置の近傍一致で疑似追跡し、
+       「探知/再探知」「8フレーム以上連続で観測が切れたら目標跟丟」を検出します。
+       敵点の色は距離による<b>探知センサの推定</b>（レーダ ≤80 km / IRST ≤120 km / 護衛対象機の RCS 拡大 ≤150 km / それ以上は遠距離）です。</p>`;
 
   document.getElementById("traj-sel").addEventListener("change", e => openTraj(e.target.value));
   document.getElementById("traj-reload").addEventListener("click", () => loadTrajEntries(true));
@@ -1000,6 +1012,8 @@ function buildTrajShell() {
   document.getElementById("traj-span").addEventListener("change", e => { traj.span = Number(e.target.value); drawTraj(); });
   document.getElementById("traj-rings").addEventListener("change", e => { traj.rings = e.target.checked; drawTraj(); });
   document.getElementById("traj-trail").addEventListener("change", e => { traj.trail = e.target.checked; drawTraj(); });
+  document.getElementById("traj-shots").addEventListener("change", e => { traj.shots = e.target.checked; drawTraj(); });
+  document.getElementById("traj-aim").addEventListener("change", e => { traj.aim = e.target.checked; drawTraj(); });
 }
 
 async function openTraj(log) {
@@ -1022,6 +1036,11 @@ async function openTraj(log) {
   traj.data = payload;
   traj.log = log;
   traj.t = 0;
+  const mnote = document.getElementById("traj-missile-note");
+  if (mnote) {
+    const mm = payload.missile_model || {};
+    mnote.textContent = `速度 ${mm.speed_kms ?? 1.5} km/s で直線補間、発射から最長 ${mm.max_sec ?? 60} s`;
+  }
   const seek = document.getElementById("traj-seek");
   seek.max = Math.max(0, payload.frame_count - 1);
   seek.value = 0;
@@ -1054,8 +1073,15 @@ function renderTrajLegend() {
     `<span><span class="sw" style="background:${TRAJ_RING_COLORS[k]}"></span>${esc(k)} ${d.sensor_ranges[k]} km</span>`).join("");
   document.getElementById("traj-legend").innerHTML =
     `<span><span class="sw" style="background:#f85149"></span>被弾警報</span>`
-    + `<span><span class="sw" style="background:#e6edf3"></span>探知した敵</span>`
-    + `<span><span class="sw" style="background:#ffd33d"></span>護衛対象機フラグ</span>`
+    + `<span><span class="sw" style="background:${TRAJ_SENSOR_COLORS.radar}"></span>レーダ ≤80 km</span>`
+    + `<span><span class="sw" style="background:${TRAJ_SENSOR_COLORS.irst}"></span>IRST ≤120 km</span>`
+    + `<span><span class="sw" style="background:${TRAJ_SENSOR_COLORS.rcs}"></span>護衛対象機（RCS拡大）</span>`
+    + `<span><span class="sw" style="background:${TRAJ_SENSOR_COLORS.far}"></span>遠距離 &gt;120 km</span>`
+    + `<span><span class="sw" style="background:#ff7b72"></span>誘導弾（発射点→標的・推定）</span>`
+    + `<span><span class="sw" style="background:transparent;border:1px solid #8b949e"></span>射撃指示</span>`
+    + `<span><span class="sw" style="background:transparent;border:1px dashed #d29922"></span>戦域境界 150 km</span>`
+    + `<span><span class="sw" style="background:#3fb950"></span>探知/再探知</span>`
+    + `<span><span class="sw" style="background:#f85149"></span>目標跟丟</span>`
     + items + rings;
 }
 
@@ -1106,6 +1132,13 @@ function drawTraj() {
   ctx.fillRect(0, 0, cssW, cssH);
 
   const frame = d.frames[Math.min(traj.t, d.frames.length - 1)];
+  const ownAt = (slot, t) => {
+    for (let i = t; i >= 0; i--) {
+      const p = d.frames[i].own[slot];
+      if (p && p.x !== null && p.y !== null) return p;
+    }
+    return null;
+  };
   const own = Object.values(frame.own || {}).filter(p => p.x !== null && p.y !== null);
   let cx = 0, cy = 0;
   if (own.length) {
@@ -1131,6 +1164,23 @@ function drawTraj() {
   ctx.fillStyle = "rgba(147,161,176,0.8)";
   ctx.fillText("x=+ 敵陣側 →", cssW - 96, 14);
   ctx.fillText("← x=- 自陣側", 8, cssH - 20);
+
+  const bounds = d.bounds || { x: 150, y: 150 };
+  {
+    const bx0 = X(-bounds.x), bx1 = X(bounds.x);
+    const by0 = Y(bounds.y), by1 = Y(-bounds.y);
+    const left = Math.min(bx0, bx1), top = Math.min(by0, by1);
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = "rgba(210,153,34,0.6)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(left, top, Math.abs(bx1 - bx0), Math.abs(by1 - by0));
+    ctx.restore();
+    if (left > -40 && left < cssW - 200 && top > 0 && top < cssH - 12) {
+      ctx.fillStyle = "rgba(210,153,34,0.9)";
+      ctx.fillText("戦域境界 150 km（越境=PENALTY）", left + 5, top + 13);
+    }
+  }
 
   if (traj.rings) {
     Object.entries(d.sensor_ranges || {}).forEach(([k, km]) => {
@@ -1159,6 +1209,26 @@ function drawTraj() {
     });
   }
 
+  if (traj.aim) {
+    (frame.aim || []).forEach(a => {
+      const src = ownAt(a.slot, traj.t);
+      const sx = X(a.x), sy = Y(a.y);
+      const col = trajColor(a.slot);
+      if (src) {
+        ctx.strokeStyle = col + "59";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(X(src.x), Y(src.y)); ctx.lineTo(sx, sy); ctx.stroke();
+      }
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2); ctx.stroke();
+      if (a.escort) {
+        ctx.strokeStyle = "#ffd33d";
+        ctx.beginPath(); ctx.arc(sx, sy, 6.5, 0, Math.PI * 2); ctx.stroke();
+      }
+    });
+  }
+
   (frame.enemy || []).forEach(e => {
     const sx = X(e.x), sy = Y(e.y);
     const src = frame.own[e.slot];
@@ -1167,8 +1237,13 @@ function drawTraj() {
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(X(src.x), Y(src.y)); ctx.lineTo(sx, sy); ctx.stroke();
     }
-    ctx.fillStyle = e.escort ? "#ffd33d" : "#e6edf3";
+    ctx.fillStyle = TRAJ_SENSOR_COLORS[e.sensor] || "#e6edf3";
     ctx.beginPath(); ctx.arc(sx, sy, 3.2, 0, Math.PI * 2); ctx.fill();
+    if (e.escort) {
+      ctx.strokeStyle = "#ffd33d";
+      ctx.lineWidth = 1.1;
+      ctx.beginPath(); ctx.arc(sx, sy, 5.4, 0, Math.PI * 2); ctx.stroke();
+    }
   });
 
   (frame.threat || []).forEach(th => {
@@ -1201,10 +1276,38 @@ function drawTraj() {
     ctx.fillText(slot + "号", sx + 9, sy - 6);
   });
 
+  if (traj.shots) {
+    (frame.shots || []).forEach(s => {
+      const col = trajColor(s.slot);
+      if (s.tx !== null && s.tx !== undefined && s.ty !== null && s.ty !== undefined) {
+        ctx.save();
+        ctx.setLineDash([3, 5]);
+        ctx.strokeStyle = col + "59";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(X(s.fx), Y(s.fy)); ctx.lineTo(X(s.tx), Y(s.ty)); ctx.stroke();
+        ctx.restore();
+        ctx.strokeStyle = col + "e6";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(X(s.fx), Y(s.fy)); ctx.lineTo(X(s.x), Y(s.y)); ctx.stroke();
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(X(s.tx), Y(s.ty), 2.4, 0, Math.PI * 2); ctx.fill();
+      }
+      const sx = X(s.x), sy = Y(s.y);
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(11,15,20,0.9)";
+      ctx.font = "8px Consolas, monospace";
+      ctx.fillText("弾", sx - 3, sy + 3);
+      ctx.fillStyle = col;
+      ctx.font = "10px Consolas, monospace";
+      ctx.fillText(`${s.slot}号 ${num(s.age, 0)}s/${num(s.flight, 0)}s`, sx + 6, sy - 5);
+    });
+  }
+
   (frame.events || []).forEach(ev => {
     const p = frame.own[ev.slot];
     if (!p || p.x === null) return;
-    ctx.strokeStyle = ev.kind === "lost" ? "#f85149" : "#58a6ff";
+    ctx.strokeStyle = TRAJ_EVENT_COLORS[ev.kind] || "#58a6ff";
     ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), 16, 0, Math.PI * 2); ctx.stroke();
   });
@@ -1223,6 +1326,30 @@ function drawTraj() {
     { k: "命中率", v: r.hit_rate === null || r.hit_rate === undefined ? "—" : num(r.hit_rate, 3) },
     { k: "生存（自/敵）", v: r.numAlives ? `${r.numAlives.Red ?? "—"} / ${r.numAlives.Blue ?? "—"}` : "—" },
   ]);
+  const slotRows = d.slots.map(s => {
+    const p = (frame.own || {})[s] || {};
+    const aims = (frame.aim || []).filter(a => a.slot === s);
+    let nearest = null;
+    (frame.enemy || []).forEach(e => {
+      if (e.slot !== s) return;
+      if (nearest === null || e.dist < nearest) nearest = e.dist;
+    });
+    const flying = (frame.shots || []).filter(sh => sh.slot === s).length;
+    return [
+      `<span style="color:${trajColor(s)}">${esc(s)}号</span>`,
+      p.ammo === null || p.ammo === undefined ? "—" : num(p.ammo, 0),
+      aims.length ? `行${aims[0].row} ${num(aims[0].dist, 1)} km` : "—",
+      nearest === null ? "—" : num(nearest, 1),
+      flying ? `${flying} 発` : "—",
+    ];
+  });
+  document.getElementById("traj-info").innerHTML += "<h2>機体状況</h2>" + table([
+    { label: "機体" },
+    { label: "残弾", num: true },
+    { label: "射撃指示" },
+    { label: "最近敵 km", num: true },
+    { label: "飛翔中の弾" },
+  ], slotRows);
 
   const box = document.getElementById("traj-events");
   if (box) {

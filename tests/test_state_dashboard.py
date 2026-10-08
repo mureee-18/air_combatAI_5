@@ -50,6 +50,10 @@ def test_index_has_trajectory_replay_wiring():
     assert "api/replay?log=" in html
     for hook in ["traj-canvas", "traj-seek", "traj-play", "drawTraj", "openTraj"]:
         assert hook in html
+    for hook in ["traj-shots", "traj-aim", "missile_model", "frame.aim", "frame.shots", "戦域境界"]:
+        assert hook in html
+    for hook in ["TRAJ_SENSOR_COLORS", "探知/再探知", "目標跟丟", "レーダ ≤80 km", "IRST ≤120 km"]:
+        assert hook in html
     assert "enemy_xy" not in html  # 座標復元は Python 側。JS で二重実装しない
 
 
@@ -90,14 +94,31 @@ def test_replay_payload_round_trip_on_real_log():
             "has_ammo",
             "bounds",
             "sensor_ranges",
+            "missile_model",
             "frames",
             "events",
             "result",
         }
         assert len(payload["frames"]) == payload["frame_count"]
         assert payload["slots"]
+        assert payload["missile_model"]["speed_kms"] > 0
         for frame in payload["frames"]:
-            assert set(frame.keys()) == {"t", "ptime", "own", "enemy", "threat", "action", "events"}
+            assert set(frame.keys()) == {
+                "t",
+                "ptime",
+                "own",
+                "enemy",
+                "threat",
+                "aim",
+                "shots",
+                "action",
+                "events",
+            }
+            assert isinstance(frame["aim"], list)
+            assert isinstance(frame["shots"], list)
+            for shot in frame["shots"]:
+                assert shot["t0"] <= frame["t"]
+                assert shot["age"] <= shot["flight"]
         return
     pytest.skip("自作 Agent 形式のログがありません")
 
