@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import platform
 import shutil
@@ -702,17 +703,26 @@ def _log_stats(log_path: Path) -> dict | None:
 
 
 def _trajectory_module():
-    """tools/battle_analyzer/trajectory.py を import する（キャッシュ付き）."""
+    """tools/battle_analyzer/trajectory.py を import する（mtime 監視付きキャッシュ）.
 
-    cached = _trajectory_cache.get("module")
-    if cached is not None:
-        return cached
+    開発中に trajectory.py を編集したら起動中のサーバへ自動反映する。
+    編集前のモジュールを掴んだまま（旧形式のペイロードを返す）事故を防ぐ。
+    """
+
+    path = TRAJECTORY_DIR / "trajectory.py"
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        mtime = 0
+    if _trajectory_cache.get("mtime") == mtime:
+        return _trajectory_cache["module"]
     sys.path.insert(0, str(TRAJECTORY_DIR))
     try:
         import trajectory
+        importlib.reload(trajectory)
     finally:
         sys.path.pop(0)
-    _trajectory_cache["module"] = trajectory
+    _trajectory_cache.update({"mtime": mtime, "module": trajectory})
     return trajectory
 
 

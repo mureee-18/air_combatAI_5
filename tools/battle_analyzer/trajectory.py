@@ -51,9 +51,13 @@ MISSILE_FLIGHT_MAX_SEC = 60.0
 # 探知イベントの検出（敵の個体IDはログに無いので位置の近傍一致で疑似追跡する）
 DETECT_MATCH_KM = 8.0
 # 実ログの欠落ギャップ分布（同スロット・行の再出現）は 1〜3 フレームのチラつきが大半。
-# それらを跟丟だと誤認すると再探知イベントが乱舞するため、8 フレーム連続で切れたら跟丟。
+# それらをロストだと誤認すると再探知イベントが乱舞するため、8 フレーム連続で切れたらロスト。
 DETECT_MISS_FRAMES = 8
 RCS_ESCORT_RANGE_KM = 150.0
+
+# 命中推定の半径（推定値）。敵の位置が融合クラスタ（個体ID無し）でしか分からないため、
+# 弾着フレームの融合敵と照準点の距離がこの範囲内なら命中とみなす。
+HIT_RADIUS_KM = 10.0
 
 SENSOR_LABELS = {
     "radar": "レーダ ≤80 km",
@@ -193,6 +197,7 @@ def build_frames(log: dict) -> tuple[list[dict], list[str]]:
     previous_target: dict[str, int] = {}
     launches: list[dict] = []
     tracks: dict[str, list[dict]] = {}
+    gone_slots: set[str] = set()
 
     for index, entry in enumerate(log.get("observations") or []):
         ptime = entry.get("ptime", index)
@@ -357,7 +362,7 @@ def build_frames(log: dict) -> tuple[list[dict], list[str]]:
                             "slot": slot_key,
                             "dist": track["dist"],
                             "sensor": track["sensor"],
-                            "text": f"{slot_key}号 目標跟丟（{track['dist']} km先を追跡できず）",
+                            "text": f"{slot_key}号 目標ロスト（{track['dist']} km先を追跡できず）",
                         }
                     )
 
@@ -416,7 +421,7 @@ def build_frames(log: dict) -> tuple[list[dict], list[str]]:
             )
 
         for slot_key in previous_ammo:
-            if slot_key not in frame["own"]:
+            if slot_key not in frame["own"] and slot_key not in gone_slots:
                 events.append(
                     {
                         "t": index,
@@ -425,13 +430,64 @@ def build_frames(log: dict) -> tuple[list[dict], list[str]]:
                         "text": f"{slot_key}号 応答が途絶えた（撃墜またはログ欠落）",
                     }
                 )
+                gone_slots.add(slot_key)
 
         frame["action"] = {key: actions[key] for key in sorted(actions.keys())}
         frame["events"] = events
         frames.append(frame)
 
-    fuse_teams_into_frames(frames)
+    fuse_teams_into_frames(frames, log.get("enemies_direct") or None)
+    _mark_first_detections(frames)
+    _attach_impact_events(frames, launches)
     return frames, slots_seen
+
+
+def _mark_first_detections(frames: list[dict]) -> None:
+    """敵の個体IDが無いので、探知イベント(row単位)のうち全スロット通して最初のものに `first` を立てる。"""
+    seen: set[int] = set()
+    for frame in frames:
+        for event in frame.get("events") or []:
+            if event.get("kind") != "detect":
+                continue
+            row = event.get("row")
+            text = event.get("text", "")
+            if row is None or "再探知" in text or row in seen:
+                continue
+            seen.add(row)
+            event["first"] = True
+            event["text"] = text.replace("敵を探知", "敵を最初に発見")
+
+
+def _attach_impact_events(frames: list[dict], launches: list[dict]) -> None:
+    """誘導弾が照準点に到達したフレームで命中/空振りを推定し、そのフレームのイベントに足す。
+
+    弾の座標はログに無く、敵の位置も融合クラスタ（ID無し）なのであくまで推定。
+    弾着フレームの融合敵と照準点の距離が HIT_RADIUS_KM 以内なら `hit`、それ以外は `miss`。
+    """
+    if not launches or not frames:
+        return
+    for launch in launches:
+        if launch.get("tx") is None:
+            continue
+        end_t = int(launch["t"] + float(launch.get("flight") or 0))
+        end_t = max(0, min(end_t, len(frames) - 1))
+        frame = frames[end_t]
+        tx, ty = launch["tx"], launch["ty"]
+        best = None
+        for team in frame.get("teams") or []:
+            if team.get("side") != "enemy":
+                continue
+            d = math.hypot(team["x"] - tx, team["y"] - ty)
+            if best is None or d < best[0]:
+                best = (d, team.get("id"))
+        hit = best is not None and best[0] <= HIT_RADIUS_KM
+        if hit:
+            text = f"{launch['slot']}号 命中推定（{best[1]} まで {best[0]:.1f} km）"
+        else:
+            text = f"{launch['slot']}号 空振り（照準点に弾着・敵は離脱）"
+        frame.setdefault("events", []).append(
+            {"t": end_t, "kind": "hit" if hit else "miss", "slot": launch["slot"], "text": text}
+        )
 
 
 # 俯瞰表示（戦場全体）用の敵融合。敵の個体IDはログに無いため、全機の探知点を
@@ -461,20 +517,20 @@ def _cluster_enemies(points, threshold=FUSE_CLUSTER_KM):
     return centers
 
 
-def fuse_teams_into_frames(frames: list[dict]) -> list[dict]:
+def fuse_teams_into_frames(frames: list[dict], enemies_direct: list[list[dict]] | None = None) -> list[dict]:
     """`frame["teams"]` を追加する。両陣営の俯瞰マップ「戦場俯瞰」タブの入力。
 
-    - own … スロット 1..4。座標と方位は実測（ログの観測値）。
-    - enemy … 全機の探知点をクラスタで融合し最大 FUSE_MAX_CRAFT 機。フレーム間は
-      DETECT_MATCH_KM の近傍マッチで同一 ID（E1..）を振って軌跡を繋ぐ。
-      8 フレーム連続で見えなくなった敵は追跡打ち切り（ID は保持し、FUSE_RETURN_KM 以内の
-      再出現なら同じ敵とみなして復活＝ID 乱立を防ぐ）。
-      敵の番号・方位（前フレームとの差から推定）・`seen_by`（同時に何機が見ていたか）は
-      **推定値**。敵の個体IDはログに無いため。
+- own … スロット 1..4。座標と方位は実測（ログの観測値）。
+- enemy … `enemies_direct`（ローカル対戦時にログへ記録した敵の**絶対座標**）が与えられた
+      フレームではそれを**そのまま**使う（`source: "direct"`）。撃墜（alive=False）は出さない。
+      `enemies_direct` が無いログ（旧ログ・他所のログ）は従来どおり全機の探知点をクラスタで
+      融合し最大 FUSE_MAX_CRAFT 機。フレーム間は DETECT_MATCH_KM の近傍マッチで同一 ID（E1..）を
+      振って軌跡を繋ぐ。8 フレーム連続で見えなくなった敵は追跡打ち切り。
+      融合時の敵番号・方位・`seen_by` は**推定値**（敵の個体IDはログに無いため）。
     """
     enemy_tracks: list[dict] = []
     next_id = 1
-    for frame in frames:
+    for f_index, frame in enumerate(frames):
         points = [
             (float(e["x"]), float(e["y"]))
             for e in frame.get("enemy", [])
@@ -488,6 +544,23 @@ def fuse_teams_into_frames(frames: list[dict]) -> list[dict]:
             teams.append(
                 {"side": "own", "id": slot, "x": p["x"], "y": p["y"], "heading": p.get("heading")}
             )
+        direct = enemies_direct[f_index] if enemies_direct and f_index < len(enemies_direct) else None
+        if direct:
+            for entry in direct:
+                if not entry.get("alive"):
+                    continue
+                teams.append(
+                    {
+                        "side": "enemy",
+                        "id": entry["id"],
+                        "x": round_or_none(entry.get("x")),
+                        "y": round_or_none(entry.get("y")),
+                        "heading": entry.get("heading"),
+                        "source": "direct",
+                    }
+                )
+            frame["teams"] = teams
+            continue
         centers = _cluster_enemies(points)[:FUSE_MAX_CRAFT]
         matched: set[int] = set()
         for cx, cy, count in centers:
@@ -519,6 +592,7 @@ def fuse_teams_into_frames(frames: list[dict]) -> list[dict]:
             heading = None
             if cx != prev_x or cy != prev_y:
                 heading = round(math.degrees(math.atan2(cy - prev_y, cx - prev_x)), 1)
+            track["heading"] = heading
             teams.append(
                 {
                     "side": "enemy",
@@ -529,6 +603,7 @@ def fuse_teams_into_frames(frames: list[dict]) -> list[dict]:
                     "seen_by": count,
                 }
             )
+        # 見失った敵はそのまま打ち切り（残像は出さない）。消失後・撃墜後の表示は不要のため。
         for index, track in enumerate(enemy_tracks):
             if index in matched:
                 continue
@@ -574,6 +649,10 @@ def _max_enemy_concurrent(frames: list[dict]) -> int:
     )
 
 
+def _has_direct_enemies(frames: list[dict]) -> bool:
+    return any(t.get("source") == "direct" for frame in frames for t in frame.get("teams", []))
+
+
 def summarize(trajectory: dict) -> str:
     result = trajectory.get("result") or {}
     scores = result.get("scores") or {}
@@ -587,9 +666,10 @@ def summarize(trajectory: dict) -> str:
         f"射撃指示: {sum(len(f.get('aim') or []) for f in trajectory['frames'])} フレーム / "
         f"飛翔中の弾（推定）: {sum(len(f.get('shots') or []) for f in trajectory['frames'])} フレーム",
         f"探知: {sum(1 for e in trajectory['events'] if e['kind'] == 'detect')} 件 / "
-        f"跟丟: {sum(1 for e in trajectory['events'] if e['kind'] == 'lose')} 件",
+        f"ロスト: {sum(1 for e in trajectory['events'] if e['kind'] == 'lose')} 件",
         f"両軍（俯瞰）: 自軍 {len(trajectory['slots'])} 機 / "
-        f"敵軍 同時最大 {_max_enemy_concurrent(trajectory['frames'])} 機（推定）",
+        f"敵軍 同時最大 {_max_enemy_concurrent(trajectory['frames'])} 機"
+        + ("（絶対座標記録）" if _has_direct_enemies(trajectory["frames"]) else "（推定）"),
     ]
     if result:
         lines.append(

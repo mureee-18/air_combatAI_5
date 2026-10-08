@@ -98,6 +98,30 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 - `speed` … speedTable `[220, 280, 340]` の index
 - `target` … 0=撃たない、1..5=観測の何行目を撃つか
 
+### 3.3 enemies_direct（敵の絶対座標記録・ローカル対戦専用）
+
+ローカル対戦（`workspace/gen_log.py` / 友軍内検証）でのみ、`src/fight.py` が `record_enemies`
+ON のときにログへ追記する。**提出物（`agent/`）のログ出力は一切増えない**。
+
+```json
+"enemies_direct": [
+  [
+    {"id": "BlueF1", "x": 102.203, "y": 3.319, "heading": 328.2, "alive": true},
+    {"id": "BlueE",  "x": 115.0,   "y": -21.892, "heading": 90.0, "alive": true}
+  ],
+  ...
+]
+```
+
+- `observations` と同じ長さ・同じ順序（観測が記録されたフレームに限る）。各要素がその
+  フレームの敵側5機（F1..F4 + E＝護衛対象機）の一覧。
+- 座標は**予測ではなくシミュレータ管理オブジェクトの絶対座標の変換値**（自陣フレーム [km]、x=+ が敵方向）:
+  - Red 陣営: 変換 `(y_w, -x_w)/1000` ／ Blue 陣営: `(-y_w, x_w)/1000`
+  - `heading` は機首方位の記録が無いため `pos` と `pos_prev` の差から求めた**進路方位**（2点の実測による微分・推定ではない）。
+- `alive: false` は撃墜済み（dashboard の戦場俯瞰では描画しない）。撃墜後の残像は出さない。
+- 実装: `local_test/battle_recorder.py`（`collect_enemy`）。`workspace/src/fight.py` が
+  `match_config["record_enemies"]` を契機に読み込む。
+
 ## 4. 既知の制約（毎回調べ直さない）
 
 - **`/sensor/track` の航跡に `spec` は含まれない**（pos / vel / time / truth / crs のみ）。
@@ -137,10 +161,15 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
   - `lost` … あるスロットの観測が以降のフレームから消えた（=`previous_ammo` にあり `own` にない）
   - `detect` / `lose` … **敵の個体IDはログに無い**ので、位置の近傍一致（`DETECT_MATCH_KM: 8.0` km）
     で疑似追跡し、初見を `detect`（消えた track に同一位置で再マッチした場合は「再探知」）、
-    **8 フレーム以上連続（`DETECT_MISS_FRAMES`）で観測が切れた場合に `lose`（跟丟）** を出す。
-    実ログで多数を占める 1〜3 フレームの欠落（観測行の並び替えや探知のブレ）を跟丟と誤認しないためのしきい値。
+    **8 フレーム以上連続（`DETECT_MISS_FRAMES`）で観測が切れた場合に `lose`（ロスト）** を出す。
+    実ログで多数を占める 1〜3 フレームの欠落（観測行の並び替えや探知のブレ）をロストと誤認しないためのしきい値。
     イベントには `row` / `dist` / `sensor` が付く。感度調整は「話しすぎ」なら `DETECT_MISS_FRAMES`、
     「別目標とくっつく」なら `DETECT_MATCH_KM` を増やす。
+  - 全ての `detect` のうち各敵行で最初の 1 件には `first: true` が付き、テキストが
+    「敵を最初に発見」になる（個体 ID が無いため行単位の近似）。ダッシュボードではタグ「初発見」で表示。
+  - `hit` / `miss` … 誘導弾の**命中推定**（未検証）。弾が照準点に到達したフレームで、
+    融合済みの敵（`teams` 内の `side: "enemy"`）と照準点の距離が `HIT_RADIUS_KM = 10.0` km 以内なら
+    `hit`（テキストに該当敵 ID と距離）、それ以外は `miss`。ダッシュボードでは「命中/空振り」タグで表示。
 - `own` が旧 8 列世代のログは残弾・燃料の列が無いため `launch` イベントは出ない。
 - フレームごとの追加フィールド（ダッシュボード「自機視点」タブの表示用）:
   - `aim` … `action.target` が非 0 の間の狙い線。`{slot, row, x, y, dist, escort}`。
@@ -157,12 +186,14 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
     `x=±150, y=±150` の矩形に一致することを実測確認済み（越境で PENALTY）。
   - `teams` … 両陣営の俯瞰マップ「戦場俯瞰」タブ用の `{side, id, x, y, heading}` 一覧。
     - `own` … ログの **実測**座標（`side: "own"`、`id` はスロット番号）。
-    - `enemy` … 全機の探知点を近傍クラスタで融合して復元した**推定**位置・方位
-      （`side: "enemy"`、`id` は `E1..`、`heading` は前フレームとの移動方向、`seen_by` は同時探知機数）。
+    - `enemy` … 3.3 の `enemies_direct` があるログでは**その絶対座標をそのまま使う**
+      （`side: "enemy"`、`source: "direct"`、`alive: false` は除外）。無いログ
+      （旧ログ・他所のログ）は全機の探知点を近傍クラスタで融合して復元した**推定**位置・方位
+      （`id` は `E1..`、`heading` は前フレームとの移動方向、`seen_by` は同時探知機数）。
       最大 `FUSE_MAX_CRAFT = 5` 機。フレーム間は `DETECT_MATCH_KM` の近傍マッチで同 ID を繋ぎ、
       8 フレーム以上見失った track は死骸にし、`FUSE_RETURN_KM = 25` km 以内の再出現なら
       同じ敵として復活させる（実ログ: 一意 ID は 45 個に乱立していたのが 9 個に収束、同時最大 4 機）。
-      敵の個体 ID・軌跡はログに無いため「見失っている間の動きは描けない」ことに注意。
+      融合時・記録なしの敵の個体 ID・軌跡は「見失っている間の動きは描けない」ことに注意。
 - **`infos` の `score` / `penalty` は全フレーム 0 のまま変化しない**（実測: 1800 フレームで
   値の変化はゼロ）。スコアの時間推移はログから復元できない。
 - **武装は誘導弾のみ**（`numMsls` / `remMsls`）。レーザー・ビーム兵器はシミュレータに存在しない

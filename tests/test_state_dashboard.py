@@ -53,9 +53,15 @@ def test_index_has_trajectory_replay_wiring():
         assert hook in html
     for hook in ["traj-shots", "traj-aim", "missile_model", "frame.aim", "frame.shots", "戦域境界"]:
         assert hook in html
-    for hook in ["drawAimLayer", "drawShotsLayer", "ロック", "残弾", "発射!", "shotTargetCache", "撃った相手"]:
+    for hook in ["drawAimLayer", "drawShotsLayer", "ロック", "残弾", "発射!", "shotTargetCache", "撃った相手",
+             "pushFrameToasts", "drawEventToasts", "EVENT_TOAST_FRAMES", "初発見", "命中", "空振り"]:
         assert hook in html
-    for hook in ["TRAJ_SENSOR_COLORS", "探知/再探知", "目標跟丟", "レーダ ≤80 km", "IRST ≤120 km"]:
+    # 射撃の視認性: 弾の実線は白縁取り付き3px、ロック線は白破線、編隊軌跡は減光
+    for hook in ["弾の実線（発射点→現在）: 目標ロストリングと同じ太さ（1.5px）に細い白縁取り",
+                 "ロック線は各機のスロット色の破線（実線の編隊軌跡と破線なら区別でき、同色同士で埋もれない）",
+                 "trajColor(slot) + \"4d\""]:
+        assert hook in html, f"missing visual hook: {hook}"
+    for hook in ["TRAJ_SENSOR_COLORS", "探知/再探知", "目標ロスト", "レーダ ≤80 km", "IRST ≤120 km"]:
         assert hook in html
     assert "enemy_xy" not in html  # 座標復元は Python 側。JS で二重実装しない
 
@@ -348,6 +354,9 @@ def test_hypothesis_builder_has_inputs_and_one_copy_button():
     assert 'id="hypho-copy"' in html
     assert "bindHypothesisBuilder" in html
     assert "renderHypothesisBuilder(s, d)" in html
+    # コピーの無音失敗を防ぐ表示と、AIに貼って登録させる見出し行
+    assert "コピー失敗" in html
+    assert "# 仮説登録 — この行をAIに貼って登録依頼\\n" in html
 
 
 HARNESS_JS = r"""
@@ -455,7 +464,8 @@ def test_hypothesis_builder_generates_command_in_browser_logic(tmp_path):
             assert f"{float(v):.{digits}f}" in text, text
     assert "<事実>" not in text and "undefined" not in text and "NaN" not in text
     assert "、、" not in text
-    assert cmd.startswith('python analysis/tools/improvement_session.py hypothesis "')
+    assert cmd.startswith("# 仮説登録 — この行をAIに貼って登録依頼\n"
+                          'python analysis/tools/improvement_session.py hypothesis "')
     assert f"--specialist {serve.collect_session()['target']}" in cmd
     assert re.search(r"--source (log|analysis|code|official)$", cmd)
 

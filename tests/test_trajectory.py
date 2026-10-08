@@ -147,6 +147,19 @@ def test_events_detect_lock_launch_warning_and_lost(tmp_path):
     assert result["frames"][2]["own"] == {}
 
 
+def test_lost_event_is_emitted_only_once_per_slot(tmp_path):
+    first = payload(OWN10)
+    log = write_log(
+        tmp_path / "0" / "log_0.json",
+        [{"1": first}, {} , {}],
+        [{"1": action(0)}, {}, {}],
+    )
+    result = traj.build_trajectory(log)
+    lost = [e for e in result["events"] if e["kind"] == "lost"]
+    assert len(lost) == 1
+    assert lost[0]["t"] == 1  # 消えた最初のフレームだけ
+
+
 def test_threat_only_reported_while_warn_flag_set(tmp_path):
     log = write_log(
         tmp_path / "0" / "log_0.json",
@@ -205,11 +218,47 @@ def test_summarize_reports_frames_and_events(tmp_path):
     result = traj.build_trajectory(sample_custom_log(tmp_path / "custom"))
     text = traj.summarize(result)
     assert "フレーム: 3" in text
-    assert "イベント: 5 件" in text
+    assert "イベント: 6 件" in text
     assert "残弾列: あり" in text
     assert "発射: 1 件" in text
     assert "探知: 1 件" in text
-    assert "跟丟: 0 件" in text
+    assert "ロスト: 0 件" in text
+    assert "敵を最初に発見" in text
+    assert "空振り" in text
+
+
+def test_first_detection_is_marked_once_across_slots(tmp_path):
+    enemy = [[1.0, 90.0, 10.0, 10.0, 0.0]] + ENEMY_ROWS[1:]
+    log = write_log(
+        tmp_path / "0" / "log_0.json",
+        [{"1": payload(OWN10, enemy), "2": payload(OWN10, enemy)},
+         {"1": payload(OWN10, enemy), "2": payload(OWN10, enemy)}],
+        [{"1": action(), "2": action()}, {"1": action(), "2": action()}],
+    )
+    result = traj.build_trajectory(log)
+    detect = [e for e in result["events"] if e["kind"] == "detect"]
+    assert len(detect) == 2  # スロットごとに初探知は出るが…
+    firsts = [e for e in detect if e.get("first")]
+    assert len(firsts) == 1  # …「最初の発見」は行(敵)単位で1回だけ
+    assert "敵を最初に発見" in firsts[0]["text"]
+
+
+def test_impact_is_hit_when_enemy_stays_near_aim_point(tmp_path):
+    enemy = [[1.0, 90.0, 10.0, 10.0, 0.0]] + ENEMY_ROWS[1:]  # 自機(0,0)から見て方位90°・10km → 照準点(0,10)
+    obs0 = payload([1.0, 0.0, 10.0, 300.0, 45.0, 150.0, 150.0, 150.0, 6.0, 1.0], enemy)
+    rest = payload([1.0, 0.0, 10.0, 300.0, 45.0, 150.0, 150.0, 150.0, 5.0, 1.0], enemy)
+    observations = [{"1": obs0}] + [{"1": rest} for _ in range(7)]  # t=0 発射、t=1..7 残弾5
+    actions = [{"1": action(1)}] + [{"1": action(1)} for _ in range(7)]
+    log = write_log(tmp_path / "0" / "log_0.json", observations, actions)
+    result = traj.build_trajectory(log)
+    launch = [e for e in result["events"] if e["kind"] == "launch"][0]
+    assert launch["t"] == 1
+    flight = launch["dist"] / traj.MISSILE_SPEED_KMS
+    end_t = int(1 + flight)
+    impacts = [e for e in result["events"] if e["kind"] in ("hit", "miss")]
+    assert impacts and impacts[0]["kind"] == "hit"
+    assert impacts[0]["t"] == end_t
+    assert "命中推定" in impacts[0]["text"]
 
 
 def test_enemy_point_returns_none_for_undetected_rows():
@@ -318,7 +367,7 @@ def test_enemy_entries_carry_row_slot_and_sensor(tmp_path):
 
 
 def test_detect_then_lose_then_reacquire_events(tmp_path):
-    """敵個体IDが無いので位置近傍で疑似追跡する。8フレーム連続で消えたら跟丟."""
+    """敵個体IDが無いので位置近傍で疑似追跡する。8フレーム連続で消えたらロスト."""
     seen = payload(OWN10, [[1.0, 90.0, 10.0, 10.0, 0.0]] + ENEMY_ROWS[1:])
     empty = payload(OWN10)
     observations = [seen] + [empty] * 9 + [seen, seen]
@@ -338,7 +387,7 @@ def test_detect_then_lose_then_reacquire_events(tmp_path):
     assert any("再探知" in text for text in texts)
     assert any("レーダ" in text for text in texts)
     lose_texts = [e["text"] for e in result["events"] if e["kind"] == "lose"]
-    assert any("跟丟" in text for text in lose_texts)
+    assert any("ロスト" in text for text in lose_texts)
 
 
 def test_detect_event_reports_sensor_and_distance(tmp_path):
@@ -414,6 +463,72 @@ def test_fuse_teams_caps_enemies_at_five_and_dedups_same_point():
     assert len(enemy) == traj.FUSE_MAX_CRAFT == 5
     assert all(t["seen_by"] == 2 for t in enemy)
     assert [t["id"] for t in enemy] == [f"E{i}" for i in range(1, 6)]
+
+
+def test_fuse_teams_uses_direct_enemy_positions_when_provided():
+    frames = [
+        {
+            "own": {"1": {"x": 0.0, "y": 0.0, "heading": 0.0}},
+            "enemy": [{"x": 10.0, "y": 5.0}],
+        }
+    ]
+    direct = [[{"id": "BlueF1", "x": 60.0, "y": 20.0, "heading": None, "alive": True}]]
+    traj.fuse_teams_into_frames(frames, direct)
+    enemy = [t for t in frames[0]["teams"] if t["side"] == "enemy"]
+    assert len(enemy) == 1
+    assert enemy[0]["id"] == "BlueF1"
+    assert enemy[0]["x"] == pytest.approx(60.0)
+    assert enemy[0]["y"] == pytest.approx(20.0)
+    assert enemy[0]["source"] == "direct"
+    assert "seen_by" not in enemy[0]
+
+
+def test_fuse_teams_drops_dead_direct_entries_and_falls_back_without_direct():
+    direct = [
+        [
+            {"id": "BlueF1", "x": 60.0, "y": 20.0, "heading": 0.0, "alive": False},
+            {"id": "BlueF2", "x": 70.0, "y": 21.0, "heading": 90.0, "alive": True},
+        ]
+    ]
+    frames = [
+        {"own": {"1": {"x": 0.0, "y": 0.0, "heading": 0.0}}, "enemy": []},
+        {"own": {"1": {"x": 0.0, "y": 0.0, "heading": 0.0}}, "enemy": [{"x": 10.0, "y": 5.0}]},
+    ]
+    traj.fuse_teams_into_frames(frames, direct)
+    e0 = [t for t in frames[0]["teams"] if t["side"] == "enemy"]
+    assert [t["id"] for t in e0] == ["BlueF2"]
+    assert e0[0]["source"] == "direct"
+    e1 = [t for t in frames[1]["teams"] if t["side"] == "enemy"]
+    assert e1[0]["id"] == "E1"  # direct が無いフレームはセンサ融合にフォールバック
+
+
+def test_build_frames_reads_enemies_direct_from_log(tmp_path):
+    observations = [
+        {"ptime": 0.0, "data": {"1": payload(OWN10)}},
+        {"ptime": 1.0, "data": {"1": payload(OWN10)}},
+        {"ptime": 2.0, "data": {"1": payload(OWN10)}},
+    ]
+    actions = [{"ptime": float(i), "data": {"1": action(0)}} for i in range(3)]
+    enemies_direct = [
+        [{"id": "BlueF1", "x": 60.0, "y": 20.0, "heading": 0.0, "alive": True}],
+        [{"id": "BlueF1", "x": 61.0, "y": 20.0, "heading": 0.0, "alive": True}],
+        [{"id": "BlueF1", "x": 62.0, "y": 20.0, "heading": 0.0, "alive": False}],
+    ]
+    doc = {
+        "observations": observations,
+        "actions": actions,
+        "infos": observations,
+        "enemies_direct": enemies_direct,
+    }
+    path = tmp_path / "0" / "log_0.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    result = traj.build_trajectory(path)
+    teams = [t for f in result["frames"] for t in f["teams"] if t["side"] == "enemy"]
+    assert [t["id"] for t in teams] == ["BlueF1", "BlueF1"]  # 撃墜後(alive=False)は出さない
+    assert all(t["source"] == "direct" for t in teams)
+    assert teams[0]["x"] == pytest.approx(60.0)
+    assert teams[1]["x"] == pytest.approx(61.0)
 
 
 def test_enemy_team_ids_stable_across_frames_and_heading_from_motion():
