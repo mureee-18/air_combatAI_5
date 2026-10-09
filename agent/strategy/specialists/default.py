@@ -31,6 +31,7 @@ class DefaultPolicy(StandalonePolicy):
         self.engageRangeKm = float(args.get("engageRangeKm", 60.0))
         self.marginKm = float(args.get("marginKm", 25.0))
         self.beamRangeKm = float(args.get("beamRangeKm", 45.0))
+        self.breakRangeKm = float(args.get("breakRangeKm", 35.0))
         self.marginAzDeg = float(args.get("marginAzDeg", 120.0))
 
     def step(self, observation, reward, done, info, agentFullName, observation_space, action_space):
@@ -52,12 +53,15 @@ class DefaultPolicy(StandalonePolicy):
             pool = near if len(near) > 0 else (escorted if len(escorted) > 0 else detected)
             best = min(pool, key=lambda i: enemy[i, 2])
             bestDist = float(enemy[best, 2])
-            if self.beamRangeKm > 0.0 and bestDist <= self.beamRangeKm:
+            breaking = self.breakRangeKm > 0.0 and bestDist <= self.breakRangeKm
+            if breaking:
+                desiredAz = enemy[best, 1] + 180.0
+            elif self.beamRangeKm > 0.0 and bestDist <= self.beamRangeKm:
                 desiredAz = enemy[best, 1] + 80.0
             else:
                 desiredAz = enemy[best, 1]
             speedIndex = numSpeed - 1
-            if enemy[best, 2] <= self.fireRangeKm and threat[0] < 0.5:
+            if not breaking and enemy[best, 2] <= self.fireRangeKm and threat[0] < 0.5:
                 targetIndex = int(best) + 1
         else:
             desiredAz = 0.0

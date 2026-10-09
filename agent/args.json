@@ -2,5 +2,6 @@
     "type": "Fixed",
     "specialist": "default",
     "fireRangeKm": 50.0,
+    "breakRangeKm": 35.0,
     "marginKm": 25.0
 }
