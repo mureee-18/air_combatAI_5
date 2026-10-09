@@ -56,6 +56,39 @@
       "target": 2.0,
       "digits": 2,
       "note": "ペア評価の判定指標。減っていれば敵を倒せている。"
+    },
+    {
+      "id": "max_advance_x_km",
+      "label": "最大進出距離",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "higher",
+      "target": 120.0,
+      "digits": 0,
+      "note": "自軍が敵陣方向へ最も深く進んだ x（陣営座標）。護衛対象機の周回帯 x≈115-130 に届いたかを見る。残弾が無いと届いても勝てない。",
+      "unit": "km"
+    },
+    {
+      "id": "escort_min_dist_km",
+      "label": "護衛対象機への最短距離",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "lower",
+      "target": 20.0,
+      "digits": 1,
+      "note": "敵護衛対象機（絶対座標記録 ...E）への最も近い距離。勝ち条件は護衛対象機の撃墜なので、20km 未満まで接近できたかを見る。絶対座標記録の無いログでは算出されない。",
+      "unit": "km"
+    },
+    {
+      "id": "ammo_reserve",
+      "label": "最終残弾",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "higher",
+      "target": 8.0,
+      "digits": 0,
+      "note": "終了時に残っていた誘導弾の合計。勝ち戦は残弾を温存して護衛対象機まで到達する。枯渇（0-2発）だと深追いしても撃てない。",
+      "unit": "発"
     }
   ]
 }

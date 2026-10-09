@@ -77,6 +77,18 @@ def test_index_has_battle_overview_wiring():
     assert 'side === "own"' in html
 
 
+def test_index_eval_goal_board_replaces_detail_rows():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    for hook in ["目標（独自指標）", "renderGoals", "goalPct", "goalStatus",
+                 "add_metric.py --id", 'bindCopy(document.getElementById("eval"))',
+                 "目標の編集"]:
+        assert hook in html, f"missing goal board hook: {hook}"
+    # 明細（1戦ごとの表）は消して同じ場所に目標ボードを置く
+    assert "<h2>明細</h2>" not in html
+    assert 'id="rows"' not in html
+    assert "renderRows" not in html
+
+
 def test_commands_include_trajectory_restore():
     joined = "\n".join(item["cmd"] for group in serve.COMMANDS for item in group["items"])
     assert "tools/battle_analyzer/trajectory.py" in joined
@@ -408,13 +420,13 @@ const box = {
 };
 const root = { querySelector(sel) { return sel === ".hypho" ? box : null; } };
 
-const card = (s.evidence || []).find(c => c.id === "trajectory");
+const card = (s.evidence || []).find(c => c.id === "constraints");
 const metric = ((d.custom_metrics || {}).rows || []).find(m => m.id === "launch_count");
 const files = (d.paired || {}).files || [];
 const def = files.filter(f => String(f.name).indexOf("default") >= 0)[0];
 if (!card || !metric || !def) { console.log("SKIP"); process.exit(0); }
 
-hy.fact.value = "trajectory";
+hy.fact.value = "constraints";
 hy.metric.value = "launch_count";
 hy.judge.value = "paired:" + def.name;
 hy.change.value = "maxSimulShot の上限を 4 から 6 に上げる";
@@ -429,7 +441,7 @@ console.log("CMD<<<" + btn.dataset.cmd + ">>>");
 
 def card_phrase_appears(text: str) -> bool:
     cards = serve.collect_session()["evidence"]
-    card = next((c for c in cards if c.get("id") == "trajectory"), None)
+    card = next((c for c in cards if c.get("id") == "constraints"), None)
     if not card:
         return True
     return card["phrase"][:20] in text

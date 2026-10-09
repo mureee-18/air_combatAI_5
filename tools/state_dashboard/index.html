@@ -358,9 +358,14 @@ function renderEval(d) {
       scoreCell(f), num(m.avg_our_alive, 2), num(m.avg_enemy_alive, 2), esc(f.mtime),
     ];
   };
+  const gm = (d.custom_metrics && d.custom_metrics.rows) || [];
+  const goalTotal = gm.filter(m => m.target !== null && m.target !== undefined).length;
+  const goalDone = gm.filter(m => m.status === "reached").length;
   let h = cards([
     { k: "評価ファイル", v: p.files.length },
     { k: "最良", v: p.best || "—" },
+    { k: "目標", v: goalTotal ? `${goalDone}/${goalTotal} 達成` : "—",
+      cls: goalTotal && goalDone === goalTotal ? "ok" : "" },
   ]);
   h += "<h2>注目（現行 default／★最良／基準 baseline）</h2>";
   h += table(evalHeaders, focus.map(evalRow));
@@ -397,34 +402,74 @@ function renderEval(d) {
   h += table(evalHeaders, rest.map(evalRow));
   h += "</details>";
 
-  h += "<h2>明細</h2>";
-  h += '<div id="rows"></div>';
+  h += "<h2>目標（独自指標）</h2>";
+  h += renderGoals(d);
   document.getElementById("eval").innerHTML = h;
+  bindCopy(document.getElementById("eval"));
+}
 
-  const sel = document.createElement("select");
-  p.files.forEach(f => {
-    const o = document.createElement("option");
-    o.value = f.name; o.textContent = f.name; sel.appendChild(o);
+function goalPct(m) {
+  const v = m.value, t = m.target;
+  if (v === null || v === undefined || t === null || t === undefined || t === 0) return null;
+  if (m.direction === "lower") {
+    if (v <= t) return 100;
+    return Math.max(0, Math.min(100, Math.round((t / v) * 100)));
+  }
+  return Math.max(0, Math.min(100, Math.round((v / t) * 100)));
+}
+
+function goalStatus(m) {
+  if (m.status === "reached") return '<span class="ok">達成</span>';
+  if (m.status === "open") return '<span class="warn">未達</span>';
+  if (m.target === null || m.target === undefined) return '<span class="muted">参考</span>';
+  return '<span class="muted">値なし</span>';
+}
+
+// 目標ボード: custom_metrics.json の定義と値・目標・進捗を評価タブに出す（読み取り専用）
+function renderGoals(d) {
+  const cm = d.custom_metrics || {};
+  const rows = cm.rows || [];
+  if (!rows.length) {
+    return '<div class="empty">独自指標が未定義です。</div>' +
+      cmdRow(cm.add_command || "python tools/state_dashboard/add_metric.py --list", "定義を追加する");
+  }
+  const fmt = (v, digits) =>
+    v === null || v === undefined ? "—" : num(v, digits === undefined ? 2 : digits);
+  let h = table(
+    [{label:"状態"}, {label:"指標"}, {label:"現在値", num:true},
+     {label:"目標", num:true}, {label:"進捗"}, {label:"出所"}],
+    rows.map(m => {
+      const pct = goalPct(m);
+      const bar = pct === null
+        ? '<span class="muted">—</span>'
+        : `<span style="display:inline-flex;align-items:center;gap:6px">` +
+          `<span class="bar ${pct >= 100 ? "" : "alt"}" style="width:${Math.round(pct * 1.2)}px;height:10px"></span>` +
+          `<span class="muted">${pct}%</span></span>`;
+      const target = m.target === null || m.target === undefined
+        ? "—"
+        : `${fmt(m.target, m.digits)}${m.direction === "lower" ? " 以下" : " 以上"}`;
+      const labelCell =
+        `<b>${esc(m.label)}</b><br><span class="muted" style="font-size:11px">${esc(m.id)}</span>` +
+        (m.note ? `<br><span class="muted" style="font-size:11px">${esc(m.note)}</span>` : "");
+      return [
+        goalStatus(m), labelCell,
+        `${fmt(m.value, m.digits)}${m.unit ? ` <span class="muted">${esc(m.unit)}</span>` : ""}`,
+        target, bar, `<span class="pill" title="${attr(m.where || "")}">${esc(m.tab || "—")}</span>`,
+      ];
+    })
+  );
+  h += `<p class="meta">${esc(cm.note || "定義は tools/state_dashboard/custom_metrics.json。")}</p>`;
+  h += "<h2>目標の編集</h2>";
+  h += cmdRow(cm.add_command || "python tools/state_dashboard/add_metric.py --label \"<指標名>\" --from paired --direction higher --target <目標値>", "指標を追加する");
+  h += cmdRow(cm.list_command || "python tools/state_dashboard/add_metric.py --list", "定義一覧を表示");
+  h += '<details style="margin-top:4px"><summary style="cursor:pointer;color:var(--muted);font-size:13px">指標ごとの目標を変更</summary>';
+  rows.forEach(m => {
+    h += cmdRow(
+      `python tools/state_dashboard/add_metric.py --id ${m.id} --target <新しい目標値>`,
+      `「${m.label}」の目標を更新`);
   });
-  const box = document.getElementById("rows");
-  const renderRows = () => {
-    const f = p.files.find(x => x.name === sel.value);
-    box.innerHTML = table([
-      {label:"色", num:false}, {label:"seed", num:true}, {label:"結果", num:false},
-      {label:"終了理由", num:false}, {label:"ステップ", num:true},
-      {label:"自機生存", num:true}, {label:"敵生存", num:true}, {label:"スコア", num:true},
-    ], (f.rows || []).map(r => [
-      esc(r.color), r.seed,
-      `<span class="${r.result === "win" ? "ok" : (r.result === "loss" ? "bad" : "muted")}">${esc(r.result)}</span>`,
-      esc(r.endReason), r.step_count, num(r.our_alive, 0), num(r.enemy_alive, 0), num(r.score, 3),
-    ]));
-  };
-  sel.addEventListener("change", renderRows);
-  box.prepend(sel);
-  const defaultName = (pickLabel("default") || p.files[0]).name;
-  sel.value = state.selected && p.files.some(f => f.name === state.selected) ? state.selected : defaultName;
-  renderRows();
-  sel.addEventListener("change", () => { state.selected = sel.value; });
+  h += "</details>";
+  return h;
 }
 
 function renderLogs(d) {
@@ -455,10 +500,21 @@ function renderLogs(d) {
 
 const STEP_STATE_LABEL = { done: "済", current: "次", todo: "未" };
 
-function cmdRow(cmd, label) {
+// 登録系コピーは、貼った時点でAIが意図を判別できるよう先頭に種別行を付ける
+const INTENT_FACT = "# 事実確認（仮説登録なし）— 実行して結果のみ報告\n";
+const INTENT_MATERIAL = "# 仮説の材料 — この事実を前提に仮説を1本立ててください\n";
+const INTENT_ASSUMPTION = "# 前提登録 — この行をAIに貼って登録依頼\n";
+const INTENT_HYPOTHESIS = "# 仮説登録 — この行をAIに貼って登録依頼\n";
+
+function withIntent(intent, cmd) {
+  return cmd ? intent + cmd : cmd;
+}
+
+function cmdRow(cmd, label, intent) {
   if (!cmd) return "";
+  const copied = intent ? intent + cmd : cmd;
   return `<div class="cmd"><span class="title">${esc(label || "コマンド")}</span>` +
-         `<code>${esc(cmd)}</code><button data-cmd="${attr(cmd)}">コピー</button></div>`;
+         `<code>${esc(cmd)}</code><button data-cmd="${attr(copied)}">コピー</button></div>`;
 }
 
 function bindCopy(root) {
@@ -531,7 +587,7 @@ function renderFact(card) {
       const title = it.title ? `<span class="title">${esc(it.title)}</span>` : "";
       const cls = hasExtra && idx >= LIMIT ? ' class="extra"' : "";
       h += `<li${cls}>${title}<span class="text">${esc(it.text)}</span>` +
-           `<button data-cmd="${attr(it.command)}">コピー</button></li>`;
+           `<button data-cmd="${attr(withIntent(INTENT_ASSUMPTION, it.command))}">コピー</button></li>`;
     });
     if (hasExtra) {
       const n = card.items.length - LIMIT;
@@ -545,7 +601,12 @@ function renderFact(card) {
          `<div class="clamp2">${esc(card.hypothesis)}</div></div>`;
   }
   if (card.metric) h += `<div class="metric">判定指標: <b>${esc(card.metric)}</b></div>`;
-  h += cmdRow(card.command, card.command_label);
+  h += cmdRow(card.command, card.command_label, INTENT_FACT);
+  // コマンドも登録itemも持たない事実カード（独自指標・条件トリガー・スコア）は
+  // 値そのものを「仮説の材料」としてコピーできるようにする（確認作業は発生しない）
+  if (!card.command && !(card.items && card.items.length) && card.phrase) {
+    h += `<button class="copy material" data-cmd="${attr(withIntent(INTENT_MATERIAL, card.phrase))}">仮説の材料</button>`;
+  }
   return h + "</div>";
 }
 
@@ -670,7 +731,7 @@ function bindHypothesisBuilder(root, s, d) {
     const text = parts.join("、").replace(/、、/g, "、");
     const out = box.querySelector("#hypho-text");
     if (out) out.textContent = text;
-    const line = "# 仮説登録 — この行をAIに貼って登録依頼\n" +
+    const line = INTENT_HYPOTHESIS +
       base + text + '" --specialist ' + (s.target || "default") +
       " --source " + q("source").value;
     box.querySelectorAll("button[data-cmd]").forEach(b => { b.dataset.cmd = line; });
@@ -776,6 +837,7 @@ function renderSession(d) {
   }
 
   document.getElementById("session").innerHTML = h;
+  bindCopy(document.getElementById("session"));
 }
 
 function hypOptionLabel(h) {

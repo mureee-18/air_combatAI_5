@@ -22,6 +22,7 @@ import argparse
 import hashlib
 import importlib
 import json
+import math
 import platform
 import shutil
 import subprocess
@@ -250,6 +251,9 @@ def _trajectory_values(traj: dict) -> dict:
     }
     out["min_dist_km"] = _min_of(traj.get("min_dist"))
     out["lost_range_km"] = _scalar(traj.get("lost_max"))
+    out["max_advance_x_km"] = _scalar(traj.get("max_advance_x"))
+    out["escort_min_dist_km"] = _scalar(traj.get("escort_min_dist"))
+    out["ammo_reserve"] = _scalar(traj.get("ammo_reserve"))
     return out
 
 
@@ -305,10 +309,17 @@ def collect_custom_metrics(paired: dict | None = None, target: str = "default") 
     rows = defn.get("metrics", [])
     paired = paired if paired is not None else collect_paired()
     try:
-        newest_logs = collect_replays(limit=1)["entries"]
+        newest_logs = collect_replays(limit=8)["entries"]
     except Exception:  # noqa: BLE001
         newest_logs = []
     traj = _trajectory_facts(newest_logs[0]["log"]) if newest_logs else {}
+    # 護衛対象機への最短距離は絶対座標記録（record_enemies）付きログでのみ算出できる。
+    # 最新ログに無ければ、直近ログから記録付きのものを探して補完する（値の出所は note に明記）。
+    if traj.get("escort_min_dist") is None:
+        direct = _newest_direct_facts(newest_logs[1:])
+        if direct is not None:
+            traj["escort_min_dist"] = direct["escort_min_dist"]
+            traj["escort_log"] = direct.get("escort_log")
     stats = collect_logs().get("newest_stats") or {}
 
     paired_values: dict = {}
@@ -329,11 +340,16 @@ def collect_custom_metrics(paired: dict | None = None, target: str = "default") 
         "trajectory": _trajectory_values(traj or {}),
         "logstats": _logstats_values(stats),
     }
+    metric_rows = [_metric_snapshot(r, buckets.get(r.get("from", "paired"), {})) for r in rows]
+    if traj.get("escort_log"):
+        for row in metric_rows:
+            if row.get("id") == "escort_min_dist_km":
+                row["where"] = f"{row['where']}（値の出所: {traj['escort_log']}）"
     return {
         "store": str(CUSTOM_METRICS_FILE.relative_to(REPO_ROOT)).replace("\\", "/"),
         "note": defn.get("note", ""),
         "hints": [f"{k}: {v}" for k, v in METRIC_FROM_HINT.items()],
-        "rows": [_metric_snapshot(r, buckets.get(r.get("from", "paired"), {})) for r in rows],
+        "rows": metric_rows,
         "add_command": (
             'python tools/state_dashboard/add_metric.py --label "<指標名>" '
             "--from paired|trajectory|logstats --direction higher|lower "
@@ -1125,6 +1141,8 @@ def _trajectory_facts(log_rel: str) -> dict | None:
     ammo_end: dict[str, float] = {}
     spread_max = 0.0
     spread_at = None
+    max_x = None
+    escort_min_dist = None
     for i, f in enumerate(frames):
         bearings = [e["bearing"] for e in f["enemy"]]
         if len(bearings) >= 2:
@@ -1137,10 +1155,25 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         for e in f["enemy"]:
             prev = min_dist.get(e["slot"])
             min_dist[e["slot"]] = e["dist"] if prev is None else min(prev, e["dist"])
+        own_pts = []
         for slot, p in f["own"].items():
             if slot not in ammo_start:
                 ammo_start[slot] = p["ammo"]
             ammo_end[slot] = p["ammo"]
+            if p["x"] is not None and p["y"] is not None:
+                own_pts.append((p["x"], p["y"]))
+                max_x = p["x"] if max_x is None else max(max_x, p["x"])
+        # 護衛対象機（絶対座標記録 source="direct" の ID が ...E）への最短接近距離
+        for team in f.get("teams", []):
+            if team.get("side") != "enemy" or team.get("source") != "direct":
+                continue
+            if not str(team.get("id", "")).endswith("E"):
+                continue
+            if team.get("x") is None or team.get("y") is None:
+                continue
+            for ox, oy in own_pts:
+                d = math.hypot(ox - team["x"], oy - team["y"])
+                escort_min_dist = d if escort_min_dist is None else min(escort_min_dist, d)
 
     used = {e["slot"] for e in launches}
     lag = None
@@ -1163,8 +1196,32 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "spread_max": round(spread_max, 1),
         "spread_at": spread_at,
         "lost_t": lost,
+        "max_advance_x": round(max_x, 1) if max_x is not None else None,
+        "escort_min_dist": round(escort_min_dist, 1) if escort_min_dist is not None else None,
+        "ammo_reserve": sum(
+            v for v in (ammo_end.get(s) for s in payload["slots"]) if v is not None
+        ),
         "result": payload.get("result") or {},
     }
+
+
+def _newest_direct_facts(logs: list[dict]) -> dict | None:
+    """絶対座標記録付き（record_enemies）ログのうち最新のものの軌跡指標を返す.
+
+    護衛対象機の距離は `enemies_direct` を持つログでしか算出できない。3値
+    （最大進出 x / 護衛対象機への最短距離 / 最終残弾）を同じゲームに揃えるため、
+    記録付きログの facts を丸ごと返す。見つからなければ None。
+    """
+
+    for entry in logs:
+        try:
+            traj = _trajectory_facts(entry["log"])
+        except Exception:  # noqa: BLE001
+            continue
+        if traj.get("escort_min_dist") is not None:
+            traj["escort_log"] = entry["log"]
+            return traj
+    return None
 
 
 def _paired_evidence() -> dict | None:
@@ -1181,6 +1238,169 @@ def _paired_evidence() -> dict | None:
     best, worst = rows[0], rows[-1]
     gap = round(best["metrics"]["avg_score"] - worst["metrics"]["avg_score"], 3)
     return {"best": best, "worst": worst, "gap": gap, "rows": rows}
+
+
+def _metric_card(snap: dict) -> dict:
+    """独自指標 1 件を事実カードにする（値・目標・達成/未達を出す）."""
+
+    digits = int(snap.get("digits", 2))
+    unit = snap.get("unit") or ""
+
+    def fmt(value):
+        return "—" if value is None else f"{float(value):.{digits}f}"
+
+    value = snap.get("value")
+    target = snap.get("target")
+    direction = snap.get("direction", "higher")
+    reached = snap.get("status") == "reached"
+    if target is None:
+        title = f"参考指標: {snap['label']} = {fmt(value)}{unit}"
+        phrase = f"{snap['label']} は {fmt(value)}{unit}（目標なし）"
+    else:
+        mark = "達成" if reached else "未達"
+        title = f"独自指標（{mark}）: {snap['label']} {fmt(value)}{unit} / 目標 {fmt(target)}{unit}"
+        phrase = f"{snap['label']} は {fmt(value)}{unit}（目標 {fmt(target)}{unit}・{mark}）"
+    evidence = [{"label": snap["label"], "value": value, "num": True, "digits": digits}]
+    if target is not None:
+        evidence.append({"label": "目標", "value": target, "num": True, "digits": digits})
+    return {
+        "id": f"metric:{snap['id']}",
+        "kind": "observation",
+        "source": snap.get("source") or "log",
+        "title": title,
+        "summary": snap.get("note") or "独自指標（目標ボード）の現在値。",
+        "evidence": evidence,
+        "hypothesis": (
+            f"{snap['label']} が律速なら、変える変数を1つに絞って "
+            f"{'増やす' if direction != 'lower' else '減らす'}方向へ動かす。"
+        ),
+        "phrase": phrase,
+        "metric": snap["label"],
+        "from_tab": snap.get("tab") or "—",
+        "from_path": snap.get("where") or "",
+        "command": "",
+        "command_label": "",
+    }
+
+
+def _metric_cards(
+    traj: dict | None, stats: dict | None, paired: dict | None, target: str, newest: list
+) -> list[dict]:
+    """custom_metrics.json に連動して事実カードを生成する（読み取り専用）.
+
+    指標を足す/消すとカードが増減し、未達の目標だけが出て達成すると消える。
+    値が無い指標は出さない。
+    """
+
+    specs = (load_json(CUSTOM_METRICS_FILE) or {}).get("metrics", [])
+    if not specs:
+        return []
+    # 護衛対象機距離・残弾は絶対座標記録（record_enemies）付きログでのみ算出できる。
+    # 最新ログに無ければ直近の記録付きログで補完する（評価タブ collect_custom_metrics と同じ流儀）。
+    traj = dict(traj or {})
+    if traj.get("escort_min_dist") is None:
+        direct = _newest_direct_facts(newest[1:])
+        if direct is not None:
+            for k in ("escort_min_dist", "ammo_reserve", "max_advance_x"):
+                if traj.get(k) is None:
+                    traj[k] = direct.get(k)
+    buckets = {
+        "trajectory": _trajectory_values(traj),
+        "logstats": _logstats_values(stats or {}),
+        "paired": {},
+    }
+    rows = (paired or {}).get("rows", [])
+    pick = (
+        next((r for r in rows if r.get("name") == target), None)
+        or next((r for r in rows if Path(str(r.get("file", ""))).stem == target), None)
+        or (rows[-1] if rows else None)
+    )
+    if pick:
+        buckets["paired"] = {
+            k: v for k, v in (pick.get("metrics") or {}).items() if _scalar(v) is not None
+        }
+    out = []
+    for spec in specs:
+        snap = _metric_snapshot(spec, buckets.get(spec.get("from", "paired"), {}))
+        if snap.get("value") is None:
+            continue
+        if snap.get("target") is not None and snap.get("status") == "reached":
+            continue  # 達成した目標はカードから消える（枚数が動的に変わる）
+        out.append(_metric_card(snap))
+    return out
+
+
+def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) -> list[dict]:
+    """実測が条件を満たす間だけ出るカード（解消すると自動で消える）."""
+
+    out: list[dict] = []
+    if facts:
+        max_x = facts.get("max_advance_x")
+        reserve = facts.get("ammo_reserve")
+        if max_x is not None and reserve is not None and max_x >= 100 and reserve <= 2:
+            out.append({
+                "id": "trigger_ammo_dry",
+                "kind": "observation",
+                "source": "log",
+                "title": f"深追いしたが残弾が尽きていた（x={max_x:g} / 残弾 {reserve:g}）",
+                "summary": "護衛対象機の周回帯まで到達しているのに残弾が無く、撃てずに終わっている。",
+                "evidence": [
+                    {"label": "最大進出 x[km]", "value": max_x, "num": True, "digits": 0},
+                    {"label": "最終残弾[発]", "value": reserve, "num": True, "digits": 0},
+                ],
+                "hypothesis": "残弾を温存する方向に1変数だけ変えれば、到達時に撃てる可能性がある。",
+                "phrase": f"深追いしたが残弾が尽きていた（x={max_x:g} / 残弾 {reserve:g}）",
+                "metric": "最大進出 x と最終残弾（目標ボード）",
+                "from_tab": "自機視点",
+                "from_path": facts.get("log", ""),
+                "command": "",
+                "command_label": "",
+            })
+    if stats and "error" not in stats and stats.get("mode") == "自作エージェント" and facts:
+        orders = sum(_scalar(a.get("fire_orders")) or 0 for a in stats["agents"])
+        launches = facts.get("launch_count")
+        if orders and launches is not None and orders > launches:
+            out.append({
+                "id": "trigger_orders_gap",
+                "kind": "observation",
+                "source": "log",
+                "title": f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回",
+                "summary": "Policy は撃てと言っているのに発射されていない。deploy() 側の制約を先に疑う。",
+                "evidence": [
+                    {"label": "射撃指示", "value": orders, "num": True, "digits": 0},
+                    {"label": "発射", "value": launches, "num": True, "digits": 0},
+                ],
+                "hypothesis": "isLaunchableAt / _countFlyingMissiles の制約を1つ読む。",
+                "phrase": f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回",
+                "metric": "fire_orders と launch の差",
+                "from_tab": "ログ",
+                "from_path": stats.get("log", ""),
+                "command": "",
+                "command_label": "",
+            })
+    if paired:
+        wm = paired["worst"]["metrics"]
+        ours, theirs = wm.get("avg_our_alive"), wm.get("avg_enemy_alive")
+        if ours is not None and ours == 0 and (theirs or 0) >= 3:
+            out.append({
+                "id": "trigger_wiped",
+                "kind": "observation",
+                "source": "log",
+                "title": f"自機が全滅している試合がある（自機 {ours} / 敵 {theirs}）",
+                "summary": "敵を落とせず全滅している。距離・タイミングで有利な射撃機会を作れていない。",
+                "evidence": [
+                    {"label": "自機生存", "value": ours, "num": True, "digits": 2},
+                    {"label": "敵生存", "value": theirs, "num": True, "digits": 2},
+                ],
+                "hypothesis": "交戦距離（min_dist_km）か迎撃タイミングのどちらかを1変数だけ変える。",
+                "phrase": f"自機が全滅している試合がある（自機 {ours} / 敵 {theirs}）",
+                "metric": "avg_our_alive / avg_enemy_alive",
+                "from_tab": "評価",
+                "from_path": f"workspace/paired/{paired['worst'].get('file', '')}",
+                "command": "",
+                "command_label": "",
+            })
+    return out
 
 
 def collect_evidence(target: str) -> list[dict]:
@@ -1245,102 +1465,24 @@ def collect_evidence(target: str) -> list[dict]:
 
     # 2) 軌跡の時系列（初探知 → 初発 → 被弾）
     try:
-        newest = collect_replays(limit=1)["entries"]
+        newest = collect_replays(limit=8)["entries"]
     except Exception:  # noqa: BLE001
         newest = []
     facts = _trajectory_facts(newest[0]["log"]) if newest else None
     _evidence_derived["facts"] = facts
-    if facts:
-        lag_text = f"{facts['lag']} 秒" if facts["lag"] is not None else "—"
-        ammo_used = sum(
-            max(0.0, (facts["ammo_start"].get(s) or 0) - (facts["ammo_end"].get(s) or 0))
-            for s in facts["slots"]
-        )
-        nearest = round(min(facts["min_dist"].values()), 1) if facts["min_dist"] else None
-        cards.append({
-            "id": "trajectory",
-            "kind": "observation",
-            "source": "log",
-            "title": f"探知 t={facts['first_detect']} → 初発 t={facts['first_launch']}（空白 {lag_text}）",
-            "summary": (
-                f"敵の方位が最大 {facts['spread_max']}° まで散った（t={facts['spread_at']}）。"
-                f"自機からの最短探知距離は {nearest} km。"
-                f"被弾警報が出たのは各機 "
-                f"{min(facts['warn_frames'].values()) if facts['warn_frames'] else 0}〜"
-                f"{max(facts['warn_frames'].values()) if facts['warn_frames'] else 0} フレームのみで、"
-                "応答が消えた直前に集中していた。"
-            ),
-            "evidence": [
-                {"label": "初探知 t", "value": facts["first_detect"], "num": True, "digits": 0},
-                {"label": "初射撃指示 t", "value": facts["first_lock"], "num": True, "digits": 0},
-                {"label": "初発射 t", "value": facts["first_launch"], "num": True, "digits": 0},
-                {"label": "探知→初発の空白", "value": facts["lag"], "num": True, "digits": 0},
-                {"label": "総発射数", "value": facts["launch_count"], "num": True, "digits": 0},
-                {"label": "発射した機体数", "value": len(facts["launched_slots"]), "num": True, "digits": 0},
-                {"label": "消費した誘導弾", "value": ammo_used, "num": True, "digits": 0},
-                {"label": "敵方位の最大分散", "value": facts["spread_max"], "num": True, "digits": 1},
-                {"label": "最短探知距離[km]", "value": nearest, "num": True, "digits": 1},
-                {"label": "応答終了 t", "value": max(facts["lost_t"]) if facts["lost_t"] else None,
-                 "num": True, "digits": 0},
-            ],
-            "hypothesis": (
-                f"探知から初発まで {lag_text}の空白が主因と仮説する。空白の原因が『射撃開始距離が遠い』"
-                "（fireRangeKm）なのか『同時発射上限で次の発射を待っている』のか"
-                "（maxSimulShot / 誘導弾の飛翔時間）なのかを、1変数だけ変えて切り分ける。"
-            ),
-            "phrase": (
-                f"初探知 t={facts['first_detect']} に対し初発が t={facts['first_launch']}"
-                f"（空白 {lag_text} / 総発射数 {facts['launch_count']}）"
-            ),
-            "metric": "初発 t / 総発射数 / 撃墜数（avg_enemy_alive の低下）",
-            "from_tab": "自機視点",
-            "from_path": facts["log"],
-            "command": (
-                f'python tools/battle_analyzer/trajectory.py {facts["log"]}'
-            ),
-            "command_label": "軌跡の要約をターミナルで確認",
-        })
+    # 2) 軌跡（trajectory）・勝ち筋（win_path）・挙動指標（logstats）のカードは
+    #    「確認しました」で終わるだけなので 仮説登録タブ から除外した。
+    #    これらの数値は metric / trigger カード（#3b）と ログタブ・評価タブ・目標ボード で見る。
 
-    # 3) 挙動指標（射撃指示 ≠ 発射 の切り分け）
+    # 3) 挙動指標（metric:fire_orders / trigger の計算元。logstats カードは出さない）
     stats = collect_logs().get("newest_stats")
     _evidence_derived["stats"] = stats
-    if stats and "error" not in stats and stats.get("mode") == "自作エージェント":
-        agents = stats["agents"]
-        cards.append({
-            "id": "logstats",
-            "kind": "observation",
-            "source": "log",
-            "title": f"最新ログの挙動指標（{stats['log']}）",
-            "summary": (
-                "射撃指示の回数は『発射した』ことを保証しない（isLaunchableAt が False の場合や、"
-                "飛翔中の誘導弾で同時発射上限に達している場合は発射されない）。"
-                "実際の発射は自機視点タブの launch イベント（残弾の減少）で確認する。"
-            ),
-            "evidence": [
-                {
-                    "label": f"{a['agent']} 号機",
-                    "value": (
-                        f"敵探知 {a['enemy_seen']} 回 / 射撃指示 {a['fire_orders']} 回"
-                        f" / 最短 {a['min_dist_km']} km"
-                    ),
-                    "num": False,
-                }
-                for a in agents
-            ],
-            "hypothesis": (
-                "射撃指示は出るのに発射イベントが少なければ、制約は方針（Policy）側ではなく "
-                "deploy() の isLaunchableAt / _countFlyingMissiles 側にある。先にそこを疑う。"
-            ),
-            "metric": "fire_orders と launch イベント数の差",
-            "phrase": (
-                f"射撃指示 {sum(_scalar(a.get('fire_orders')) or 0 for a in agents)} 回に対して"
-                f" 発射は {facts['launch_count'] if facts else '—'} 回"
-            ),
-            "from_tab": "ログ",
-            "from_path": stats["log"],
-            "command": f'python tools/battle_analyzer/battle_stats.py {stats["log"]}',
-            "command_label": "挙動指標をターミナルで確認",
-        })
+
+    # 3b) 独自指標（custom_metrics.json 連動）と条件トリガーのカード
+    #     指標を足す/消す、実測が閾値を超える/解消すると枚数が動的に変わる
+    stats_ok = stats if (stats and "error" not in stats) else None
+    cards.extend(_metric_cards(facts, stats_ok, paired, specialist, newest))
+    cards.extend(_trigger_cards(facts, stats_ok, paired))
 
     # 4) 前提（assumption）として登録すべき既知の制約
     constraints = _known_constraints()
