@@ -273,3 +273,13 @@
 - 検証: ペア評価: 0-6-0、avg_score 0.5、avg_our_alive 3.0、avg_enemy_alive 3.33（既存と同値）。命中率0、効果なし
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 現行設定（fireRange 50, break 35, maxSimulShot 4）へ戻す
+
+## O-029 [observation/log] 2026-10-10T18:53:50
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 追加検証: 現行設定の再確認
+- 仮説: N-021
+- 変更: 現行設定でペア評価を再実施
+- 検証: ペア評価: 0-6-0、avg_score 0.5、avg_our_alive 3.0、avg_enemy_alive 3.33。基準値と一致
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 有効な1変数が見当たらないため終了
