@@ -463,3 +463,13 @@
 - 検証: 1戦: ELIMINATION負け、alive our 0 / enemy 3、score 0.2375。発射窓(45,50]で発射5-6回に減るも、離脱時の尾部露出で被弾死
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 離脱軸も閉鎖。生存は現行35が最安定
+
+## O-048 [observation/log] 2026-10-11T00:52:53
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: breakRange45はペア評価でも決定的に棄却。3敗・avg_score 0.366・our_alive 0.5
+- 仮説: N-031
+- 変更: revert未デプロイのbreak45版でペア評価（N-031の検証として正しい帰属）。この後現行を再デプロイして復旧
+- 検証: 0勝3分3敗、avg_score 0.366、our 0.5、enemy 3.67。Red全3戦で全滅、Blueも生存1のみ
+- 指標: {"avg_score": 0.366, "avg_our_alive": 0.5, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: 現行を再デプロイし基準値に復旧
