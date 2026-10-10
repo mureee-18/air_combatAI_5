@@ -89,6 +89,47 @@
       "digits": 0,
       "note": "終了時に残っていた誘導弾の合計。勝ち戦は残弾を温存して護衛対象機まで到達する。枯渇（0-2発）だと深追いしても撃てない。",
       "unit": "発"
+    },
+    {
+      "id": "fire_conversion",
+      "label": "発射転換率",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "higher",
+      "digits": 2,
+      "note": "発射数÷射撃指示。低いときはtrigger証拠の内訳（飛行中ブロック/無弾）を見て主因を特定する目安。量自体は勝敗を決めない（N-018・N-025）ため目標値は置かない。",
+      "unit": "率"
+    },
+    {
+      "id": "threat_frames",
+      "label": "被弾警報フレーム数",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "lower",
+      "digits": 0,
+      "note": "全機の被弾警報（MWS）が出ていた合計フレーム。唯一残る生存軸の目安。多い場合は回避機動の見直し、警報なく死ぬ場合は探知外の奇襲で早期離脱軸。目標値は置かず参考値。",
+      "unit": "フレーム"
+    },
+    {
+      "id": "wipe_count",
+      "label": "全滅戦数",
+      "from": "paired",
+      "source": "log",
+      "direction": "lower",
+      "target": 0.0,
+      "digits": 0,
+      "note": "自機生存0で終わった戦数。平均生存数が良くても完敗が混ざると採点が崩れるためtail riskの目安。0ならカードは消える。",
+      "unit": "戦"
+    },
+    {
+      "id": "pre_launch_threat",
+      "label": "初発前警報フレーム数",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "lower",
+      "digits": 0,
+      "note": "初発までに被弾警報が出ていたフレーム数。初発空白の内訳用。大きい→脅威ゲートが初発を遅らせており脅威下射撃ロジック軸。小さい→探知距離などシナリオ要因。",
+      "unit": "フレーム"
     }
   ]
 }

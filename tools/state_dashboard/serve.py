@@ -250,6 +250,14 @@ def _trajectory_values(traj: dict) -> dict:
         ),
     }
     out["min_dist_km"] = _min_of(traj.get("min_dist"))
+    gap = traj.get("fire_gap") or {}
+    req = _scalar(gap.get("requests"))
+    lau = _scalar(gap.get("launched"))
+    out["fire_conversion"] = (lau / req) if req else None
+    out["fire_gap_flight"] = _scalar(gap.get("flight_block"))
+    out["fire_gap_noammo"] = _scalar(gap.get("no_ammo"))
+    out["threat_frames"] = sum((traj.get("warn_frames") or {}).values()) or None
+    out["pre_launch_threat"] = _scalar(traj.get("pre_launch_suppressed"))
     out["lost_range_km"] = _scalar(traj.get("lost_max"))
     out["max_advance_x_km"] = _scalar(traj.get("max_advance_x"))
     out["escort_min_dist_km"] = _scalar(traj.get("escort_min_dist"))
@@ -335,6 +343,11 @@ def collect_custom_metrics(paired: dict | None = None, target: str = "default") 
         paired_values = {
             k: v for k, v in (pick.get("metrics") or {}).items() if _scalar(v) is not None
         }
+    game_rows = _paired_game_rows(target)
+    if game_rows:
+        paired_values["wipe_count"] = sum(
+            1 for r in game_rows if _scalar(r.get("our_alive")) == 0
+        )
     buckets = {
         "paired": paired_values,
         "trajectory": _trajectory_values(traj or {}),
@@ -1176,9 +1189,32 @@ def _trajectory_facts(log_rel: str) -> dict | None:
                 escort_min_dist = d if escort_min_dist is None else min(escort_min_dist, d)
 
     used = {e["slot"] for e in launches}
+    # 発射要求（aim）の内訳: 飛行中ブロック / 無弾 / それ以外。
+    # 78→16 のような差が出たとき、どこで止まっているかを示す目安。
+    gap_requests = 0
+    gap_flight = 0
+    gap_noammo = 0
+    for f in frames:
+        flying = {s.get("slot") for s in f.get("shots", [])}
+        for a in f.get("aim", []):
+            slot = a.get("slot")
+            gap_requests += 1
+            if slot in flying:
+                gap_flight += 1
+                continue
+            ammo = (f.get("own", {}).get(slot) or {}).get("ammo")
+            if ammo is not None and float(ammo) <= 0:
+                gap_noammo += 1
     lag = None
     if first_detect is not None and first_launch is not None:
         lag = first_launch - first_detect
+    # 初発前の被弾警報フレーム数: lag の内訳（接近時間か脅威ゲート抑制か）の切り分け用。
+    # 脅威下では射撃指示が出ない（threat gate）ため、警報が多い空白は抑制が主因。
+    pre_launch_suppressed = 0
+    if first_launch is not None:
+        for f in frames[:first_launch]:
+            if f.get("threat"):
+                pre_launch_suppressed += 1
     return {
         "log": log_rel,
         "frames": payload["frame_count"],
@@ -1187,6 +1223,7 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "first_lock": first_lock,
         "first_launch": first_launch,
         "lag": lag,
+        "pre_launch_suppressed": pre_launch_suppressed,
         "launch_count": len(launches),
         "launched_slots": sorted(used),
         "ammo_start": ammo_start,
@@ -1201,6 +1238,12 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "ammo_reserve": sum(
             v for v in (ammo_end.get(s) for s in payload["slots"]) if v is not None
         ),
+        "fire_gap": {
+            "requests": gap_requests,
+            "launched": len(launches),
+            "flight_block": gap_flight,
+            "no_ammo": gap_noammo,
+        },
         "result": payload.get("result") or {},
     }
 
@@ -1222,6 +1265,27 @@ def _newest_direct_facts(logs: list[dict]) -> dict | None:
             traj["escort_log"] = entry["log"]
             return traj
     return None
+
+
+def _paired_game_rows(label: str) -> list[dict]:
+    """ペア評価ファイルの1戦ごとの rows を返す（全滅戦数の算出用）.
+
+    session の paired rows はファイル集約値のみで、1戦の our_alive は
+    workspace/paired/<label>.json の rows にしか無いため直接読む。
+    """
+    try:
+        direct = WORKSPACE / "paired" / f"{label}.json"
+        data = load_json(direct) if direct.exists() else None
+        if not isinstance(data, dict):
+            for path in sorted((WORKSPACE / "paired").glob("*.json")):
+                cand = load_json(path)
+                if isinstance(cand, dict) and (cand.get("metrics") or {}).get("label") == label:
+                    data = cand
+                    break
+        rows = (data or {}).get("rows", [])
+        return [r for r in rows if isinstance(r, dict)]
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def _paired_evidence() -> dict | None:
@@ -1319,6 +1383,11 @@ def _metric_cards(
         buckets["paired"] = {
             k: v for k, v in (pick.get("metrics") or {}).items() if _scalar(v) is not None
         }
+    game_rows = _paired_game_rows(target)
+    if game_rows:
+        buckets["paired"]["wipe_count"] = sum(
+            1 for r in game_rows if _scalar(r.get("our_alive")) == 0
+        )
     out = []
     for spec in specs:
         snap = _metric_snapshot(spec, buckets.get(spec.get("from", "paired"), {}))
@@ -1327,7 +1396,50 @@ def _metric_cards(
         if snap.get("target") is not None and snap.get("status") == "reached":
             continue  # 達成した目標はカードから消える（枚数が動的に変わる）
         out.append(_metric_card(snap))
+    for card in out:
+        if card.get("id") != "metric:fire_conversion":
+            continue
+        gap = (traj.get("fire_gap") or {})
+        if gap.get("requests") is None:
+            continue
+        fb = _scalar(gap.get("flight_block"))
+        na = _scalar(gap.get("no_ammo"))
+        orders = None
+        if stats and "error" not in stats and isinstance(stats.get("agents"), list):
+            orders = sum(_scalar(a.get("fire_orders")) or 0 for a in stats["agents"])
+        card["hypothesis"] = _fire_gap_hypothesis(orders, gap.get("launched"), fb, na)
+        tail = f"［飛行中{int(fb or 0)}・無弾{int(na or 0)}］"
+        if len(card.get("phrase", "") + tail) <= 120:
+            card["phrase"] = card.get("phrase", "") + tail
     return out
+
+
+def _fire_gap_hypothesis(orders, launches, fb, na) -> str:
+    """発射ギャップの内訳から、変数・方向・数値予測まで含む具体仮説文を作る.
+
+    貼った材料から仮説を1本立てられるよう、多い方の内訳に対応する軸と
+    未試行の変数だけを挙げる。閉鎖済みの軸は繰り返さない。
+    """
+    if fb is None and na is None:
+        return "内訳が無いログのため、軸は特定できない。最新ログで再確認する。"
+    fb_n = int(fb or 0)
+    na_n = int(na or 0)
+    if na_n >= fb_n and na_n > 0:
+        return (
+            f"無弾指示 {na_n}回が主因。残る温存変数は maxSimulShot 4→2 のみ"
+            f"（fireRange縮小は N-017・N-022 で棄却済み）。"
+            f"maxSimulShot 4→2 で無弾指示率の低下と後半発射の出現を予測するが、"
+            f"火力低下のため avg_score 0.5 維持・enemy_alive 不変の可能性大。"
+        )
+    if fb_n > 0:
+        return (
+            f"飛行中ブロック {fb_n}回が主因。量軸は N-018・N-025 で閉鎖済みのため、"
+            f"この数値から立てる新規仮説はない。別軸（生存・escort識別）へ。"
+        )
+    return (
+        "ブロックも無弾も少なく包絡棄却型。包絡軸は N-027 で閉鎖済みのため、"
+        "この数値から立てる新規仮説はない。別軸（生存・escort識別）へ。"
+    )
 
 
 def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) -> list[dict]:
@@ -1360,18 +1472,46 @@ def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) 
         orders = sum(_scalar(a.get("fire_orders")) or 0 for a in stats["agents"])
         launches = facts.get("launch_count")
         if orders and launches is not None and orders > launches:
+            gap = facts.get("fire_gap") or {}
+            fb = _scalar(gap.get("flight_block"))
+            na = _scalar(gap.get("no_ammo"))
+            evidence = [
+                {"label": "射撃指示", "value": orders, "num": True, "digits": 0},
+                {"label": "発射", "value": launches, "num": True, "digits": 0},
+            ]
+            guide = "deploy() 側の制約を先に疑う。"
+            if fb is not None:
+                evidence.append({"label": "うち飛行中ブロック", "value": fb, "num": True, "digits": 0})
+            if na is not None:
+                evidence.append({"label": "うち無弾指示", "value": na, "num": True, "digits": 0})
+            if na and fb is not None and na >= fb and na > 0:
+                guide = (
+                    "無弾指示が主因。序盤に撃ち尽くしており、温存・節約軸で仮説を立てる目安。"
+                )
+            elif fb and fb > 0:
+                guide = (
+                    "飛行中ブロックが主因。同時発射上限・タイミング軸。"
+                    "量を増やしても命中は変わらない（N-018・N-025で閉鎖済み）。"
+                )
+            else:
+                guide = (
+                    "ブロックも無弾も少ない。isLaunchableAt 棄却（発射包絡・角度）の可能性が高く、"
+                    "包絡・タイミング軸で仮説を立てる目安。"
+                )
+            phrase = f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回"
+            if fb is not None and na is not None:
+                tail = f"（飛行中{int(fb)}・無弾{int(na)}）"
+                if len(phrase + tail) <= 120:
+                    phrase += tail
             out.append({
                 "id": "trigger_orders_gap",
                 "kind": "observation",
                 "source": "log",
                 "title": f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回",
-                "summary": "Policy は撃てと言っているのに発射されていない。deploy() 側の制約を先に疑う。",
-                "evidence": [
-                    {"label": "射撃指示", "value": orders, "num": True, "digits": 0},
-                    {"label": "発射", "value": launches, "num": True, "digits": 0},
-                ],
-                "hypothesis": "isLaunchableAt / _countFlyingMissiles の制約を1つ読む。",
-                "phrase": f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回",
+                "summary": f"Policy は撃てと言っているのに発射されていない。{guide}",
+                "evidence": evidence,
+                "hypothesis": _fire_gap_hypothesis(orders, launches, fb, na),
+                "phrase": phrase,
                 "metric": "fire_orders と launch の差",
                 "from_tab": "ログ",
                 "from_path": stats.get("log", ""),
