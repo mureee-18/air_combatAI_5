@@ -323,3 +323,13 @@
 - 検証: 1戦launch_count=11（予測12以上に1発不足）。ペア評価0-6-0/0.5/2.67/3.33で基準に復帰。なお一度古いfr40データでvalidateした記録は上書き済み
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 発射数より命中率が律速。別軸で探る
+
+## O-034 [observation/log] 2026-10-10T22:24:11
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: beamRangeKm 45→0 は棄却。ビームはミサイル防御に必須で、無効化すると正面から被弾し全滅する
+- 仮説: N-024
+- 変更: args.json に beamRangeKm 0.0 を追加し1戦実施 → 全滅を確認し除去して復帰
+- 検証: 1戦: ELIMINATION負け、step 649、alive our 0 / enemy 4、score 0.2375。max_x -34kmで前進もせず。発射16は多いが被弾死
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 前進はビームではなく脅威回避ロジックが律速。別軸で探る
