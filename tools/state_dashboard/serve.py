@@ -256,6 +256,7 @@ def _trajectory_values(traj: dict) -> dict:
     out["fire_conversion"] = (lau / req) if req else None
     out["fire_gap_flight"] = _scalar(gap.get("flight_block"))
     out["fire_gap_noammo"] = _scalar(gap.get("no_ammo"))
+    out["threat_frames"] = sum((traj.get("warn_frames") or {}).values()) or None
     out["lost_range_km"] = _scalar(traj.get("lost_max"))
     out["max_advance_x_km"] = _scalar(traj.get("max_advance_x"))
     out["escort_min_dist_km"] = _scalar(traj.get("escort_min_dist"))
