@@ -373,3 +373,13 @@
 - 検証: ペア評価: 0勝1分5敗、avg_score 0.279、avg_our_alive 0.17、avg_enemy_alive 3.67。5戦でELIMINATION負け
 - 指標: {"avg_score": 0.279, "avg_our_alive": 0.17, "avg_enemy_alive": 3.67, "games": 6}
 - 次の一手: 現行fr50+break35を再デプロイし、ペア評価ファイルを正常値に復旧する
+
+## O-039 [observation/log] 2026-10-10T23:01:17
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: maxSimulShot 4→2 は棄却。無弾指示はゼロ化したが、火力低下で敗戦が出てscore低下
+- 仮説: N-028
+- 変更: config.json maxSimulShot 4→2 を適用し1戦・ペア評価を実施 → 悪化を確認し4へ巻き戻し
+- 検証: 1戦: no_ammo 0・残弾2,2,4,4温存・発射12で予測の前半は一致。ペア評価: 0勝5分1敗、avg_score 0.456（0.5→下降）、our 2.67、enemy 3.33。Red seed3で全滅
+- 指標: {"avg_score": 0.456, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 温存軸も閉鎖。現行fr50+break35+maxSimul4を維持
