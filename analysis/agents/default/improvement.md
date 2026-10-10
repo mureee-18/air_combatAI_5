@@ -483,3 +483,13 @@
 - 検証: ペア評価: 0勝5分1敗、avg_score 0.456、our 3.0、enemy 3.17。Blue seed3で全滅（our 0）。our_alive予測は的中も完敗でscore低下
 - 指標: {"avg_score": 0.456, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
 - 次の一手: 現行を再デプロイし基準値に復旧。wipe_countでtail監視
+
+## O-050 [observation/log] 2026-10-11T01:15:49
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 初発空白185秒は接近時間要因と確定。脅威抑制は0のため脅威下射撃軸は不要
+- 仮説: N-033
+- 変更: 実装変更なし（新指標pre_launch_threatで測定）
+- 検証: detect t=10→launch t=195、lag 185、初発前警報0。遠距離探知からの接近時間のみで、速度は既に最大のため手出し不可
+- 指標: {"avg_score": 0.456, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: 初発空白軸も閉鎖（シナリオ支配）。現行維持
