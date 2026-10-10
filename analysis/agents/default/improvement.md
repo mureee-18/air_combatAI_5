@@ -353,3 +353,13 @@
 - 検証: 1戦: ELIMINATION負け、668 step、alive our 0 / enemy 3、score 0.2375。発射3・要求11。遠方目標は50km内に稀にしか入らず射撃機会なし
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 目標選択はnearestを維持。配分・タイミング軸も閉鎖
+
+## O-037 [observation/log] 2026-10-10T22:41:04
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 包絡軸の閉鎖。新指標fire_conversionの目安通り、0.27は包絡棄却型。正面発射も空振りのため角度では解決しない
+- 仮説: N-027
+- 変更: 実装変更なし（results_improveログの診断: 45km超の正面発射10発を含む14発全て空振り、sim hit_rate 0.0）
+- 検証: 正面10発・ビーム中4発ともに命中0。敵は30秒の飛翔時間で回避し、発射距離帯では運動学的に捕捉不能と確定
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 命中率軸は閉鎖。残るは生存維持（現行設定）とescort識別手段の発掘のみ
