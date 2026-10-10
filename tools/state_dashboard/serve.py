@@ -250,6 +250,12 @@ def _trajectory_values(traj: dict) -> dict:
         ),
     }
     out["min_dist_km"] = _min_of(traj.get("min_dist"))
+    gap = traj.get("fire_gap") or {}
+    req = _scalar(gap.get("requests"))
+    lau = _scalar(gap.get("launched"))
+    out["fire_conversion"] = (lau / req) if req else None
+    out["fire_gap_flight"] = _scalar(gap.get("flight_block"))
+    out["fire_gap_noammo"] = _scalar(gap.get("no_ammo"))
     out["lost_range_km"] = _scalar(traj.get("lost_max"))
     out["max_advance_x_km"] = _scalar(traj.get("max_advance_x"))
     out["escort_min_dist_km"] = _scalar(traj.get("escort_min_dist"))
@@ -1176,6 +1182,22 @@ def _trajectory_facts(log_rel: str) -> dict | None:
                 escort_min_dist = d if escort_min_dist is None else min(escort_min_dist, d)
 
     used = {e["slot"] for e in launches}
+    # 発射要求（aim）の内訳: 飛行中ブロック / 無弾 / それ以外。
+    # 78→16 のような差が出たとき、どこで止まっているかを示す目安。
+    gap_requests = 0
+    gap_flight = 0
+    gap_noammo = 0
+    for f in frames:
+        flying = {s.get("slot") for s in f.get("shots", [])}
+        for a in f.get("aim", []):
+            slot = a.get("slot")
+            gap_requests += 1
+            if slot in flying:
+                gap_flight += 1
+                continue
+            ammo = (f.get("own", {}).get(slot) or {}).get("ammo")
+            if ammo is not None and float(ammo) <= 0:
+                gap_noammo += 1
     lag = None
     if first_detect is not None and first_launch is not None:
         lag = first_launch - first_detect
@@ -1201,6 +1223,12 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "ammo_reserve": sum(
             v for v in (ammo_end.get(s) for s in payload["slots"]) if v is not None
         ),
+        "fire_gap": {
+            "requests": gap_requests,
+            "launched": len(launches),
+            "flight_block": gap_flight,
+            "no_ammo": gap_noammo,
+        },
         "result": payload.get("result") or {},
     }
 
@@ -1360,17 +1388,40 @@ def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) 
         orders = sum(_scalar(a.get("fire_orders")) or 0 for a in stats["agents"])
         launches = facts.get("launch_count")
         if orders and launches is not None and orders > launches:
+            gap = facts.get("fire_gap") or {}
+            fb = _scalar(gap.get("flight_block"))
+            na = _scalar(gap.get("no_ammo"))
+            evidence = [
+                {"label": "射撃指示", "value": orders, "num": True, "digits": 0},
+                {"label": "発射", "value": launches, "num": True, "digits": 0},
+            ]
+            guide = "deploy() 側の制約を先に疑う。"
+            if fb is not None:
+                evidence.append({"label": "うち飛行中ブロック", "value": fb, "num": True, "digits": 0})
+            if na is not None:
+                evidence.append({"label": "うち無弾指示", "value": na, "num": True, "digits": 0})
+            if na and fb is not None and na >= fb and na > 0:
+                guide = (
+                    "無弾指示が主因。序盤に撃ち尽くしており、温存・節約軸で仮説を立てる目安。"
+                )
+            elif fb and fb > 0:
+                guide = (
+                    "飛行中ブロックが主因。同時発射上限・タイミング軸。"
+                    "量を増やしても命中は変わらない（N-018・N-025で閉鎖済み）。"
+                )
+            else:
+                guide = (
+                    "ブロックも無弾も少ない。isLaunchableAt 棄却（発射包絡・角度）の可能性が高く、"
+                    "包絡・タイミング軸で仮説を立てる目安。"
+                )
             out.append({
                 "id": "trigger_orders_gap",
                 "kind": "observation",
                 "source": "log",
                 "title": f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回",
-                "summary": "Policy は撃てと言っているのに発射されていない。deploy() 側の制約を先に疑う。",
-                "evidence": [
-                    {"label": "射撃指示", "value": orders, "num": True, "digits": 0},
-                    {"label": "発射", "value": launches, "num": True, "digits": 0},
-                ],
-                "hypothesis": "isLaunchableAt / _countFlyingMissiles の制約を1つ読む。",
+                "summary": f"Policy は撃てと言っているのに発射されていない。{guide}",
+                "evidence": evidence,
+                "hypothesis": "内訳（飛行中ブロック / 無弾）の多い方に対応する軸で1つ仮説を立てる。",
                 "phrase": f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回",
                 "metric": "fire_orders と launch の差",
                 "from_tab": "ログ",
