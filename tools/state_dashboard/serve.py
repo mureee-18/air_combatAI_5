@@ -1355,7 +1355,50 @@ def _metric_cards(
         if snap.get("target") is not None and snap.get("status") == "reached":
             continue  # 達成した目標はカードから消える（枚数が動的に変わる）
         out.append(_metric_card(snap))
+    for card in out:
+        if card.get("id") != "metric:fire_conversion":
+            continue
+        gap = (traj.get("fire_gap") or {})
+        if gap.get("requests") is None:
+            continue
+        fb = _scalar(gap.get("flight_block"))
+        na = _scalar(gap.get("no_ammo"))
+        orders = None
+        if stats and "error" not in stats and isinstance(stats.get("agents"), list):
+            orders = sum(_scalar(a.get("fire_orders")) or 0 for a in stats["agents"])
+        card["hypothesis"] = _fire_gap_hypothesis(orders, gap.get("launched"), fb, na)
+        tail = f"［飛行中{int(fb or 0)}・無弾{int(na or 0)}］"
+        if len(card.get("phrase", "") + tail) <= 120:
+            card["phrase"] = card.get("phrase", "") + tail
     return out
+
+
+def _fire_gap_hypothesis(orders, launches, fb, na) -> str:
+    """発射ギャップの内訳から、変数・方向・数値予測まで含む具体仮説文を作る.
+
+    貼った材料から仮説を1本立てられるよう、多い方の内訳に対応する軸と
+    未試行の変数だけを挙げる。閉鎖済みの軸は繰り返さない。
+    """
+    if fb is None and na is None:
+        return "内訳が無いログのため、軸は特定できない。最新ログで再確認する。"
+    fb_n = int(fb or 0)
+    na_n = int(na or 0)
+    if na_n >= fb_n and na_n > 0:
+        return (
+            f"無弾指示 {na_n}回が主因。残る温存変数は maxSimulShot 4→2 のみ"
+            f"（fireRange縮小は N-017・N-022 で棄却済み）。"
+            f"maxSimulShot 4→2 で無弾指示率の低下と後半発射の出現を予測するが、"
+            f"火力低下のため avg_score 0.5 維持・enemy_alive 不変の可能性大。"
+        )
+    if fb_n > 0:
+        return (
+            f"飛行中ブロック {fb_n}回が主因。量軸は N-018・N-025 で閉鎖済みのため、"
+            f"この数値から立てる新規仮説はない。別軸（生存・escort識別）へ。"
+        )
+    return (
+        "ブロックも無弾も少なく包絡棄却型。包絡軸は N-027 で閉鎖済みのため、"
+        "この数値から立てる新規仮説はない。別軸（生存・escort識別）へ。"
+    )
 
 
 def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) -> list[dict]:
@@ -1414,6 +1457,11 @@ def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) 
                     "ブロックも無弾も少ない。isLaunchableAt 棄却（発射包絡・角度）の可能性が高く、"
                     "包絡・タイミング軸で仮説を立てる目安。"
                 )
+            phrase = f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回"
+            if fb is not None and na is not None:
+                tail = f"（飛行中{int(fb)}・無弾{int(na)}）"
+                if len(phrase + tail) <= 120:
+                    phrase += tail
             out.append({
                 "id": "trigger_orders_gap",
                 "kind": "observation",
@@ -1421,8 +1469,8 @@ def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) 
                 "title": f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回",
                 "summary": f"Policy は撃てと言っているのに発射されていない。{guide}",
                 "evidence": evidence,
-                "hypothesis": "内訳（飛行中ブロック / 無弾）の多い方に対応する軸で1つ仮説を立てる。",
-                "phrase": f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回",
+                "hypothesis": _fire_gap_hypothesis(orders, launches, fb, na),
+                "phrase": phrase,
                 "metric": "fire_orders と launch の差",
                 "from_tab": "ログ",
                 "from_path": stats.get("log", ""),
