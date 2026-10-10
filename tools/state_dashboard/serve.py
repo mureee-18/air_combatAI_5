@@ -1411,6 +1411,11 @@ def _metric_cards(
         tail = f"［飛行中{int(fb or 0)}・無弾{int(na or 0)}］"
         if len(card.get("phrase", "") + tail) <= 120:
             card["phrase"] = card.get("phrase", "") + tail
+    lag_branch = _lag_branch_hypothesis(traj.get("lag"), traj.get("pre_launch_suppressed"))
+    if lag_branch is not None:
+        for card in out:
+            if card.get("id") in ("metric:first_launch_lag", "metric:pre_launch_threat"):
+                card["hypothesis"] = lag_branch
     return out
 
 
@@ -1439,6 +1444,27 @@ def _fire_gap_hypothesis(orders, launches, fb, na) -> str:
     return (
         "ブロックも無弾も少なく包絡棄却型。包絡軸は N-027 で閉鎖済みのため、"
         "この数値から立てる新規仮説はない。別軸（生存・escort識別）へ。"
+    )
+
+
+def _lag_branch_hypothesis(lag, suppressed) -> str | None:
+    """初発空白の内訳から分岐ガイド文を作る（f25s5: 245/487 等の実測で調整）.
+
+    抑制支配（警報が lag の2割以上かつ20フレーム以上）のときだけ
+    脅威下射撃軸を開く。それ以外は接近時間要因で手出し不可。
+    """
+    if lag is None or suppressed is None:
+        return None
+    lag_f, sup_f = float(lag), float(suppressed)
+    if lag_f > 0 and sup_f >= 20 and sup_f / lag_f >= 0.2:
+        return (
+            f"初発前の警報 {int(sup_f)}回（空白の{sup_f / lag_f:.0%}）が初発を遅らせている。"
+            f"脅威ゲートが主因のため、脅威下でも射撃する方向が次の候補"
+            f"（未試行。発射アスペクト悪化のリスクあり）。"
+        )
+    return (
+        "初発前の警報は少なく、空白は接近時間（探知距離・シナリオ）要因。"
+        "速度は既に最大のため手出しできる変数はない。別軸へ。"
     )
 
 
