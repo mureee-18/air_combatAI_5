@@ -343,3 +343,13 @@
 - 検証: flight_block 62/62=100%、転換率16/16=100%。N-018では24発でもhit_rate 0・enemy_alive不変。発射量増加は無効と二重に確認
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 命中率0の解消または生存重視のみが有効軸。発射量パラメータには触れない
+
+## O-036 [observation/log] 2026-10-10T22:33:19
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: targetMode farthest（集中射撃）は棄却。最遠目標では近接戦闘機への防御が消え、発射も3発のみで全滅する
+- 仮説: N-026
+- 変更: default.pyにtargetMode分岐を追加＋args.jsonにfarthestを設定し1戦実施 → 全滅を確認し両方とも除去して復帰
+- 検証: 1戦: ELIMINATION負け、668 step、alive our 0 / enemy 3、score 0.2375。発射3・要求11。遠方目標は50km内に稀にしか入らず射撃機会なし
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 目標選択はnearestを維持。配分・タイミング軸も閉鎖
