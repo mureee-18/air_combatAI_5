@@ -303,3 +303,13 @@
 - 検証: 0-6-0 / 0.500 / our 3.0 / enemy 3.33
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 現行 fr50+break35+maxSimul4 維持
+
+## O-032 [observation/log] 2026-10-10T22:12:06
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: fireRangeKm 50→40 は棄却。発射窓を狭めると長射程の先制射撃が消え、被弾時間が増える
+- 仮説: N-022
+- 変更: args.json fireRangeKm 50→40 を適用（1戦で発射距離37km・空白106秒を確認）→ 悪化を確認し 50 へ巻き戻し
+- 検証: ペア評価: 0勝4分2敗、avg_score 0.413（0.5→下降）、avg_our_alive 2.17、avg_enemy_alive 3.83。Red seed2/3 で全滅
+- 指標: {"avg_score": 0.413, "avg_our_alive": 2.17, "avg_enemy_alive": 3.83, "games": 6}
+- 次の一手: 初発空白の短縮は fireRange ではなく別軸で探る
