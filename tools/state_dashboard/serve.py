@@ -342,6 +342,11 @@ def collect_custom_metrics(paired: dict | None = None, target: str = "default") 
         paired_values = {
             k: v for k, v in (pick.get("metrics") or {}).items() if _scalar(v) is not None
         }
+    game_rows = _paired_game_rows(target)
+    if game_rows:
+        paired_values["wipe_count"] = sum(
+            1 for r in game_rows if _scalar(r.get("our_alive")) == 0
+        )
     buckets = {
         "paired": paired_values,
         "trajectory": _trajectory_values(traj or {}),
@@ -1253,6 +1258,27 @@ def _newest_direct_facts(logs: list[dict]) -> dict | None:
     return None
 
 
+def _paired_game_rows(label: str) -> list[dict]:
+    """ペア評価ファイルの1戦ごとの rows を返す（全滅戦数の算出用）.
+
+    session の paired rows はファイル集約値のみで、1戦の our_alive は
+    workspace/paired/<label>.json の rows にしか無いため直接読む。
+    """
+    try:
+        direct = WORKSPACE / "paired" / f"{label}.json"
+        data = load_json(direct) if direct.exists() else None
+        if not isinstance(data, dict):
+            for path in sorted((WORKSPACE / "paired").glob("*.json")):
+                cand = load_json(path)
+                if isinstance(cand, dict) and (cand.get("metrics") or {}).get("label") == label:
+                    data = cand
+                    break
+        rows = (data or {}).get("rows", [])
+        return [r for r in rows if isinstance(r, dict)]
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def _paired_evidence() -> dict | None:
     paired = collect_paired()
     rows = []
@@ -1348,6 +1374,11 @@ def _metric_cards(
         buckets["paired"] = {
             k: v for k, v in (pick.get("metrics") or {}).items() if _scalar(v) is not None
         }
+    game_rows = _paired_game_rows(target)
+    if game_rows:
+        buckets["paired"]["wipe_count"] = sum(
+            1 for r in game_rows if _scalar(r.get("our_alive")) == 0
+        )
     out = []
     for spec in specs:
         snap = _metric_snapshot(spec, buckets.get(spec.get("from", "paired"), {}))

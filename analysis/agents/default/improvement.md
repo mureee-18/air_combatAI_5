@@ -473,3 +473,13 @@
 - 検証: 0勝3分3敗、avg_score 0.366、our 0.5、enemy 3.67。Red全3戦で全滅、Blueも生存1のみ
 - 指標: {"avg_score": 0.366, "avg_our_alive": 0.5, "avg_enemy_alive": 3.67, "games": 6}
 - 次の一手: 現行を再デプロイし基準値に復旧
+
+## O-049 [observation/log] 2026-10-11T01:09:05
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: beamRangeKm 45→55 は棄却。生存平均は上がるが完敗のtailで採点が崩れる
+- 仮説: N-032
+- 変更: args.json beamRangeKm 55 を適用し1戦・ペア評価を実施 → 1敗を確認し除去して復帰
+- 検証: ペア評価: 0勝5分1敗、avg_score 0.456、our 3.0、enemy 3.17。Blue seed3で全滅（our 0）。our_alive予測は的中も完敗でscore低下
+- 指標: {"avg_score": 0.456, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: 現行を再デプロイし基準値に復旧。wipe_countでtail監視
