@@ -363,3 +363,13 @@
 - 検証: 正面10発・ビーム中4発ともに命中0。敵は30秒の飛翔時間で回避し、発射距離帯では運動学的に捕捉不能と確定
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 命中率軸は閉鎖。残るは生存維持（現行設定）とescort識別手段の発掘のみ
+
+## O-038 [observation/log] 2026-10-10T22:44:03
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: targetMode farthestはペア評価でも決定的に棄却。5敗・avg_score 0.279・our_alive 0.17
+- 仮説: N-026
+- 変更: 1戦全滅後にrevertしたがデプロイし忘れ、farthest版のままペア評価を実施（N-026の検証としては正しい帰属）。この後現行を再デプロイして取り直す
+- 検証: ペア評価: 0勝1分5敗、avg_score 0.279、avg_our_alive 0.17、avg_enemy_alive 3.67。5戦でELIMINATION負け
+- 指標: {"avg_score": 0.279, "avg_our_alive": 0.17, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: 現行fr50+break35を再デプロイし、ペア評価ファイルを正常値に復旧する
