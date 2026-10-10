@@ -283,3 +283,13 @@
 - 検証: ペア評価: 0-6-0、avg_score 0.5、avg_our_alive 3.0、avg_enemy_alive 3.33。基準値と一致
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 有効な1変数が見当たらないため終了
+
+## O-030 [observation/log] 2026-10-10T20:03:07
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: N-012 の再検証（現行設定での安定性確認）
+- 仮説: N-012
+- 変更: ペア評価実施
+- 検証: ペア評価: 0-6-0、avg_score 0.5、avg_our_alive 3.0、avg_enemy_alive 3.33（現行設定で安定）
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行 fr50+break35+maxSimul4 を維持
