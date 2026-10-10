@@ -453,3 +453,13 @@
 - 検証: 0-6-0 / 0.5 / 2.67 / 3.33 で基準値と一致
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 現行維持
+
+## O-047 [observation/log] 2026-10-11T00:47:32
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: breakRangeKm 35→45（早期離脱）は棄却。180°離脱は尾追い被弾を招き全滅する
+- 仮説: N-031
+- 変更: args.json breakRangeKm 35→45 を適用し1戦実施 → 全滅を確認し35へ巻き戻し
+- 検証: 1戦: ELIMINATION負け、alive our 0 / enemy 3、score 0.2375。発射窓(45,50]で発射5-6回に減るも、離脱時の尾部露出で被弾死
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 離脱軸も閉鎖。生存は現行35が最安定
