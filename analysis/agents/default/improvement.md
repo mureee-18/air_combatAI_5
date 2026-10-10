@@ -263,3 +263,13 @@
 - 検証: ペア評価: 0-6-0、avg_score 0.5、avg_our_alive 3.0、avg_enemy_alive 3.33（our_alive が若干向上する可能性あるが、敵生存数に変化なし）
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 命中率が0.0 の主因は誘導挙動。別軸を検討（待機・射撃条件の見直し、接近後に集中射撃するなど）。現行設定（fireRange 50, break 0 現在？break は前回戻してない状況を確認）に戻す必要あり
+
+## O-028 [observation/log] 2026-10-10T17:44:26
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: breakRangeKm 35→0（ブレイク無効）を再度試行するも、到達は既に十分なため効果なし
+- 仮説: N-020
+- 変更: args.json breakRangeKm 35→0 を適用し、1戦・ペア評価を実施。検証は実行済み
+- 検証: ペア評価: 0-6-0、avg_score 0.5、avg_our_alive 3.0、avg_enemy_alive 3.33（既存と同値）。命中率0、効果なし
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行設定（fireRange 50, break 35, maxSimulShot 4）へ戻す
