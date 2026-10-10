@@ -333,3 +333,13 @@
 - 検証: 1戦: ELIMINATION負け、step 649、alive our 0 / enemy 4、score 0.2375。max_x -34kmで前進もせず。発射16は多いが被弾死
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 前進はビームではなく脅威回避ロジックが律速。別軸で探る
+
+## O-035 [observation/log] 2026-10-10T22:25:12
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 発射量軸の閉鎖。78→16の内訳はflight_block 62・no_ammo 0・no_block 16で、非ブロックは全て発射。量の問題ではなく質（命中率）の問題と確定
+- 仮説: N-025
+- 変更: 実装変更なし（ビームオフ試験ゲームのログ診断。N-018のmaxSimulShot 8試験と整合）
+- 検証: flight_block 62/62=100%、転換率16/16=100%。N-018では24発でもhit_rate 0・enemy_alive不変。発射量増加は無効と二重に確認
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 命中率0の解消または生存重視のみが有効軸。発射量パラメータには触れない
