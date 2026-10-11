@@ -97,7 +97,8 @@
   .facts { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
   .fact { flex: 1 1 460px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: #131b23; }
   .fact.hyp { border-color: #3d5a2e; } .fact.rule { border-color: #3b4a6b; }
-  .fact.handled { opacity: .6; }
+  .fact.handled { opacity: .8; background: #10151a; border-color: #2a333b; border-style: dashed; }
+  .fact.handled .fact-head .title { color: var(--muted); }
   .fact.fresh { border-left: 3px solid var(--accent); }
   .badge.handled-tag { background: #262d34; color: #8b949e; border-color: #3a4249; }
   .fact-group-title { font-size: 13px; color: var(--muted); margin: 10px 0 4px; font-weight: 600; }
