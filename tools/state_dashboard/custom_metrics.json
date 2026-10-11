@@ -74,7 +74,7 @@
       "from": "trajectory",
       "source": "log",
       "direction": "higher",
-      "target": 8.0,
+      "target": null,
       "digits": 0,
       "note": "終了時に生存機が持っていた誘導弾の合計。撃墜機の残弾は使えないため含めない。深追い時に撃てる弾の目安。",
       "unit": "発"

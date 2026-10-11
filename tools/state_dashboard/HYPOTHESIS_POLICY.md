@@ -64,6 +64,10 @@ TIMEUP の引き分けでは敵戦闘機の撃墜数・接近距離・警報数�
 - `pre_launch_threat`（カードのみ除去）… 大小どちらの分岐も手出し不可（lag 軸閉鎖）。
   N-034 の監視は `first_launch_lag` カードの自動分岐が継続（計算自体は残る）。
 
+目標の解除:
+- `ammo_reserve` の目標 8 を解除（参考値化）。温存への誘導は N-028 で棄却済みのため、
+  `stranded_ammo`（目標 0 維持）と合わせても保存戦略を処方しない。数値自体は残す。
+
 独自の指標は `python tools/state_dashboard/add_metric.py` で追加すると、
 評価タブの「独自指標」に現れる。
 
