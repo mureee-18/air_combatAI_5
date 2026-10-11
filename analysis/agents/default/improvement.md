@@ -522,3 +522,13 @@
 - 検証: track含有: pos/vel/time/truth/crsあり・specなし。truth属性はUUID（個体ID）で目標種別情報なし。BATTLELOGの制約をliveで再確認
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: UUIDのフレーム間安定性が未確認。安定なら速度・旋回率履歴でescort推定が唯一の残存経路。不安定なら勝利への道は閉鎖
+
+## O-054 [observation/log] 2026-10-11T10:41:02
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: UUID安定性は部分確認（同一UUIDが20km連続追跡）。ただしdutyが低く運動学的識別は実用困難と判断し経路を保留
+- 仮説: N-035
+- 変更: 実装変更なし（一時UUIDプローブで150フレーム追跡後に完全除去・再デプロイ済み）
+- 検証: 4 UUID、最多n=10/150（7%）、span 20km連続。序盤の探知自体が疎で、旋回率推定に足る密度なし。稠密phaseは未測定
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行維持。稠密追跡の設計なしに着手しない
