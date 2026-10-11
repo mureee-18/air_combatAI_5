@@ -542,3 +542,16 @@ def test_escort_branch_hypothesis_splits_reached_and_unreached():
     assert serve._escort_branch_hypothesis(None) is None
     assert "N-029" in serve._escort_branch_hypothesis(152.7)
     assert "ELIMINATION" in serve._escort_branch_hypothesis(19.6)
+
+
+def test_wipe_games_picks_zero_alive_only():
+    rows = [
+        {"color": "Red", "seed": 1, "our_alive": 3.0},
+        {"color": "Blue", "seed": 3, "our_alive": 0.0},
+        {"color": "Red", "seed": 2},
+    ]
+    wipes = serve._wipe_games(rows)
+    assert len(wipes) == 1
+    assert wipes[0]["seed"] == 3
+    assert serve._wipe_games([]) == []
+    assert serve._wipe_games(None) == []

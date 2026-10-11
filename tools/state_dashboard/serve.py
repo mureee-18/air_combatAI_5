@@ -1611,7 +1611,14 @@ def _escort_branch_hypothesis(dist) -> str | None:
     )
 
 
-def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) -> list[dict]:
+def _wipe_games(rows: list[dict]) -> list[dict]:
+    """自機生存 0 の全滅戦だけを返す（純粋関数）."""
+    return [r for r in (rows or []) if isinstance(r, dict) and _scalar(r.get("our_alive")) == 0]
+
+
+def _trigger_cards(
+    facts: dict | None, stats: dict | None, paired: dict | None, target: str = ""
+) -> list[dict]:
     """実測が条件を満たす間だけ出るカード（解消すると自動で消える）."""
 
     out: list[dict] = []
@@ -1698,28 +1705,29 @@ def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) 
                 "command": "",
                 "command_label": "",
             })
-    if paired:
-        wm = paired["worst"]["metrics"]
-        ours, theirs = wm.get("avg_our_alive"), wm.get("avg_enemy_alive")
-        if ours is not None and ours == 0 and (theirs or 0) >= 3:
-            out.append({
-                "id": "trigger_wiped",
-                "kind": "observation",
-                "source": "log",
-                "title": f"自機が全滅している試合がある（自機 {ours} / 敵 {theirs}）",
-                "summary": "敵を落とせず全滅している。距離・タイミングで有利な射撃機会を作れていない。",
-                "evidence": [
-                    {"label": "自機生存", "value": ours, "num": True, "digits": 2},
-                    {"label": "敵生存", "value": theirs, "num": True, "digits": 2},
-                ],
-                "hypothesis": "交戦距離（min_dist_km）か迎撃タイミングのどちらかを1変数だけ変える。",
-                "phrase": f"自機が全滅している試合がある（自機 {ours} / 敵 {theirs}）",
-                "metric": "avg_our_alive / avg_enemy_alive",
-                "from_tab": "評価",
-                "from_path": f"workspace/paired/{paired['worst'].get('file', '')}",
-                "command": "",
-                "command_label": "",
-            })
+    # 全滅カードは現行ターゲットのファイル内だけを見る。古い実験ファイルの
+    # worst と比べると stale が常時発火するため（def_fr90 等）。
+    wipes = _wipe_games(_paired_game_rows(target)) if target else []
+    if wipes:
+        games = "・".join(f"{r.get('color', '?')} seed{r.get('seed', '?')}" for r in wipes[:3])
+        out.append({
+            "id": "trigger_wiped",
+            "kind": "observation",
+            "source": "log",
+            "title": f"現行{target}で全滅 {len(wipes)}戦（{games}）",
+            "summary": "全滅戦では生存を延ばす方向が最優先。脅威下の回避・salvoへの対応（N-036/037）で見る。",
+            "evidence": [
+                {"label": "全滅戦数", "value": len(wipes), "num": True, "digits": 0},
+                {"label": "内訳", "value": games, "num": False},
+            ],
+            "hypothesis": "全滅戦のseed・色で共通する被弾パターンを特定し、生存軸の1変数で仮説を立てる。",
+            "phrase": f"現行{target}で全滅{len(wipes)}戦（{games}）",
+            "metric": "wipe_count",
+            "from_tab": "評価",
+            "from_path": f"workspace/paired/{target}.json",
+            "command": "",
+            "command_label": "",
+        })
     return out
 
 
@@ -1802,7 +1810,7 @@ def collect_evidence(target: str) -> list[dict]:
     #     指標を足す/消す、実測が閾値を超える/解消すると枚数が動的に変わる
     stats_ok = stats if (stats and "error" not in stats) else None
     cards.extend(_metric_cards(facts, stats_ok, paired, specialist, newest))
-    cards.extend(_trigger_cards(facts, stats_ok, paired))
+    cards.extend(_trigger_cards(facts, stats_ok, paired, specialist))
 
     # 4) 前提（assumption）として登録すべき既知の制約
     constraints = _known_constraints()
