@@ -100,6 +100,8 @@
   .fact.hyp { border-color: #3d5a2e; } .fact.rule { border-color: #3b4a6b; }
   .fact.handled { opacity: .8; background: #10151a; border-color: #2a333b; border-style: dashed; }
   .fact.handled .fact-head .title { color: var(--muted); }
+  .fact.parked { opacity: .7; }
+  .badge.parked-tag { background: transparent; color: var(--muted); border-color: var(--line); }
   .fact.fresh { border-left: 3px solid var(--accent); }
   .badge.handled-tag { background: #262d34; color: #8b949e; border-color: #3a4249; }
   .fact-group-title { font-size: 13px; color: var(--muted); margin: 10px 0 4px; font-weight: 600; }
@@ -580,17 +582,29 @@ function renderSteps(steps) {
   return h + "</div>";
 }
 
+const PARKED_PATTERNS = ["新規仮説はない", "変数はない", "閉鎖", "棄却済み"];
+function isParked(c) {
+  const t = c.hypothesis || "";
+  return PARKED_PATTERNS.some(p => t.indexOf(p) >= 0);
+}
 function renderFactGroups(list) {
-  const ordered = sortByHandled(list.slice());
-  const cut = ordered.findIndex(isHandled);
-  const head = cut < 0 ? ordered : ordered.slice(0, cut);
-  const tail = cut < 0 ? [] : ordered.slice(cut);
+  const un = [], pk = [], hd = [];
+  list.forEach(c => {
+    if (isHandled(c)) hd.push(c);
+    else if (isParked(c)) pk.push(c);
+    else un.push(c);
+  });
+  const anySub = pk.length + hd.length > 0;
   let h = "";
-  if (head.length && tail.length) h += `<div class="fact-group-title">未処理（${head.length}件）</div>`;
-  h += head.map(c => renderFact(c, tail.length ? "fresh" : "")).join("");
-  if (tail.length) {
-    h += `<div class="fact-group-title">処理済み（${tail.length}件）</div>`;
-    h += tail.map(c => renderFact(c, "handled")).join("");
+  if (un.length && (pk.length || hd.length)) h += `<div class="fact-group-title">未処理（${un.length}件）</div>`;
+  h += un.map(c => renderFact(c, (pk.length || hd.length) ? "fresh" : "")).join("");
+  if (pk.length) {
+    h += `<div class="fact-group-title">見送り（対応不要・${pk.length}件）</div>`;
+    h += pk.map(c => renderFact(c, "parked")).join("");
+  }
+  if (hd.length) {
+    h += `<div class="fact-group-title">処理済み（${hd.length}件）</div>`;
+    h += hd.map(c => renderFact(c, "handled")).join("");
   }
   return h;
 }
@@ -598,7 +612,9 @@ function renderFact(card, extraCls) {
   const badgeKind = { observation: "観測", assumption: "前提", rule: "公式ルール" };
   const badgeSrc = { log: "ログ", code: "コード", official: "公式" };
   const handledTag = (extraCls || "").split(" ").includes("handled")
-    ? '<span class="badge handled-tag">処理済み</span>' : "";
+    ? '<span class="badge handled-tag">処理済み</span>'
+    : ((extraCls || "").split(" ").includes("parked")
+      ? '<span class="badge parked-tag">見送り</span>' : "");
   let h = `<div class="fact ${card.kind}${extraCls ? " " + extraCls : ""}">`;
   h += '<div class="fact-head">' +
        `<span class="title">${esc(card.title)}</span>` +
@@ -843,8 +859,8 @@ function renderHypothesis(d) {
   }
 
   h += "<h2>事実カード（ここから仮説を立てる材料）</h2>";
-  const facts = (s.evidence || []).filter(c => c.id !== "paired" && c.kind !== "assumption");
-  const premises = (s.evidence || []).filter(c => c.kind === "assumption");
+  const facts = (s.evidence || []).filter(c => c.id !== "paired" && c.kind !== "assumption" && c.kind !== "rule");
+  const premises = (s.evidence || []).filter(c => c.kind === "assumption" || c.kind === "rule");
   if (!facts.length) {
     h += '<div class="empty">事実カードを組み立てるデータがありません（ログ・軌跡）。</div>';
   } else {
@@ -1004,9 +1020,10 @@ function renderGit(d) {
   const rcards = (g.review && g.review.cards) || [];
   if (g.review && g.review.error) {
     h += `<p class="meta">文章レビュー取得失敗: ${esc(g.review.error)}</p>`;
-  } else if (rcards.length) {
+  } else {
     h += "<h2>文章レビュー（文字化け・最新性）</h2>";
-    h += renderFactGroups(rcards);
+    if (g.review && g.review.note) h += `<p class="meta">${esc(g.review.note)}</p>`;
+    if (rcards.length) h += renderFactGroups(rcards);
   }
   document.getElementById("git").innerHTML = h;
   bindCopy(document.getElementById("git"));
