@@ -650,3 +650,13 @@
 - 検証: 0-6-0 / 0.5 / 3.0 / 3.5 でクランク基準値と一致
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.5, "games": 6}
 - 次の一手: 現行維持
+
+## O-067 [observation/log] 2026-10-11T16:46:46
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: crank-15の採用を取り消し0.0に戻す。未見seedでcrank-0が優位
+- 仮説: N-041
+- 変更: args.json evadeCrankDeg 15→0.0に戻す（分岐コードは残置・デフォルト無効）
+- 検証: seed4-6: crank15が0-4-2/0.412/1.17、crank0が0-5-1/0.456/1.67で全指標上回る。12戦合計もcrank-0が優位（全滅1 vs 2）
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: 採用判定は複数seed必須にルール化

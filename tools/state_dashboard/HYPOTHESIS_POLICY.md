@@ -24,6 +24,7 @@
 3. **出所を付ける**。`--source` は「どこから見たか」（log / analysis / code / official）。
 4. **判定はペア評価**。`avg_score` / `avg_our_alive` / `avg_enemy_alive` と win-draw-loss だけで見る。
    勝率では判断しない。`avg_score` が 0.5 を超えて初めて改善。
+   採用判定は seeds 1-3 に加え未見 seed（4-6 等）でも検証する。適合seedのみの改善は過適合のため不採用（N-041）。
 5. **1 戦で先に確かめる**。大量の戦を回す前に `verify --games 1` で意図した挙動が出るか見る。
 6. **ログ構造を調べ直さない**。`tools/battle_analyzer/BATTLELOG_FORMAT.md` に既知の制約がある。
 7. **測れないものは推測しない**。できないことを `assumption`（`--source code`）として残す。
