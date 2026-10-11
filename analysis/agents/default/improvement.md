@@ -620,3 +620,13 @@
 - 検証: 1号機275が200/300/400/500/600秒帯に波状（400帯は100/100飽和）。2-4号機は200-399のみ。以後沈黙。深掘り機が全波を被る構造
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.17, "avg_enemy_alive": 3.83, "games": 6}
 - 次の一手: 現行維持
+
+## O-064 [observation/log] 2026-10-11T15:21:06
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: crank-25試験戦の全量確定。深追い+131・duty0.62・trigger_ammo_dry初発火
+- 仮説: N-039
+- 変更: 実装変更なし
+- 検証: req634（1号機561）・発射19・lag199/抑制0・min_dist31・max_x+131・reserve0・stranded4・duty0.62・threat398。TIMEUP引き分けRed2/Blue2。dutyは自前の0.5閾値を超過
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.17, "avg_enemy_alive": 3.83, "games": 6}
+- 次の一手: 現行維持。稠密phaseのUUID追跡は別途設計時に
