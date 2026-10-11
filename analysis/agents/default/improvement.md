@@ -600,3 +600,13 @@
 - 検証: 全カードの値・出所・既存記録を照合。lag-188は抑制0を確認。トリガー類は自動誘導が正常発火。
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.5, "games": 6}
 - 次の一手: 以降の材料は記録時にmaterialsを付けて自動処理済み化
+
+## O-062 [observation/log] 2026-10-11T14:48:50
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: evadeCrankDeg 15→25 は棄却。用量は単調でなく15付近が峰
+- 仮説: N-039
+- 変更: args.json evadeCrankDeg 15→25 を適用し1戦・ペア評価を実施 → 悪化を確認し15へ巻き戻し
+- 検証: ペア評価: 0勝6分0敗、avg_score 0.500維持、avg_our_alive 2.17（3.0→低下）、enemy 3.33→3.83。0→2.67、15→3.0、25→2.17で峰は15付近
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.17, "avg_enemy_alive": 3.83, "games": 6}
+- 次の一手: 15を維持。用量探索は終了
