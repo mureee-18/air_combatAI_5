@@ -551,18 +551,6 @@ document.addEventListener("click", e => {
   if (btn && btn.dataset.handledKey) {
     const m = loadHandled(); m[btn.dataset.handledKey] = Date.now(); saveHandled(m);
     const fact = btn.closest(".fact"); if (fact && fact.classList) fact.classList.add("handled");
-    return;
-  }
-  const mark = e.target && e.target.closest ? e.target.closest("button.mark-handled") : null;
-  if (mark && mark.dataset.handledKey) {
-    const m = loadHandled();
-    if (m[mark.dataset.handledKey]) delete m[mark.dataset.handledKey];
-    else m[mark.dataset.handledKey] = Date.now();
-    saveHandled(m);
-    if (typeof state !== "undefined" && state.data) {
-      if (typeof renderHypothesis === "function") renderHypothesis(state.data);
-      if (typeof renderGit === "function") renderGit(state.data);
-    }
   }
 });
 
@@ -668,7 +656,6 @@ function renderFact(card, extraCls) {
     const label = card.copyLabel || "仮説の材料";
     const hkey = attr(cardKey(card));
     h += `<button class="copy material" data-handled-key="${hkey}" data-cmd="${attr(withIntent(intent, card.phrase))}">${esc(label)}</button>`;
-    h += `<button class="mark-handled" data-handled-key="${hkey}">${isHandled(card) ? "処理済みを外す" : "処理済みにする"}</button>`;
   }
   return h + "</div>";
 }
@@ -820,6 +807,12 @@ function bindHypothesisBuilder(root, s, d) {
   ["fact-text", "cause-text", "change", "metric-text", "judge-text"].forEach(name => {
     const el = q(name);
     if (el) el.addEventListener("input", rebuild);
+  });
+  const copyBtn = box.querySelector("#hypho-copy");
+  if (copyBtn) copyBtn.addEventListener("click", () => {
+    const card = facts.find(c => c.id === q("fact").value);
+    if (!card) return;
+    const m = loadHandled(); m[cardKey(card)] = Date.now(); saveHandled(m);
   });
   rebuild();
 }

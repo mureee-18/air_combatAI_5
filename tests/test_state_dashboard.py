@@ -350,6 +350,8 @@ def test_handled_materials_sink_and_clear():
     assert "badge handled-tag" in html
     assert "fact.fresh" in html
     assert "未処理（" in html
+    assert "mark-handled" not in html
+    assert "#hypho-copy" in html
     assert "border-style: dashed" in html
     assert "INTENT_REVIEW" in html
     assert "# 文書レビュー" in html
@@ -357,8 +359,6 @@ def test_handled_materials_sink_and_clear():
     assert "前提（参照用" in html
     assert "/api/build" in html
     assert "dash-keep-tab" in html
-    assert "mark-handled" in html
-    assert "処理済みにする" in html
     assert "recordedPhrases" in html
     assert "recorded_materials" in html
     assert "reset-handled" not in html
