@@ -170,6 +170,13 @@ def test_collect_paired_shape():
         assert set(entry.keys()) == {"name", "mtime", "metrics", "rows"}
 
 
+def test_session_has_open_work():
+    session = serve.collect_session()
+    assert isinstance(session.get("open_work"), dict)
+    assert isinstance(session["open_work"].get("unverified"), list)
+    assert isinstance(session["open_work"].get("next_steps"), list)
+
+
 def test_collect_git_shape():
     git = serve.collect_git()
     assert set(git.keys()) == {"branch", "head", "remote", "upstream", "ahead_behind", "dirty", "recent", "review"}

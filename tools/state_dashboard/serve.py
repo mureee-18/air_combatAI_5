@@ -891,6 +891,7 @@ def collect_session(paired: dict | None = None) -> dict:
         "next": nxt,
         "hypotheses": target_session.get("hypotheses", []),
         "cycles": target_session.get("cycles", []),
+        "open_work": _open_work(target, target_session),
         "paired": paired,
         "metric_sources": METRIC_SOURCES,
         "policy": collect_hypothesis_policy(),
@@ -902,6 +903,37 @@ def collect_session(paired: dict | None = None) -> dict:
             paired=_evidence_derived.get("paired"),
         ),
     }
+
+
+def _open_work(target: str, target_session: dict) -> dict:
+    """未着手の宿題（未検証の仮説＋記録の次の一手）。事実カードが枯れても次が見える."""
+    validated = {
+        c.get("hypothesis")
+        for c in target_session.get("cycles", [])
+        if c.get("kind") == "validate" and c.get("hypothesis")
+    }
+    unverified = [
+        {"id": h.get("id"), "text": (h.get("text") or "")[:80]}
+        for h in target_session.get("hypotheses", [])
+        if h.get("id") not in validated
+    ][-8:]
+    md = REPO_ROOT / "analysis" / "agents" / target / "improvement.md"
+    nexts: list[dict] = []
+    try:
+        text = md.read_text(encoding="utf-8") if md.exists() else ""
+    except OSError:
+        text = ""
+    if text:
+        for section in re.split(r"^##\s+", text, flags=re.M)[1:]:
+            head = re.match(r"(\S+)\s+\[[^\]]+\]\s*(\d{4}-\d{2}-\d{2})?", section)
+            rid = head.group(1) if head else "?"
+            at = head.group(2) if head and head.group(2) else ""
+            found = re.findall(r"^-\s*次の一手:\s*(.+)$", section, flags=re.M)
+            if found and found[-1].strip():
+                nexts.append({"id": rid, "at": at, "text": found[-1].strip()[:100]})
+    # 「現行維持」は宿題ではないので落とす
+    nexts = [r for r in nexts if r["text"] != "現行維持"]
+    return {"unverified": unverified, "next_steps": nexts[-8:]}
 
 
 def _session_state(name: str) -> dict:

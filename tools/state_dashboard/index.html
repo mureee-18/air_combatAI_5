@@ -857,6 +857,15 @@ function renderHypothesis(d) {
     h += '<div class="facts">' + premises.map(c => renderFact(c, "")).join("") + "</div>";
   }
 
+  const ow = s.open_work || {};
+  const unv = ow.unverified || [], nxt = ow.next_steps || [];
+  if (unv.length || nxt.length) {
+    h += "<h2>未着手の宿題</h2>" + '<ul class="fact-list">';
+    unv.forEach(x => { h += `<li><span class="title">${esc(x.id)} 未検証</span><span class="text">${esc(x.text)}</span></li>`; });
+    nxt.forEach(x => { h += `<li><span class="title">${esc(x.id)}${x.at ? " " + esc(x.at) : ""} 次の一手</span><span class="text">${esc(x.text)}</span></li>`; });
+    h += "</ul>";
+  }
+
   h += "<h2>仮説ビルダー（選んで登録）</h2>";
   h += renderHypothesisBuilder(s, d);
 
