@@ -596,6 +596,14 @@ def test_min_dist_and_launch_count_cards_redirect():
     assert "N-018" in (launches.get("hypothesis") or "")
 
 
+def test_fire_orders_card_redirects_from_volume():
+    stats = {"agents": [{"fire_orders": 634}]}
+    cards = serve._metric_cards({}, stats, None, "default", [])
+    orders = next((c for c in cards if c.get("id") == "metric:fire_orders"), None)
+    assert orders is not None
+    assert "N-018" in (orders.get("hypothesis") or "")
+
+
 def test_wipe_games_picks_zero_alive_only():
     rows = [
         {"color": "Red", "seed": 1, "our_alive": 3.0},

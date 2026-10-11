@@ -1482,6 +1482,12 @@ def _metric_cards(
                 "残弾量は勝敗と無相関のため、この数値から立てる新規仮説はない。別軸へ。"
             )
     for card in out:
+        if card.get("id") == "metric:fire_orders":
+            card["hypothesis"] = (
+                "射撃指示の増加は命中・勝敗を動かさない（N-018・N-025 で閉鎖）。"
+                "参考値としてのみ見る。"
+            )
+    for card in out:
         if card.get("id") == "metric:min_dist_km":
             card["hypothesis"] = (
                 "接近自体は命中を生まない。接近を深める変更は全て敗戦増で"
@@ -1684,7 +1690,10 @@ def _trigger_cards(
                     {"label": "最大進出 x[km]", "value": max_x, "num": True, "digits": 0},
                     {"label": "最終残弾[発]", "value": reserve, "num": True, "digits": 0},
                 ],
-                "hypothesis": "残弾を温存する方向に1変数だけ変えれば、到達時に撃てる可能性がある。",
+                "hypothesis": (
+                    "深追いしても命中が無ければ意味がない。"
+                    "到達時の発射・命中軸で見る（温存は N-028 で棄却済み）。"
+                ),
                 "phrase": f"深追いしたが残弾が尽きていた（x={max_x:g} / 残弾 {reserve:g}）",
                 "metric": "最大進出 x と最終残弾（目標ボード）",
                 "from_tab": "自機視点",
