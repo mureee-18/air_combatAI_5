@@ -97,6 +97,8 @@
   .facts { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
   .fact { flex: 1 1 460px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: #131b23; }
   .fact.hyp { border-color: #3d5a2e; } .fact.rule { border-color: #3b4a6b; }
+  .fact.handled { opacity: .55; }
+  .fact.handled .fact-head .title::after { content: "（処理済み）"; font-size: 11px; color: var(--muted); font-weight: 400; }
   .fact-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
   .fact-head .title { font-size: 14px; font-weight: 600; color: var(--accent); }
   .badge { font-size: 11px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); color: var(--muted); }
@@ -523,6 +525,31 @@ function bindCopy(root) {
   });
 }
 
+// 処理済み材料の記録（コピーしたら沈める）。サーバ書き込みなし、localStorage のみ。
+const HANDLED_KEY = "opencode-handled-materials-v1";
+function djb2(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(16); }
+function cardKey(c) { return (c.id || "") + "::" + djb2(c.phrase || ""); }
+function loadHandled() { try { return JSON.parse(localStorage.getItem(HANDLED_KEY) || "{}"); } catch (e) { return {}; } }
+function saveHandled(m) { try { const ks = Object.keys(m); while (ks.length > 300) delete m[ks.shift()]; localStorage.setItem(HANDLED_KEY, JSON.stringify(m)); } catch (e) {} }
+function isHandled(c) { return !!loadHandled()[cardKey(c)]; }
+function sortByHandled(list) { const m = loadHandled(), un = [], hd = []; list.forEach(c => { (m[cardKey(c)] ? hd : un).push(c); }); return un.concat(hd); }
+document.addEventListener("click", e => {
+  const btn = e.target && e.target.closest ? e.target.closest("button.copy.material") : null;
+  if (btn && btn.dataset.handledKey) {
+    const m = loadHandled(); m[btn.dataset.handledKey] = Date.now(); saveHandled(m);
+    const fact = btn.closest(".fact"); if (fact && fact.classList) fact.classList.add("handled");
+    return;
+  }
+  const rst = e.target && e.target.closest ? e.target.closest("button.reset-handled") : null;
+  if (rst) {
+    try { localStorage.removeItem(HANDLED_KEY); } catch (err) {}
+    if (typeof state !== "undefined" && state.data) {
+      if (typeof renderHypothesis === "function") renderHypothesis(state.data);
+      if (typeof renderGit === "function") renderGit(state.data);
+    }
+  }
+});
+
 function bindFactToggle(root) {
   root.querySelectorAll("button[data-fact-toggle]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -548,10 +575,10 @@ function renderSteps(steps) {
   return h + "</div>";
 }
 
-function renderFact(card) {
+function renderFact(card, extraCls) {
   const badgeKind = { observation: "観測", assumption: "前提", rule: "公式ルール" };
   const badgeSrc = { log: "ログ", code: "コード", official: "公式" };
-  let h = `<div class="fact ${card.kind}">`;
+  let h = `<div class="fact ${card.kind}${extraCls ? " " + extraCls : ""}">`;
   h += '<div class="fact-head">' +
        `<span class="title">${esc(card.title)}</span>` +
        `<span class="badge">${esc(badgeKind[card.kind] || card.kind)}</span>` +
@@ -605,7 +632,7 @@ function renderFact(card) {
   // コマンドも登録itemも持たない事実カード（独自指標・条件トリガー・スコア）は
   // 値そのものを「仮説の材料」としてコピーできるようにする（確認作業は発生しない）
   if (!card.command && !(card.items && card.items.length) && card.phrase) {
-    h += `<button class="copy material" data-cmd="${attr(withIntent(INTENT_MATERIAL, card.phrase))}">仮説の材料</button>`;
+    h += `<button class="copy material" data-handled-key="${attr(cardKey(card))}" data-cmd="${attr(withIntent(INTENT_MATERIAL, card.phrase))}">仮説の材料</button>`;
   }
   return h + "</div>";
 }
@@ -785,12 +812,15 @@ function renderHypothesis(d) {
     }
   }
 
-  h += "<h2>事実カード（ここから仮説を立てる材料）</h2>";
+  h += "<h2>事実カード（ここから仮説を立てる材料）</h2>" +
+       ' <button class="reset-handled">処理済みをクリア</button>';
   const facts = (s.evidence || []).filter(c => c.id !== "paired");
   if (!facts.length) {
     h += '<div class="empty">事実カードを組み立てるデータがありません（ログ・軌跡）。</div>';
   } else {
-    h += '<div class="facts">' + facts.map(renderFact).join("") + "</div>";
+    h += '<div class="facts">' +
+         sortByHandled(facts.slice()).map(c => renderFact(c, isHandled(c) ? "handled" : "")).join("") +
+         "</div>";
   }
 
   h += "<h2>仮説ビルダー（選んで登録）</h2>";
@@ -943,8 +973,9 @@ function renderGit(d) {
   if (g.review && g.review.error) {
     h += `<p class="meta">文章レビュー取得失敗: ${esc(g.review.error)}</p>`;
   } else if (rcards.length) {
-    h += "<h2>文章レビュー（文字化け・最新性）</h2>";
-    rcards.forEach(c => { h += renderFact(c); });
+    h += "<h2>文章レビュー（文字化け・最新性）</h2>" +
+         ' <button class="reset-handled">処理済みをクリア</button>';
+    sortByHandled(rcards.slice()).forEach(c => { h += renderFact(c, isHandled(c) ? "handled" : ""); });
   }
   document.getElementById("git").innerHTML = h;
   bindCopy(document.getElementById("git"));

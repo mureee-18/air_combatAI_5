@@ -335,8 +335,17 @@ def test_index_hypothesis_tab_hides_registered_fact_cards():
     end = html.index("function renderSession")
     block = html[start:end]
     assert 'c.id !== "paired"' in block
-    assert "facts.map(renderFact)" in block
+    assert "sortByHandled(facts.slice())" in block
     assert "s.evidence.map(renderFact)" not in block
+
+
+def test_handled_materials_sink_and_clear():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    assert "opencode-handled-materials-v1" in html
+    assert "data-handled-key" in html
+    assert "sortByHandled" in html
+    assert "reset-handled" in html
+    assert ".fact.handled" in html
 
 
 def test_index_improvement_cycle_tab_unchanged():
