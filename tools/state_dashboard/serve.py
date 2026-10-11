@@ -1242,8 +1242,13 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "lost_t": lost,
         "max_advance_x": round(max_x, 1) if max_x is not None else None,
         "escort_min_dist": round(escort_min_dist, 1) if escort_min_dist is not None else None,
+        # 有効残弾: 終了時に生存機が持っていた残弾のみ。撃墜機の残弾は
+        # 使えないため含めない（6発中0発が有効だった敗戦例あり）。
         "ammo_reserve": sum(
-            v for v in (ammo_end.get(s) for s in payload["slots"]) if v is not None
+            v
+            for s in (frames[-1].get("own", {}) if frames else {})
+            for v in [ammo_end.get(s)]
+            if v is not None
         ),
         "fire_gap": {
             "requests": gap_requests,

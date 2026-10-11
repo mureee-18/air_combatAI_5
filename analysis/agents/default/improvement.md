@@ -542,3 +542,13 @@
 - 検証: 複数 distinct ゲームで2-4号機が214-240秒帯に集中死（10件超）、1号機は生存。1号機min_dist 20km・残弾0、2-4号機は44-50km停滞・残弾2のまま死亡。kill envelope仮説が立つ
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: dwellと生死の関係を測定し、編隊分散・min-range機序を検証する
+
+## O-056 [observation/log] 2026-10-11T11:27:14
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 残弾6の内訳は生存機0・撃墜機持ち去り6。有効残弾は0でN-036の敗因構造と整合
+- 仮説: N-036
+- 変更: 実装変更なし（ammo_reserveを生存機のみに修正）
+- 検証: 最新ログ: usable 0.0（total 6）。1号機0＋撃墜3機が各2発を持ち去り。指標修正を検証済み
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: N-036のdwell測定を継続
