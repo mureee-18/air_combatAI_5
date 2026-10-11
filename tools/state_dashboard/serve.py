@@ -1199,9 +1199,23 @@ def _trajectory_facts(log_rel: str) -> dict | None:
 
     used = {e["slot"] for e in launches}
     gap = _fire_gap_stats(frames)
+    # 持続探知の開始: 8 連続フレームで敵がいる最初の位置。
+    # 初発の1フレームゴースト（t=3 の1発探知など）を起点にすると空白が
+    # 水増しされるため（N-040）。8 は trajectory.py の DETECT_MISS_FRAMES と対称。
+    # 持続が無ければ従来の初探知にフォールバックする。
+    first_persistent = None
+    run = 0
+    for i, f in enumerate(frames):
+        if f.get("enemy"):
+            run += 1
+            if run >= 8 and first_persistent is None:
+                first_persistent = i - 8 + 1
+        else:
+            run = 0
     lag = None
-    if first_detect is not None and first_launch is not None:
-        lag = first_launch - first_detect
+    base = first_persistent if first_persistent is not None else first_detect
+    if base is not None and first_launch is not None:
+        lag = first_launch - base
     # 探知 duty 率: 敵を探知していたフレームの割合。UUID 追跡など履歴系の
     # 識別（O-054）の可否条件。低いと運動学的識別は不可。
     detect_duty = None
@@ -1219,6 +1233,7 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "frames": payload["frame_count"],
         "slots": payload["slots"],
         "first_detect": first_detect,
+        "first_persistent": first_persistent,
         "first_lock": first_lock,
         "first_launch": first_launch,
         "lag": lag,

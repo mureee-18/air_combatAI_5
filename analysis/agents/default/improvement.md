@@ -630,3 +630,13 @@
 - 検証: req634（1号機561）・発射19・lag199/抑制0・min_dist31・max_x+131・reserve0・stranded4・duty0.62・threat398。TIMEUP引き分けRed2/Blue2。dutyは自前の0.5閾値を超過
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.17, "avg_enemy_alive": 3.83, "games": 6}
 - 次の一手: 現行維持。稠密phaseのUUID追跡は別途設計時に
+
+## O-065 [observation/log] 2026-10-11T16:13:45
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: ゴースト仮説は的中。初発空白の定義を持続探知起点に修正し199→56に
+- 仮説: N-040
+- 変更: 実装変更なし（serve.pyのlag算出を持続8連続起点に修正）
+- 検証: t=3探知は1フレームで消えるゴースト。持続開始t=146→初発t=202で真の空白56秒（目標60に肉薄）。全ログで再計算される
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.17, "avg_enemy_alive": 3.83, "games": 6}
+- 次の一手: 現行維持
