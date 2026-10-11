@@ -344,7 +344,6 @@ def test_handled_materials_sink_and_clear():
     assert "opencode-handled-materials-v1" in html
     assert "data-handled-key" in html
     assert "sortByHandled" in html
-    assert "reset-handled" in html
     assert ".fact.handled" in html
     assert "renderFactGroups" in html
     assert "fact-group-title" in html
@@ -354,6 +353,7 @@ def test_handled_materials_sink_and_clear():
     assert "INTENT_REVIEW" in html
     assert "# 文書レビュー" in html
     assert "copyIntent" in html
+    assert "reset-handled" not in html
     assert "handledThreshold" in html
     assert "agent_mtime" in html
 

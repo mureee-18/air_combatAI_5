@@ -536,21 +536,13 @@ function loadHandled() { try { return JSON.parse(localStorage.getItem(HANDLED_KE
 function saveHandled(m) { try { const ks = Object.keys(m); while (ks.length > 300) delete m[ks.shift()]; localStorage.setItem(HANDLED_KEY, JSON.stringify(m)); } catch (e) {} }
 function handledThreshold() { try { const t = (typeof state !== "undefined" && state.data && state.data.agent_mtime) || 0; const n = Number(t); return n > 0 ? n : 0; } catch (e) { return 0; } }
 function isHandled(c) { const ts = loadHandled()[cardKey(c)]; if (!ts) return false; const th = handledThreshold(); if (th && ts / 1000 < th) return false; return true; }
-function sortByHandled(list) { const m = loadHandled(), un = [], hd = []; list.forEach(c => { (m[cardKey(c)] ? hd : un).push(c); }); return un.concat(hd); }
+function sortByHandled(list) { const un = [], hd = []; list.forEach(c => { (isHandled(c) ? hd : un).push(c); }); return un.concat(hd); }
 document.addEventListener("click", e => {
   const btn = e.target && e.target.closest ? e.target.closest("button.copy.material") : null;
   if (btn && btn.dataset.handledKey) {
     const m = loadHandled(); m[btn.dataset.handledKey] = Date.now(); saveHandled(m);
     const fact = btn.closest(".fact"); if (fact && fact.classList) fact.classList.add("handled");
     return;
-  }
-  const rst = e.target && e.target.closest ? e.target.closest("button.reset-handled") : null;
-  if (rst) {
-    try { localStorage.removeItem(HANDLED_KEY); } catch (err) {}
-    if (typeof state !== "undefined" && state.data) {
-      if (typeof renderHypothesis === "function") renderHypothesis(state.data);
-      if (typeof renderGit === "function") renderGit(state.data);
-    }
   }
 });
 
@@ -834,8 +826,7 @@ function renderHypothesis(d) {
     }
   }
 
-  h += "<h2>事実カード（ここから仮説を立てる材料）</h2>" +
-       ' <button class="reset-handled">処理済みをクリア</button>';
+  h += "<h2>事実カード（ここから仮説を立てる材料）</h2>";
   const facts = (s.evidence || []).filter(c => c.id !== "paired");
   if (!facts.length) {
     h += '<div class="empty">事実カードを組み立てるデータがありません（ログ・軌跡）。</div>';
@@ -993,8 +984,7 @@ function renderGit(d) {
   if (g.review && g.review.error) {
     h += `<p class="meta">文章レビュー取得失敗: ${esc(g.review.error)}</p>`;
   } else if (rcards.length) {
-    h += "<h2>文章レビュー（文字化け・最新性）</h2>" +
-         ' <button class="reset-handled">処理済みをクリア</button>';
+    h += "<h2>文章レビュー（文字化け・最新性）</h2>";
     h += renderFactGroups(rcards);
   }
   document.getElementById("git").innerHTML = h;
