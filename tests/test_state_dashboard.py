@@ -359,6 +359,9 @@ def test_handled_materials_sink_and_clear():
     assert "前提（参照用" in html
     assert "/api/build" in html
     assert "dash-keep-tab" in html
+    assert "visibilitychange" in html
+    assert "古い可能性あり" in html
+    assert ".meta.warn" in html
     assert "recordedPhrases" in html
     assert "recorded_materials" in html
     assert "reset-handled" not in html

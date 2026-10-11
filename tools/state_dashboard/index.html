@@ -15,6 +15,7 @@
            align-items: center; flex-wrap: wrap; background: #0d1218; position: sticky; top: 0; z-index: 5; }
   h1 { font-size: 17px; margin: 0; font-weight: 600; }
   .meta { color: var(--muted); font-size: 12px; }
+  .meta.warn { color: var(--warn); font-weight: 600; }
   .spacer { flex: 1; }
   button, select { background: #1f2a36; color: var(--fg); border: 1px solid var(--line);
                    border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
@@ -2124,7 +2125,11 @@ async function load(force) {
     const res = await fetch("/api/summary" + (force ? "?force=1" : ""), { cache: "no-store" });
     const data = await res.json();
     state.data = data;
-    document.getElementById("stamp").textContent = "更新 " + data.generated_at;
+    const stampEl = document.getElementById("stamp");
+    const ageMs = Date.parse(String(data.generated_at || "").replace(" ", "T"));
+    const stale = !isNaN(ageMs) && (Date.now() - ageMs > 180000);
+    stampEl.textContent = "更新 " + data.generated_at + (stale ? "（古い可能性あり・再読み込み推奨）" : "");
+    if (stampEl.classList) stampEl.classList.toggle("warn", !!stale);
     // Compute evidence diffs before rendering
     markEvidenceDiffs(data);
     renderEnv(data); renderSub(data); renderEval(data); renderLogs(data);
@@ -2158,6 +2163,7 @@ function markEvidenceDiffs(data) {
 buildNav();
 showTab((location.hash || "#git").slice(1));
 window.addEventListener("hashchange", () => showTab((location.hash || "#git").slice(1)));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) load(true); });
 window.addEventListener("resize", () => { if (traj.data) drawTraj(); });
 load(false);
 document.getElementById("refresh").addEventListener("click", () => load(true));
