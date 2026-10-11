@@ -47,17 +47,6 @@
       "note": "全機の合計。目標値は置かず参考値として読む。発射数との差が発射できなかった回数の証拠になる。"
     },
     {
-      "id": "avg_enemy_alive",
-      "label": "敵平均生存数",
-      "unit": "機",
-      "from": "paired",
-      "source": "log",
-      "direction": "lower",
-      "target": 2.0,
-      "digits": 2,
-      "note": "ペア評価の判定指標。減っていれば敵を倒せている。"
-    },
-    {
       "id": "max_advance_x_km",
       "label": "最大進出距離",
       "from": "trajectory",
@@ -120,16 +109,6 @@
       "digits": 0,
       "note": "自機生存0で終わった戦数。平均生存数が良くても完敗が混ざると採点が崩れるためtail riskの目安。0ならカードは消える。",
       "unit": "戦"
-    },
-    {
-      "id": "pre_launch_threat",
-      "label": "初発前警報フレーム数",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "lower",
-      "digits": 0,
-      "note": "初発までに被弾警報が出ていたフレーム数。初発空白の内訳用。大きい→脅威ゲートが初発を遅らせており脅威下射撃ロジック軸。小さい→探知距離などシナリオ要因。",
-      "unit": "フレーム"
     },
     {
       "id": "detect_duty",
