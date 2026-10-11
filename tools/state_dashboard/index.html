@@ -98,6 +98,7 @@
   .fact { flex: 1 1 460px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: #131b23; }
   .fact.hyp { border-color: #3d5a2e; } .fact.rule { border-color: #3b4a6b; }
   .fact.handled { opacity: .6; }
+  .fact.fresh { border-left: 3px solid var(--accent); }
   .badge.handled-tag { background: #262d34; color: #8b949e; border-color: #3a4249; }
   .fact-group-title { font-size: 13px; color: var(--muted); margin: 10px 0 4px; font-weight: 600; }
   .fact-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
@@ -582,10 +583,10 @@ function renderFactGroups(list) {
   const head = cut < 0 ? ordered : ordered.slice(0, cut);
   const tail = cut < 0 ? [] : ordered.slice(cut);
   let h = "";
-  if (tail.length) h += '<div class="fact-group-title">未処理</div>';
-  h += head.map(c => renderFact(c, "")).join("");
+  if (tail.length) h += `<div class="fact-group-title">未処理（${head.length}件）</div>`;
+  h += head.map(c => renderFact(c, tail.length ? "fresh" : "")).join("");
   if (tail.length) {
-    h += '<div class="fact-group-title">処理済み（コピー済み）</div>';
+    h += `<div class="fact-group-title">処理済み（コピー済み・${tail.length}件）</div>`;
     h += tail.map(c => renderFact(c, "handled")).join("");
   }
   return h;

@@ -349,6 +349,8 @@ def test_handled_materials_sink_and_clear():
     assert "renderFactGroups" in html
     assert "fact-group-title" in html
     assert "badge handled-tag" in html
+    assert "fact.fresh" in html
+    assert "未処理（" in html
 
 
 def test_index_improvement_cycle_tab_unchanged():
