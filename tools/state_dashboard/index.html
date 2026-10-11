@@ -532,15 +532,9 @@ function bindCopy(root) {
   });
 }
 
-// 処理済み材料の記録（コピーしたら沈める）。サーバ書き込みなし、localStorage のみ。
-const HANDLED_KEY = "opencode-handled-materials-v1";
-function djb2(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(16); }
-function cardKey(c) { return (c.id || "") + "::" + djb2(c.phrase || ""); }
-function loadHandled() { try { return JSON.parse(localStorage.getItem(HANDLED_KEY) || "{}"); } catch (e) { return {}; } }
-function saveHandled(m) { try { const ks = Object.keys(m); while (ks.length > 300) delete m[ks.shift()]; localStorage.setItem(HANDLED_KEY, JSON.stringify(m)); } catch (e) {} }
+// 処理済み＝記録連動のみ。コピーしただけでは付けない。
 function recordedPhrases() { try { const r = (typeof state !== "undefined" && state.data && state.data.session && state.data.session.recorded_materials) || []; return Array.isArray(r) ? r : []; } catch (e) { return []; } }
 function isHandled(c) {
-  if (loadHandled()[cardKey(c)]) return true;
   const phrase = c.phrase || "";
   if (!phrase) return false;
   for (const r of recordedPhrases()) {
@@ -549,13 +543,6 @@ function isHandled(c) {
   return false;
 }
 function sortByHandled(list) { const un = [], hd = []; list.forEach(c => { (isHandled(c) ? hd : un).push(c); }); return un.concat(hd); }
-document.addEventListener("click", e => {
-  const btn = e.target && e.target.closest ? e.target.closest("button.copy.material") : null;
-  if (btn && btn.dataset.handledKey) {
-    const m = loadHandled(); m[btn.dataset.handledKey] = Date.now(); saveHandled(m);
-    const fact = btn.closest(".fact"); if (fact && fact.classList) fact.classList.add("handled");
-  }
-});
 
 function bindFactToggle(root) {
   root.querySelectorAll("button[data-fact-toggle]").forEach(btn => {
@@ -671,8 +658,7 @@ function renderFact(card, extraCls) {
   if (!card.command && !(card.items && card.items.length) && card.phrase) {
     const intent = card.copyIntent === "review" ? INTENT_REVIEW : INTENT_MATERIAL;
     const label = card.copyLabel || "仮説の材料";
-    const hkey = attr(cardKey(card));
-    h += `<button class="copy material" data-handled-key="${hkey}" data-cmd="${attr(withIntent(intent, card.phrase))}">${esc(label)}</button>`;
+    h += `<button class="copy material" data-cmd="${attr(withIntent(intent, card.phrase))}">${esc(label)}</button>`;
   }
   return h + "</div>";
 }
@@ -824,12 +810,6 @@ function bindHypothesisBuilder(root, s, d) {
   ["fact-text", "cause-text", "change", "metric-text", "judge-text"].forEach(name => {
     const el = q(name);
     if (el) el.addEventListener("input", rebuild);
-  });
-  const copyBtn = box.querySelector("#hypho-copy");
-  if (copyBtn) copyBtn.addEventListener("click", () => {
-    const card = facts.find(c => c.id === q("fact").value);
-    if (!card) return;
-    const m = loadHandled(); m[cardKey(card)] = Date.now(); saveHandled(m);
   });
   rebuild();
 }

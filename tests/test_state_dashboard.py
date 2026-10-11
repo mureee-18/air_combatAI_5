@@ -341,8 +341,8 @@ def test_index_hypothesis_tab_hides_registered_fact_cards():
 
 def test_handled_materials_sink_and_clear():
     html = INDEX_PATH.read_text(encoding="utf-8")
-    assert "opencode-handled-materials-v1" in html
-    assert "data-handled-key" in html
+    assert "opencode-handled-materials" not in html
+    assert "data-handled-key" not in html
     assert "sortByHandled" in html
     assert ".fact.handled" in html
     assert "renderFactGroups" in html
@@ -351,7 +351,7 @@ def test_handled_materials_sink_and_clear():
     assert "fact.fresh" in html
     assert "未処理（" in html
     assert "mark-handled" not in html
-    assert "#hypho-copy" in html
+    assert 'id="hypho-copy"' in html
     assert "border-style: dashed" in html
     assert "INTENT_REVIEW" in html
     assert "# 文書レビュー" in html
