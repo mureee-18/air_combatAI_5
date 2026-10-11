@@ -571,6 +571,13 @@ def test_escort_branch_hypothesis_splits_reached_and_unreached():
     assert "ELIMINATION" in serve._escort_branch_hypothesis(19.6)
 
 
+def test_ammo_reserve_card_redirects_from_conservation():
+    cards = serve._metric_cards({"ammo_reserve": 0.0}, None, None, "default", [])
+    card = next((c for c in cards if c.get("id") == "metric:ammo_reserve"), None)
+    assert card is not None
+    assert "N-028" in (card.get("hypothesis") or "")
+
+
 def test_wipe_games_picks_zero_alive_only():
     rows = [
         {"color": "Red", "seed": 1, "our_alive": 3.0},

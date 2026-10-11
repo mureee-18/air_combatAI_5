@@ -1453,6 +1453,12 @@ def _metric_cards(
                 card.setdefault("evidence", []).append(
                     {"label": "出所ログ", "value": esc_log, "num": False}
                 )
+    for card in out:
+        if card.get("id") == "metric:ammo_reserve":
+            card["hypothesis"] = (
+                "残弾を増やす方向（温存）は逆効果（N-028 で棄却済み）。"
+                "残弾量は勝敗と無相関のため、この数値から立てる新規仮説はない。別軸へ。"
+            )
     return out
 
 
