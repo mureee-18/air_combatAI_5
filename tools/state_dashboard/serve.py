@@ -1432,6 +1432,15 @@ def _metric_cards(
                     f"生存を延ばす方向（N-036/037 の salvo・分離軸）。"
                     f"発射制限による温存は逆効果（N-028 で棄却済み）。"
                 )
+    adv = _scalar(traj.get("max_advance_x"))
+    if adv is not None and adv < 0:
+        for card in out:
+            if card.get("id") == "metric:max_advance_x_km":
+                card["hypothesis"] = (
+                    "前に出ていない後退基調のゲーム。脅威下の後退が主因の可能性があり、"
+                    "threat_frames と合わせて生存軸で読む。進出距離自体の延伸に"
+                    "変数はない（N-029 で閉鎖）。"
+                )
     return out
 
 
