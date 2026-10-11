@@ -84,6 +84,13 @@ def test_body_matches_detects_tab_debris():
     assert len(diff) >= 1
 
 
+def test_review_cards_use_fix_intent():
+    for card in mod.review_cards():
+        if card.get("phrase"):
+            assert card.get("copyIntent") == "review"
+            assert card.get("copyLabel") == "修正を依頼"
+
+
 def test_changelog_entry_date_parsed():
     fresh = mod.changelog_freshness()
     assert fresh["exists"] is True

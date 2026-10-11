@@ -351,6 +351,9 @@ def test_handled_materials_sink_and_clear():
     assert "badge handled-tag" in html
     assert "fact.fresh" in html
     assert "未処理（" in html
+    assert "INTENT_REVIEW" in html
+    assert "# 文書レビュー" in html
+    assert "copyIntent" in html
     assert "handledThreshold" in html
     assert "agent_mtime" in html
 

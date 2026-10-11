@@ -268,6 +268,8 @@ def _card(
         "command": "",
         "command_label": "",
         "phrase": phrase[:120],
+        "copyIntent": "review",
+        "copyLabel": "修正を依頼",
     }
 
 

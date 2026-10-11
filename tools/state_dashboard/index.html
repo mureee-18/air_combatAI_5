@@ -509,6 +509,7 @@ const INTENT_FACT = "# 事実確認（仮説登録なし）— 実行して結�
 const INTENT_MATERIAL = "# 仮説の材料 — この事実を前提に仮説を1本立ててください\n";
 const INTENT_ASSUMPTION = "# 前提登録 — この行をAIに貼って登録依頼\n";
 const INTENT_HYPOTHESIS = "# 仮説登録 — この行をAIに貼って登録依頼\n";
+const INTENT_REVIEW = "# 文書レビュー — この指摘の修正をお願いします\n";
 
 function withIntent(intent, cmd) {
   return cmd ? intent + cmd : cmd;
@@ -651,7 +652,9 @@ function renderFact(card, extraCls) {
   // コマンドも登録itemも持たない事実カード（独自指標・条件トリガー・スコア）は
   // 値そのものを「仮説の材料」としてコピーできるようにする（確認作業は発生しない）
   if (!card.command && !(card.items && card.items.length) && card.phrase) {
-    h += `<button class="copy material" data-handled-key="${attr(cardKey(card))}" data-cmd="${attr(withIntent(INTENT_MATERIAL, card.phrase))}">仮説の材料</button>`;
+    const intent = card.copyIntent === "review" ? INTENT_REVIEW : INTENT_MATERIAL;
+    const label = card.copyLabel || "仮説の材料";
+    h += `<button class="copy material" data-handled-key="${attr(cardKey(card))}" data-cmd="${attr(withIntent(intent, card.phrase))}">${esc(label)}</button>`;
   }
   return h + "</div>";
 }
