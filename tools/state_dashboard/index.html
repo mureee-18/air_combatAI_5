@@ -849,11 +849,16 @@ function renderHypothesis(d) {
   }
 
   h += "<h2>事実カード（ここから仮説を立てる材料）</h2>";
-  const facts = (s.evidence || []).filter(c => c.id !== "paired");
+  const facts = (s.evidence || []).filter(c => c.id !== "paired" && c.kind !== "assumption");
+  const premises = (s.evidence || []).filter(c => c.kind === "assumption");
   if (!facts.length) {
     h += '<div class="empty">事実カードを組み立てるデータがありません（ログ・軌跡）。</div>';
   } else {
     h += '<div class="facts">' + renderFactGroups(facts) + "</div>";
+  }
+  if (premises.length) {
+    h += "<h2>前提（参照用・処理済み管理の対象外）</h2>";
+    h += '<div class="facts">' + premises.map(c => renderFact(c, "")).join("") + "</div>";
   }
 
   h += "<h2>仮説ビルダー（選んで登録）</h2>";

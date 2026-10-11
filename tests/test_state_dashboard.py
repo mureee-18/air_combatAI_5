@@ -354,6 +354,7 @@ def test_handled_materials_sink_and_clear():
     assert "INTENT_REVIEW" in html
     assert "# 文書レビュー" in html
     assert "copyIntent" in html
+    assert "前提（参照用" in html
     assert "/api/build" in html
     assert "dash-keep-tab" in html
     assert "mark-handled" in html
