@@ -43,6 +43,24 @@ def fetch_body(pr: str) -> str | None:
         return None
 
 
+def head_sha_for(pr: str | None, head_arg: str) -> str:
+    """公開対象ブランチの HEAD SHA。取れなければ空文字。"""
+    ref = head_arg
+    if pr and not ref:
+        code, out = _run(["gh", "pr", "view", pr, "--json", "headRefName"])
+        if code == 0:
+            try:
+                ref = json.loads(out or "{}").get("headRefName") or ""
+            except json.JSONDecodeError:
+                ref = ""
+    if ref:
+        code, out = _run(["git", "rev-parse", ref])
+        if code == 0 and out:
+            return out.strip()
+    code, out = _run(["git", "rev-parse", "HEAD"])
+    return out.strip() if code == 0 and out else ""
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="PR本文の公開＋往復照合")
     ap.add_argument("--pr", help="編集対象のPR番号")
@@ -59,14 +77,23 @@ def main() -> int:
         print(f"body-file が読めない: {exc}")
         return 1
 
+    sha = head_sha_for(args.pr, args.head)
+    stamped = source.rstrip() + f"\n\n<!-- pr-publish-head: {sha} -->\n" if sha else source
+    stamped_file = Path(args.body_file).parent / (Path(args.body_file).stem + ".stamped.md")
+    try:
+        stamped_file.write_text(stamped, encoding="utf-8")
+    except OSError as exc:
+        print(f"stamped file が書けない: {exc}")
+        return 1
+
     if args.create:
         cmd = ["gh", "pr", "create", "--base", args.base, "--title", args.title,
-               "--body-file", args.body_file]
+               "--body-file", str(stamped_file)]
         if args.head:
             cmd += ["--head", args.head]
         target = "新規PR"
     elif args.pr:
-        cmd = ["gh", "pr", "edit", args.pr, "--body-file", args.body_file]
+        cmd = ["gh", "pr", "edit", args.pr, "--body-file", str(stamped_file)]
         target = f"PR #{args.pr}"
     else:
         print("--pr か --create が必要")
@@ -86,13 +113,13 @@ def main() -> int:
     if fetched is None:
         print("読み返しに失敗（要目視確認）")
         return 1
-    diff = text_review.body_matches(fetched, source)
+    diff = text_review.body_matches(fetched, stamped)
     if diff:
         print(f"{target} の本文が化けている:")
         for line in diff[:10]:
             print(f"  {line}")
         return 1
-    print(f"{target} の本文は一致（{len(source)} 文字）")
+    print(f"{target} の本文は一致（{len(stamped)} 文字・HEAD {sha[:7] if sha else '?'}）")
     return 0
 
 

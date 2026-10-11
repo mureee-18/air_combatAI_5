@@ -178,6 +178,17 @@ def _epoch(iso: str | None) -> float | None:
         return None
 
 
+FOOTER_RE = re.compile(r"<!--\s*pr-publish-head:\s*([0-9a-f]{7,40})\s*-->")
+
+
+def published_head_sha(body: str | None) -> str | None:
+    """pr_publish が埋めた HEAD SHA を返す。無ければ None（旧形式）."""
+    if not body:
+        return None
+    found = FOOTER_RE.findall(body)
+    return found[-1] if found else None
+
+
 def pr_reviews() -> dict:
     """開いている PR の本文を文字化け・最新性で見る（gh が無ければ skip）."""
     if shutil.which("gh") is None:
@@ -200,17 +211,13 @@ def pr_reviews() -> dict:
         body = item.get("body") or ""
         issues = scan_text(body)
         ref = item.get("headRefName") or ""
-        head_date = _git(["log", "-1", "--format=%ct", ref]) if ref else None
-        try:
-            head_epoch = float(head_date) if head_date else None
-        except (TypeError, ValueError):
-            head_epoch = None
-        updated_epoch = _epoch(item.get("updatedAt"))
-        stale = bool(
-            head_epoch is not None
-            and updated_epoch is not None
-            and head_epoch > updated_epoch
-        )
+        head_sha = _git(["rev-parse", ref]) if ref else None
+        stamped = published_head_sha(body)
+        if stamped is None or not head_sha:
+            # 旧形式（footer 無し）や ref 不明は判定不能。OK とは言わない。
+            stale = None
+        else:
+            stale = not head_sha.startswith(stamped[:7])
         prs.append(
             {
                 "number": item.get("number"),
@@ -371,8 +378,10 @@ def review_cards() -> list[dict]:
             states = []
             if pr["mojibake"] > 0:
                 states.append(f"文字化け{pr['mojibake']}件")
-            if pr["stale"]:
-                states.append("最新push未反映の可能性")
+            if pr["stale"] is True:
+                states.append("最新push未反映")
+            elif pr["stale"] is None:
+                states.append("鮮度は目視確認")
             ok = not states
             cards.append(
                 _card(
@@ -380,11 +389,19 @@ def review_cards() -> list[dict]:
                     f"PR #{num} 本文: {'OK' if ok else '・'.join(states)}",
                     "本文が化けず最新の内容かを PR ページで確認する。"
                     if not ok
-                    else "本文に文字化けはなく、最新の push を反映している。",
+                    else "本文に文字化けはなく、footer の HEAD と一致している。",
                     [
                         {"label": "PR", "value": f"#{num}", "num": False},
                         {"label": "文字化け", "value": pr["mojibake"], "num": True, "digits": 0},
-                        {"label": "鮮度", "value": "最新" if not pr["stale"] else "要確認", "num": False},
+                        {
+                            "label": "鮮度",
+                            "value": (
+                                "最新"
+                                if pr["stale"] is False
+                                else ("要確認" if pr["stale"] else "目視")
+                            ),
+                            "num": False,
+                        },
                     ],
                     f"PR #{num} 本文は{'OK' if ok else '要確認'}",
                     hypothesis="" if ok else "PR本文を最新の内容に更新する。",

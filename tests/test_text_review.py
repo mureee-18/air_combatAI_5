@@ -91,6 +91,12 @@ def test_review_cards_use_fix_intent():
             assert card.get("copyLabel") == "修正を依頼"
 
 
+def test_published_head_sha_parses_footer():
+    assert mod.published_head_sha("abc\n<!-- pr-publish-head: 5b05791 -->") == "5b05791"
+    assert mod.published_head_sha("no footer") is None
+    assert mod.published_head_sha("") is None
+
+
 def test_changelog_entry_date_parsed():
     fresh = mod.changelog_freshness()
     assert fresh["exists"] is True
