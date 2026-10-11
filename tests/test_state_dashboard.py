@@ -266,18 +266,14 @@ def test_session_evidence_cards_are_observable_and_have_sources():
 
 
 def test_session_evidence_paired_card_reflects_metrics():
-    paired = serve.collect_paired()
-    with_metrics = [f for f in paired["files"] if (f.get("metrics") or {}).get("avg_score") is not None]
-    cards = serve.collect_session()["evidence"]
+    session = serve.collect_session()
+    target = session.get("target") or "default"
+    cards = session["evidence"]
     card = next((c for c in cards if c["id"] == "paired"), None)
-    if len(with_metrics) < 2:
-        assert card is None
-        return
     assert card is not None
     labels = [row["label"] for row in card["evidence"]]
-    for entry in with_metrics:
-        name = (entry.get("metrics") or {}).get("label") or entry["name"]
-        assert f"{name} avg_score" in labels
+    assert any(target in label for label in labels)
+    assert any("baseline" in label for label in labels)
 
 
 def test_session_steps_mark_hypothesis_current_when_empty():
@@ -584,6 +580,27 @@ def test_ammo_reserve_card_redirects_from_conservation():
     card = next((c for c in cards if c.get("id") == "metric:ammo_reserve"), None)
     assert card is not None
     assert "N-028" in (card.get("hypothesis") or "")
+
+
+def test_threat_card_names_concentrated_slot():
+    traj = {"warn_frames": {"1": 300, "2": 30, "3": 10, "4": 5}}
+    cards = serve._metric_cards(traj, None, None, "default", [])
+    card = next((c for c in cards if c.get("id") == "metric:threat_frames"), None)
+    assert card is not None
+    assert "1号機" in (card.get("hypothesis") or "")
+    assert "N-036" in (card.get("hypothesis") or "")
+
+
+def test_scope_compare_rows_prefers_target_and_baseline():
+    rows = [
+        {"name": "def_fr90", "file": "def_fr90.json", "metrics": {"avg_score": 0.229}},
+        {"name": "default", "file": "default.json", "metrics": {"avg_score": 0.5}},
+        {"name": "baseline", "file": "baseline.json", "metrics": {"avg_score": 0.5}},
+    ]
+    scoped = serve._scope_compare_rows(rows, "default")
+    assert [r["name"] for r in scoped] == ["default", "baseline"]
+    assert serve._scope_compare_rows(rows, "missing") == []
+    assert serve._scope_compare_rows([rows[0]], "default") == []
 
 
 def test_min_dist_and_launch_count_cards_redirect():

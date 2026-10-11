@@ -1312,6 +1312,30 @@ def _paired_game_rows(label: str) -> list[dict]:
         return []
 
 
+def _scope_compare_rows(rows: list[dict], target: str) -> list[dict]:
+    """仮説タブの比較カード用に現行ターゲットとベースラインだけ残す.
+
+    全ファイル比較だと古い実験が worst に居座るため。両方揃わなければ
+    空を返し、呼び出し側は従来表示にフォールバックする。
+    """
+
+    def _is(row, label):
+        if not isinstance(row, dict):
+            return False
+        if row.get("name") == label:
+            return True
+        try:
+            return Path(str(row.get("file", ""))).stem == label
+        except Exception:
+            return False
+
+    ours = next((r for r in rows or [] if _is(r, target)), None)
+    base = next((r for r in rows or [] if _is(r, "baseline")), None)
+    if ours is None or base is None:
+        return []
+    return [ours, base]
+
+
 def _paired_evidence() -> dict | None:
     paired = collect_paired()
     rows = []
@@ -1500,6 +1524,19 @@ def _metric_cards(
                 "発射数の増加は命中・勝敗を動かさない（N-018・N-025 で閉鎖）。"
                 "量でなく生存の軸へ。"
             )
+    wf = traj.get("warn_frames") or {}
+    if wf and sum(wf.values()):
+        top = max(wf.items(), key=lambda kv: kv[1])
+        if top[1] / sum(wf.values()) >= 0.6:
+            text = (
+                f"{top[0]}号機に集中。deep-pusherが被弾を吸収する構造（N-036系）。"
+                "生存軸で見る。"
+            )
+        else:
+            text = "脅威が分散。生存軸（N-036/037）で見る。"
+        for card in out:
+            if card.get("id") == "metric:threat_frames":
+                card["hypothesis"] = text
     return out
 
 
@@ -1803,13 +1840,23 @@ def collect_evidence(target: str) -> list[dict]:
     paired = _paired_evidence()
     _evidence_derived["paired"] = paired
     if paired:
-        worst, best = paired["worst"], paired["best"]
-        wm, _ = worst["metrics"], best["metrics"]
+        scoped = _scope_compare_rows(paired.get("rows", []), specialist)
+        rows = scoped if len(scoped) == 2 else paired["rows"]
+        worst = min(rows, key=lambda r: ((r.get("metrics") or {}).get("avg_score") or 0))
+        best = max(rows, key=lambda r: ((r.get("metrics") or {}).get("avg_score") or 0))
+        wm, bm = worst["metrics"], best["metrics"]
+        gap = round((bm.get("avg_score", 0) or 0) - (wm.get("avg_score", 0) or 0), 3)
+        verb = "劣る" if gap > 0 else "互角"
+        if worst["name"] == best["name"] and len(rows) >= 2:
+            other = next((r for r in rows if r is not best), best)
+            title = f"{worst['name']} と {other['name']} は互角（avg_score差 {gap}）"
+        else:
+            title = f"{worst['name']} は {best['name']} に avg_score {gap} 差で{verb}"
         cards.append({
             "id": "paired",
             "kind": "observation",
             "source": "log",
-            "title": f"{worst['name']} は {best['name']} に avg_score {paired['gap']} 差で劣る",
+            "title": title,
             "summary": (
                 f"{worst['name']}: 自機生存 {wm.get('avg_our_alive')} / 敵生存 {wm.get('avg_enemy_alive')}。"
                 "敵を1機も落とせず全滅しているなら、原因は『弾が少ない』ことではなく"
@@ -1822,7 +1869,7 @@ def collect_evidence(target: str) -> list[dict]:
                     "num": True,
                     "digits": 3,
                 }
-                for entry in paired["rows"]
+                for entry in rows
             ] + [
                 {"label": f"{worst['name']} 自機生存", "value": wm.get("avg_our_alive"), "num": True, "digits": 2},
                 {"label": f"{worst['name']} 敵生存", "value": wm.get("avg_enemy_alive"), "num": True, "digits": 2},
