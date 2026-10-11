@@ -2163,7 +2163,10 @@ function markEvidenceDiffs(data) {
 buildNav();
 showTab((location.hash || "#git").slice(1));
 window.addEventListener("hashchange", () => showTab((location.hash || "#git").slice(1)));
-document.addEventListener("visibilitychange", () => { if (!document.hidden) load(true); });
+document.addEventListener("visibilitychange", () => {
+  const auto = document.getElementById ? document.getElementById("auto") : null;
+  if (!document.hidden && auto && auto.checked) load(true);
+});
 window.addEventListener("resize", () => { if (traj.data) drawTraj(); });
 load(false);
 document.getElementById("refresh").addEventListener("click", () => load(true));
