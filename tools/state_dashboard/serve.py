@@ -258,6 +258,7 @@ def _trajectory_values(traj: dict) -> dict:
     out["fire_gap_noammo"] = _scalar(gap.get("no_ammo"))
     out["threat_frames"] = sum((traj.get("warn_frames") or {}).values()) or None
     out["pre_launch_threat"] = _scalar(traj.get("pre_launch_suppressed"))
+    out["detect_duty"] = _scalar(traj.get("detect_duty"))
     out["lost_range_km"] = _scalar(traj.get("lost_max"))
     out["max_advance_x_km"] = _scalar(traj.get("max_advance_x"))
     out["escort_min_dist_km"] = _scalar(traj.get("escort_min_dist"))
@@ -1208,6 +1209,11 @@ def _trajectory_facts(log_rel: str) -> dict | None:
     lag = None
     if first_detect is not None and first_launch is not None:
         lag = first_launch - first_detect
+    # 探知 duty 率: 敵を探知していたフレームの割合。UUID 追跡など履歴系の
+    # 識別（O-054）の可否条件。低いと運動学的識別は不可。
+    detect_duty = None
+    if frames:
+        detect_duty = sum(1 for f in frames if f.get("enemy")) / len(frames)
     # 初発前の被弾警報フレーム数: lag の内訳（接近時間か脅威ゲート抑制か）の切り分け用。
     # 脅威下では射撃指示が出ない（threat gate）ため、警報が多い空白は抑制が主因。
     pre_launch_suppressed = 0
@@ -1224,6 +1230,7 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "first_launch": first_launch,
         "lag": lag,
         "pre_launch_suppressed": pre_launch_suppressed,
+        "detect_duty": detect_duty,
         "launch_count": len(launches),
         "launched_slots": sorted(used),
         "ammo_start": ammo_start,
