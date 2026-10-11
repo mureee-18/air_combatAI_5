@@ -34,6 +34,9 @@ MOJIBAKE_PATTERNS = [
     ("replacement", re.compile("\ufffd")),
     ("control", re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")),
     ("halfwidth-run", re.compile(r"[\uff61-\uff9f]{6,}")),
+    # PowerShell のバッククォート解釈（`t → TAB 等）で行中に紛れ込む TAB。
+    # 行頭のインデントは正規のため対象外。
+    ("tab-in-prose", re.compile(r"(?<=.)\t")),
 ]
 
 MAX_ISSUES_PER_FILE = 20

@@ -38,6 +38,12 @@ def test_scan_finds_halfwidth_run():
     assert any(i["kind"] == "halfwidth-run" for i in issues)
 
 
+def test_scan_finds_midline_tab_but_not_indent():
+    issues = mod.scan_text("spec に、\truth は UUID")
+    assert any(i["kind"] == "tab-in-prose" for i in issues)
+    assert mod.scan_text("\tindented code") == []
+
+
 def test_scan_positions_are_1_based():
     issues = mod.scan_text("one\ntwo�x")
     assert issues[0]["line"] == 2
