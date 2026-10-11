@@ -1423,6 +1423,11 @@ def _metric_cards(
         for card in out:
             if card.get("id") in ("metric:first_launch_lag", "metric:pre_launch_threat"):
                 card["hypothesis"] = lag_branch
+    duty_branch = _duty_branch_hypothesis((traj.get("detect_duty")))
+    if duty_branch is not None:
+        for card in out:
+            if card.get("id") == "metric:detect_duty":
+                card["hypothesis"] = duty_branch
     return out
 
 
@@ -1472,6 +1477,32 @@ def _lag_branch_hypothesis(lag, suppressed) -> str | None:
     return (
         "初発前の警報は少なく、空白は接近時間（探知距離・シナリオ）要因。"
         "速度は既に最大のため手出しできる変数はない。別軸へ。"
+    )
+
+
+def _duty_branch_hypothesis(duty) -> str | None:
+    """探知duty率から履歴系識別の可否を自動判定する.
+
+    per-UUID duty ≦ 全体duty のため、全体 0.3 未満なら個別追跡は必ず疎で不可
+    （O-054: per-UUID 7%）。0.5 以上なら密な可能性があり軸の再検討対象。
+    中間は証拠不十分で監視継続。しきい値は目安。
+    """
+    if duty is None:
+        return None
+    d = float(duty)
+    if d < 0.3:
+        return (
+            "探知duty率が低く、UUID追跡など履歴系の識別は不可"
+            "（per-UUID duty は全体以下になるため）。"
+            "運動学的識別軸は閉鎖維持。別軸へ。"
+        )
+    if d >= 0.5:
+        return (
+            "探知duty率が高く、履歴系識別の検討が可能。"
+            "UUID追跡＋速度・旋回率分類の設計が次の候補（未試行）。"
+        )
+    return (
+        "探知duty率は中位で識別可否の証拠不十分。現状維持しつつ監視する。"
     )
 
 
