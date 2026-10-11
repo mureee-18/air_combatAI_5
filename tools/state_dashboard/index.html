@@ -97,8 +97,9 @@
   .facts { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
   .fact { flex: 1 1 460px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: #131b23; }
   .fact.hyp { border-color: #3d5a2e; } .fact.rule { border-color: #3b4a6b; }
-  .fact.handled { opacity: .55; }
-  .fact.handled .fact-head .title::after { content: "（処理済み）"; font-size: 11px; color: var(--muted); font-weight: 400; }
+  .fact.handled { opacity: .6; }
+  .badge.handled-tag { background: #262d34; color: #8b949e; border-color: #3a4249; }
+  .fact-group-title { font-size: 13px; color: var(--muted); margin: 10px 0 4px; font-weight: 600; }
   .fact-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
   .fact-head .title { font-size: 14px; font-weight: 600; color: var(--accent); }
   .badge { font-size: 11px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); color: var(--muted); }
@@ -575,15 +576,31 @@ function renderSteps(steps) {
   return h + "</div>";
 }
 
+function renderFactGroups(list) {
+  const ordered = sortByHandled(list.slice());
+  const cut = ordered.findIndex(isHandled);
+  const head = cut < 0 ? ordered : ordered.slice(0, cut);
+  const tail = cut < 0 ? [] : ordered.slice(cut);
+  let h = "";
+  if (tail.length) h += '<div class="fact-group-title">未処理</div>';
+  h += head.map(c => renderFact(c, "")).join("");
+  if (tail.length) {
+    h += '<div class="fact-group-title">処理済み（コピー済み）</div>';
+    h += tail.map(c => renderFact(c, "handled")).join("");
+  }
+  return h;
+}
 function renderFact(card, extraCls) {
   const badgeKind = { observation: "観測", assumption: "前提", rule: "公式ルール" };
   const badgeSrc = { log: "ログ", code: "コード", official: "公式" };
+  const handledTag = (extraCls || "").split(" ").includes("handled")
+    ? '<span class="badge handled-tag">処理済み</span>' : "";
   let h = `<div class="fact ${card.kind}${extraCls ? " " + extraCls : ""}">`;
   h += '<div class="fact-head">' +
        `<span class="title">${esc(card.title)}</span>` +
        `<span class="badge">${esc(badgeKind[card.kind] || card.kind)}</span>` +
        `<span class="badge${card.source === "official" ? " official" : ""}">` +
-       `${esc(badgeSrc[card.source] || card.source)}</span></div>`;
+       `${esc(badgeSrc[card.source] || card.source)}</span>${handledTag}</div>`;
   if (card.summary) h += `<div class="summary clamp2">${esc(card.summary)}</div>`;
 
   if (card.evidence && card.evidence.length) {
@@ -818,9 +835,7 @@ function renderHypothesis(d) {
   if (!facts.length) {
     h += '<div class="empty">事実カードを組み立てるデータがありません（ログ・軌跡）。</div>';
   } else {
-    h += '<div class="facts">' +
-         sortByHandled(facts.slice()).map(c => renderFact(c, isHandled(c) ? "handled" : "")).join("") +
-         "</div>";
+    h += '<div class="facts">' + renderFactGroups(facts) + "</div>";
   }
 
   h += "<h2>仮説ビルダー（選んで登録）</h2>";
@@ -975,7 +990,7 @@ function renderGit(d) {
   } else if (rcards.length) {
     h += "<h2>文章レビュー（文字化け・最新性）</h2>" +
          ' <button class="reset-handled">処理済みをクリア</button>';
-    sortByHandled(rcards.slice()).forEach(c => { h += renderFact(c, isHandled(c) ? "handled" : ""); });
+    h += renderFactGroups(rcards);
   }
   document.getElementById("git").innerHTML = h;
   bindCopy(document.getElementById("git"));

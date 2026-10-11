@@ -335,7 +335,7 @@ def test_index_hypothesis_tab_hides_registered_fact_cards():
     end = html.index("function renderSession")
     block = html[start:end]
     assert 'c.id !== "paired"' in block
-    assert "sortByHandled(facts.slice())" in block
+    assert "renderFactGroups(facts)" in block
     assert "s.evidence.map(renderFact)" not in block
 
 
@@ -346,6 +346,9 @@ def test_handled_materials_sink_and_clear():
     assert "sortByHandled" in html
     assert "reset-handled" in html
     assert ".fact.handled" in html
+    assert "renderFactGroups" in html
+    assert "fact-group-title" in html
+    assert "badge handled-tag" in html
 
 
 def test_index_improvement_cycle_tab_unchanged():
