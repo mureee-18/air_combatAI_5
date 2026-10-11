@@ -939,8 +939,16 @@ function renderGit(d) {
   ]);
   h += "<h2>直近のコミット</h2>";
   h += g.recent.length ? "<pre>" + esc(g.recent.join("\n")) + "</pre>" : '<div class="empty">なし</div>';
+  const rcards = (g.review && g.review.cards) || [];
+  if (g.review && g.review.error) {
+    h += `<p class="meta">文章レビュー取得失敗: ${esc(g.review.error)}</p>`;
+  } else if (rcards.length) {
+    h += "<h2>文章レビュー（文字化け・最新性）</h2>";
+    rcards.forEach(c => { h += renderFact(c); });
+  }
   document.getElementById("git").innerHTML = h;
   bindCopy(document.getElementById("git"));
+  bindFactToggle(document.getElementById("git"));
 }
 
 function renderCmd(d) {

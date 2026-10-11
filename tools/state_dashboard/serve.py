@@ -1923,6 +1923,27 @@ def collect_causes(target: str, facts: dict | None = None,
     }
 
 
+_text_review_module_cached = None
+
+
+def _text_review_module():
+    """tools/state_dashboard/text_review.py を import する（テスト時はパス解決）."""
+    global _text_review_module_cached
+    if _text_review_module_cached is not None:
+        return _text_review_module_cached
+    try:
+        import text_review as module
+    except ImportError:
+        import importlib.util as _ilu
+
+        path = Path(__file__).resolve().parent / "text_review.py"
+        spec = _ilu.spec_from_file_location("text_review", path)
+        module = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    _text_review_module_cached = module
+    return module
+
+
 def collect_git() -> dict:
     branch = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], timeout=10)
     head = run_cmd(["git", "log", "-1", "--format=%h %s"], timeout=10)
@@ -1948,6 +1969,10 @@ def collect_git() -> dict:
         if len(parts) == 2:
             ab = {"behind": int(parts[0]), "ahead": int(parts[1])}
 
+    try:
+        review = _text_review_module().review_summary()
+    except Exception as exc:  # noqa: BLE001
+        review = {"error": str(exc), "cards": []}
     return {
         "branch": (branch or "").strip(),
         "head": (head or "").strip(),
@@ -1956,6 +1981,7 @@ def collect_git() -> dict:
         "ahead_behind": ab,
         "dirty": counts,
         "recent": [line for line in (recent or "").splitlines() if line.strip()],
+        "review": review,
     }
 
 

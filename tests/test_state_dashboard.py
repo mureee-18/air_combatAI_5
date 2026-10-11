@@ -172,8 +172,9 @@ def test_collect_paired_shape():
 
 def test_collect_git_shape():
     git = serve.collect_git()
-    assert set(git.keys()) == {"branch", "head", "remote", "upstream", "ahead_behind", "dirty", "recent"}
+    assert set(git.keys()) == {"branch", "head", "remote", "upstream", "ahead_behind", "dirty", "recent", "review"}
     assert set(git["dirty"].keys()) == {"modified", "untracked", "other"}
+    assert isinstance(git["review"].get("cards"), list)
 
 
 def test_commands_are_documented_and_copyable():
