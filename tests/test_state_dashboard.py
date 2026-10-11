@@ -351,6 +351,12 @@ def test_handled_materials_sink_and_clear():
     assert "badge handled-tag" in html
     assert "fact.fresh" in html
     assert "未処理（" in html
+    assert "handledThreshold" in html
+    assert "agent_mtime" in html
+
+
+def test_agent_mtime_is_numeric():
+    assert serve.agent_config_mtime() > 0
 
 
 def test_index_improvement_cycle_tab_unchanged():
@@ -520,6 +526,7 @@ def test_http_endpoints():
             payload = json.loads(res.read().decode("utf-8"))
         assert set(payload.keys()) == {
             "generated_at",
+            "agent_mtime",
             "repo_root",
             "environment",
             "submission",
