@@ -513,3 +513,12 @@
 - 検証: 新1戦: detect t=30→launch t=190、lag 160、suppressed 0。現行設定12戦連続で抑制ゼロ。ペア評価0-6-0/0.5で基準維持
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 現行維持。抑制支配が出たら軸を開く条件は継続
+
+## O-053 [observation/log] 2026-10-11T10:12:47
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escort単フレーム識別は不可能と確定。残る理論経路はUUID追跡による運動学的識別のみ
+- 変更: 実装変更なし（一時プローブでlive trackをダンプ後に完全除去・再デプロイ済み）
+- 検証: track含有: pos/vel/time/truth/crsあり・specなし。truth属性はUUID（個体ID）で目標種別情報なし。BATTLELOGの制約をliveで再確認
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: UUIDのフレーム間安定性が未確認。安定なら速度・旋回率履歴でescort推定が唯一の残存経路。不安定なら勝利への道は閉鎖
