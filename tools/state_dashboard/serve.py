@@ -1190,22 +1190,7 @@ def _trajectory_facts(log_rel: str) -> dict | None:
                 escort_min_dist = d if escort_min_dist is None else min(escort_min_dist, d)
 
     used = {e["slot"] for e in launches}
-    # 発射要求（aim）の内訳: 飛行中ブロック / 無弾 / それ以外。
-    # 78→16 のような差が出たとき、どこで止まっているかを示す目安。
-    gap_requests = 0
-    gap_flight = 0
-    gap_noammo = 0
-    for f in frames:
-        flying = {s.get("slot") for s in f.get("shots", [])}
-        for a in f.get("aim", []):
-            slot = a.get("slot")
-            gap_requests += 1
-            if slot in flying:
-                gap_flight += 1
-                continue
-            ammo = (f.get("own", {}).get(slot) or {}).get("ammo")
-            if ammo is not None and float(ammo) <= 0:
-                gap_noammo += 1
+    gap = _fire_gap_stats(frames)
     lag = None
     if first_detect is not None and first_launch is not None:
         lag = first_launch - first_detect
@@ -1251,10 +1236,11 @@ def _trajectory_facts(log_rel: str) -> dict | None:
             if v is not None
         ),
         "fire_gap": {
-            "requests": gap_requests,
+            "requests": gap["requests"],
             "launched": len(launches),
-            "flight_block": gap_flight,
-            "no_ammo": gap_noammo,
+            "flight_block": gap["flight_block"],
+            "no_ammo": gap["no_ammo"],
+            "by_slot": gap["by_slot"],
         },
         "result": payload.get("result") or {},
     }
@@ -1511,6 +1497,63 @@ def _duty_branch_hypothesis(duty) -> str | None:
     )
 
 
+def _fire_gap_stats(frames: list[dict]) -> dict:
+    """発射要求（aim）の内訳: 飛行中ブロック / 無弾 / 機体別.
+
+    78→16 のような差が出たとき、どこで・誰が止まっているかを示す目安。
+    合成フレームでも動く純粋関数（テスト用）。
+    """
+    gap_requests = 0
+    gap_flight = 0
+    gap_noammo = 0
+    by_slot: dict[str, dict] = {}
+    for f in frames or []:
+        flying = {s.get("slot") for s in f.get("shots", [])}
+        for a in f.get("aim", []):
+            slot = a.get("slot")
+            gap_requests += 1
+            entry = by_slot.setdefault(slot, {"req": 0, "flight": 0, "noammo": 0})
+            entry["req"] += 1
+            if slot in flying:
+                gap_flight += 1
+                entry["flight"] += 1
+                continue
+            ammo = (f.get("own", {}).get(slot) or {}).get("ammo")
+            if ammo is not None and float(ammo) <= 0:
+                gap_noammo += 1
+                entry["noammo"] += 1
+    return {
+        "requests": gap_requests,
+        "flight_block": gap_flight,
+        "no_ammo": gap_noammo,
+        "by_slot": by_slot,
+    }
+
+
+def _agent_newer_than_log(log_rel: str | None) -> bool | None:
+    """対戦ログより後に Agent 設定が変わっていたら True（状態不一致の可能性）.
+
+    材料の対戦時と現行設定が違うかを見る目安。どちらかの mtime が取れなければ None。
+    """
+    if not log_rel:
+        return None
+    try:
+        log_mtime = (REPO_ROOT / log_rel).stat().st_mtime
+    except OSError:
+        return None
+    agent_dir = REPO_ROOT / "agent"
+    newest = 0.0
+    try:
+        for path in list(agent_dir.rglob("*.py")) + [agent_dir / "args.json", agent_dir / "config.json"]:
+            if path.is_file():
+                newest = max(newest, path.stat().st_mtime)
+    except OSError:
+        return None
+    if not newest:
+        return None
+    return newest > log_mtime
+
+
 def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) -> list[dict]:
     """実測が条件を満たす間だけ出るカード（解消すると自動で消える）."""
 
@@ -1553,6 +1596,17 @@ def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) 
                 evidence.append({"label": "うち飛行中ブロック", "value": fb, "num": True, "digits": 0})
             if na is not None:
                 evidence.append({"label": "うち無弾指示", "value": na, "num": True, "digits": 0})
+            by_slot = (facts.get("fire_gap") or {}).get("by_slot") or {}
+            if by_slot:
+                top = max(by_slot.items(), key=lambda kv: kv[1].get("req", 0))
+                evidence.append(
+                    {"label": "最多要求", "value": f"{top[0]}号機 {int(top[1].get('req', 0))}回", "num": False}
+                )
+            stale = _agent_newer_than_log(facts.get("log"))
+            if stale:
+                evidence.append(
+                    {"label": "設定", "value": "対戦後に変更あり（状態不一致の可能性）", "num": False}
+                )
             if na and fb is not None and na >= fb and na > 0:
                 guide = (
                     "無弾指示が主因。序盤に撃ち尽くしており、温存・節約軸で仮説を立てる目安。"
