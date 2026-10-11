@@ -1515,10 +1515,8 @@ def _fire_gap_hypothesis(orders, launches, fb, na) -> str:
     na_n = int(na or 0)
     if na_n >= fb_n and na_n > 0:
         return (
-            f"無弾指示 {na_n}回が主因。残る温存変数は maxSimulShot 4→2 のみ"
-            f"（fireRange縮小は N-017・N-022 で棄却済み）。"
-            f"maxSimulShot 4→2 で無弾指示率の低下と後半発射の出現を予測するが、"
-            f"火力低下のため avg_score 0.5 維持・enemy_alive 不変の可能性大。"
+            f"無弾指示 {na_n}回が主因。温存軸は N-028 で閉鎖済みのため"
+            f"新規仮説はない。別軸（生存・escort識別）へ。"
         )
     if fb_n > 0:
         return (
@@ -1730,7 +1728,7 @@ def _trigger_cards(
                 )
             if na and fb is not None and na >= fb and na > 0:
                 guide = (
-                    "無弾指示が主因。序盤に撃ち尽くしており、温存・節約軸で仮説を立てる目安。"
+                    "無弾指示が主因。温存軸は N-028 で閉鎖済みのため新規仮説はない。"
                 )
             elif fb and fb > 0:
                 guide = (
@@ -1915,7 +1913,7 @@ def collect_evidence(target: str) -> list[dict]:
                 {"label": "敗者のスコア", "value": "1 - 勝者のスコア", "num": False},
                 {"label": "TIMEUP", "value": "両者 0.5", "num": False},
             ],
-            "hypothesis": None,
+            "hypothesis": "採点式の確認用。引き分けの積み重ねでは順位は上がらない。新規仮説はない。",
             "phrase": "TIMEUP はスコア 0.5、0.6 以上は撃墜時だけ",
             "metric": "avg_score が 0.5 を超えてるか（超えて初めて改善）",
             "from_tab": "ルール",

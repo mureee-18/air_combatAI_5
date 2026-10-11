@@ -281,24 +281,13 @@ def _card(
 
 
 def review_cards() -> list[dict]:
-    """git タブが renderFact で描く事実カード（コピー釦付き）."""
+    """git タブが renderFact で描く事実カード（コピー釦付き）.
+
+    問題なし系（docs-ok / changelog-ok / pr-OK）はカード化しない。
+    静かなタブのため、正常時は review_summary() の note 行だけ出す。
+    """
     cards: list[dict] = []
     docs = review_docs()
-    total = sum(f["count"] for f in docs["files"])
-    n_files = len(docs["files"])
-    if total == 0:
-        cards.append(
-            _card(
-                "textreview:docs-ok",
-                f"文書レビュー: 対象 {n_files} 件・文字化け 0 件",
-                "README・CHANGELOG・仕様書・改善記録に文字化けの疑いはない。",
-                [
-                    {"label": "対象文書", "value": n_files, "num": True, "digits": 0},
-                    {"label": "文字化け", "value": 0, "num": True, "digits": 0},
-                ],
-                f"文書レビュー: 対象{n_files}件・文字化け0件",
-            )
-        )
     for f in docs["files"]:
         if f["count"] == 0 or len(cards) >= MAX_CARDS:
             continue
@@ -341,18 +330,7 @@ def review_cards() -> list[dict]:
                 )
             )
         else:
-            cards.append(
-                _card(
-                    "textreview:changelog-ok",
-                    f"CHANGELOG は最新（最終 {fresh['last_entry'] or '—'}）",
-                    "最終日付より後のコミットはない。",
-                    [
-                        {"label": "最終記載", "value": fresh["last_entry"] or "—", "num": False},
-                    ],
-                    f"CHANGELOGは最新（{fresh['last_entry'] or '—'}）",
-                    from_path="CHANGELOG.md",
-                )
-            )
+            pass
     spec = readme_specialist()
     if spec["mentions"] and not spec["match"]:
         cards.append(
@@ -383,6 +361,8 @@ def review_cards() -> list[dict]:
             elif pr["stale"] is None:
                 states.append("鮮度は目視確認")
             ok = not states
+            if ok:
+                continue
             cards.append(
                 _card(
                     f"textreview:pr-{num}",
@@ -413,12 +393,20 @@ def review_cards() -> list[dict]:
 
 def review_summary() -> dict:
     docs = review_docs()
+    total = sum(f["count"] for f in docs["files"])
+    prs = pr_reviews()
+    cards = review_cards()
+    note = (
+        f"文章レビュー: 対象 {len(docs['files'])} 件・文字化け {total} 件"
+        f"・PR {len(prs.get('prs', []))} 件・指摘カード {len(cards)} 件"
+    )
     return {
         "docs": docs,
         "changelog": changelog_freshness(),
         "readme": readme_specialist(),
-        "prs": pr_reviews(),
-        "cards": review_cards(),
+        "prs": prs,
+        "cards": cards,
+        "note": note,
     }
 
 
