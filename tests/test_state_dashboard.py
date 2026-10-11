@@ -578,6 +578,16 @@ def test_ammo_reserve_card_redirects_from_conservation():
     assert "N-028" in (card.get("hypothesis") or "")
 
 
+def test_min_dist_and_launch_count_cards_redirect():
+    cards = serve._metric_cards({"min_dist": {"1": 31.0}, "launch_count": 8}, None, None, "default", [])
+    dist = next((c for c in cards if c.get("id") == "metric:min_dist_km"), None)
+    assert dist is not None
+    assert "N-017" in (dist.get("hypothesis") or "")
+    launches = next((c for c in cards if c.get("id") == "metric:launch_count"), None)
+    assert launches is not None
+    assert "N-018" in (launches.get("hypothesis") or "")
+
+
 def test_wipe_games_picks_zero_alive_only():
     rows = [
         {"color": "Red", "seed": 1, "our_alive": 3.0},

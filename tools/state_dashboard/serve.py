@@ -1466,6 +1466,19 @@ def _metric_cards(
                 "残弾を増やす方向（温存）は逆効果（N-028 で棄却済み）。"
                 "残弾量は勝敗と無相関のため、この数値から立てる新規仮説はない。別軸へ。"
             )
+    for card in out:
+        if card.get("id") == "metric:min_dist_km":
+            card["hypothesis"] = (
+                "接近自体は命中を生まない。接近を深める変更は全て敗戦増で"
+                "棄却済み（fireRange縮小 N-017・N-022、break遅延 N-031）。"
+                "この数値から立てる新規仮説はない。別軸へ。"
+            )
+    for card in out:
+        if card.get("id") == "metric:launch_count":
+            card["hypothesis"] = (
+                "発射数の増加は命中・勝敗を動かさない（N-018・N-025 で閉鎖）。"
+                "量でなく生存の軸へ。"
+            )
     return out
 
 
