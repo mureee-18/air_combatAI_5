@@ -562,3 +562,13 @@
 - 検証: dwell分布は生存・死亡で同一（例：生存0/40/60 vs 死亡0/41/59）。脅威は死亡直前に全機飽和（10/10）。死亡時刻はシナリオ律動の疑い。eval/log_1では全滅、cur5では1号機のみ生存
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: salvo到来時の回避行動と生存の関係を測定する
+
+## O-058 [observation/log] 2026-10-11T11:49:40
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: evadeCrankDeg 15を採用。脅威離脱の真っ直ぐ尾追いを15度ずらし生存が向上
+- 仮説: N-038
+- 変更: default.pyにevadeCrankDeg分岐を追加＋args.jsonに15.0を設定
+- 検証: ペア評価: 0勝6分0敗、avg_score 0.500維持、avg_our_alive 2.67→3.00、enemy 3.33→3.50（誤差範囲）。敗戦・全滅なし。1戦で165度クランク211フレームを確認
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: 現行に採用。ruff/tests/zip_check合格
