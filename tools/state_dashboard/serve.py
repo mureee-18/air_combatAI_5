@@ -1367,7 +1367,7 @@ def _metric_cards(
     if traj.get("escort_min_dist") is None:
         direct = _newest_direct_facts(newest[1:])
         if direct is not None:
-            for k in ("escort_min_dist", "ammo_reserve", "max_advance_x"):
+            for k in ("escort_min_dist", "ammo_reserve", "max_advance_x", "escort_log"):
                 if traj.get(k) is None:
                     traj[k] = direct.get(k)
     buckets = {
@@ -1446,6 +1446,13 @@ def _metric_cards(
         for card in out:
             if card.get("id") == "metric:escort_min_dist_km":
                 card["hypothesis"] = escort_branch
+    esc_log = traj.get("escort_log")
+    if esc_log:
+        for card in out:
+            if card.get("id") == "metric:escort_min_dist_km":
+                card.setdefault("evidence", []).append(
+                    {"label": "出所ログ", "value": esc_log, "num": False}
+                )
     return out
 
 
