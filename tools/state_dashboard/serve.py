@@ -1441,6 +1441,11 @@ def _metric_cards(
                     "threat_frames と合わせて生存軸で読む。進出距離自体の延伸に"
                     "変数はない（N-029 で閉鎖）。"
                 )
+    escort_branch = _escort_branch_hypothesis(traj.get("escort_min_dist"))
+    if escort_branch is not None:
+        for card in out:
+            if card.get("id") == "metric:escort_min_dist_km":
+                card["hypothesis"] = escort_branch
     return out
 
 
@@ -1585,6 +1590,25 @@ def _agent_newer_than_log(log_rel: str | None) -> bool | None:
     if not newest:
         return None
     return newest > log_mtime
+
+
+def _escort_branch_hypothesis(dist) -> str | None:
+    """護衛対象機への最短距離から分岐ガイド文を作る.
+
+    到達（20km 以内）は必要条件に過ぎず、勝ちには命中・撃墜が要る。
+    未到達はシナリオ支配で変数なし（N-029 で閉鎖）。
+    """
+    if dist is None:
+        return None
+    if float(dist) <= 20:
+        return (
+            "護衛対象機に到達済み。到達だけでは勝てず、命中・撃墜"
+            "（ELIMINATION 成立）が条件。発射・命中軸で見る。"
+        )
+    return (
+        "未到達。接近はシナリオ支配で変数なし（N-029 で閉鎖）。"
+        "到達しても命中が無ければ勝てない。"
+    )
 
 
 def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) -> list[dict]:

@@ -536,3 +536,9 @@ def test_http_endpoints():
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_escort_branch_hypothesis_splits_reached_and_unreached():
+    assert serve._escort_branch_hypothesis(None) is None
+    assert "N-029" in serve._escort_branch_hypothesis(152.7)
+    assert "ELIMINATION" in serve._escort_branch_hypothesis(19.6)
