@@ -340,6 +340,7 @@ def cmd_record(args) -> None:
         "hypothesis": getattr(args, "hypothesis", "") or "",
         "at": datetime.now().isoformat(timespec="seconds"),
         "materials": materials,
+        "next_steps": args.next_steps or "",
     })
     save_state(args.specialist, state)
     print(f"記録しました: {path}")
@@ -367,6 +368,49 @@ def cmd_link(args) -> None:
             added += 1
     save_state(args.specialist, state)
     print(f"{rec['id']} に材料 {added} 件を紐付け（計 {len(rec['materials'])} 件）")
+
+
+def cmd_todo(args) -> None:
+    state = load_state(args.specialist)
+    if not state:
+        raise SystemExit(f"セッション未開始: {args.specialist}")
+    validated = {
+        c.get("hypothesis")
+        for c in state.get("cycles", [])
+        if c.get("kind") == "validate" and c.get("hypothesis")
+    }
+    print(f"未処理の宿題（{args.specialist}）：")
+    n = 0
+    print("■ 未検証の仮説:")
+    pending = [h for h in state.get("hypotheses", []) if h.get("id") not in validated]
+    for h in pending[-12:]:
+        n += 1
+        print(f"  {h.get('id')}: {(h.get('text') or '')[:60]}")
+    print("■ 記録の次の一手（直近8件）:")
+    recs = [r for r in state.get("records", []) if (r.get("next_steps") or "").strip()]
+    if not recs:
+        recs = _next_steps_from_note(args.specialist)
+    for r in recs[-8:]:
+        n += 1
+        print(f"  {r.get('id')}: {(r.get('next_steps') or '')[:80]}")
+    if n == 0:
+        print("  なし。停滞時は未見seed評価か指標見直しへ。")
+
+
+def _next_steps_from_note(name: str) -> list[dict]:
+    """improvement.md から「次の一手」を拾う（state に無い古い記録用）."""
+    path = note_path(name)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    out = []
+    for section in re.split(r"^##\s+", text, flags=re.M)[1:]:
+        rid = (section.split(maxsplit=1) or ["?"])[0]
+        found = re.findall(r"^-\s*次の一手:\s*(.+)$", section, flags=re.M)
+        if found and found[-1].strip():
+            out.append({"id": rid, "next_steps": found[-1].strip()})
+    return out
 
 
 def cmd_check(args) -> None:
@@ -469,6 +513,10 @@ def main() -> None:
     p.add_argument("--record", default="",
                    help="紐付ける記録 id（例: O-059）。省略時は最新")
     p.set_defaults(func=cmd_link)
+
+    p = sub.add_parser("todo")
+    p.add_argument("--specialist", required=True)
+    p.set_defaults(func=cmd_todo)
 
     p = sub.add_parser("check")
     p.add_argument("--specialist", required=True)
