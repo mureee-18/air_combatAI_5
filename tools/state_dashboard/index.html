@@ -597,10 +597,10 @@ function renderFactGroups(list) {
   const head = cut < 0 ? ordered : ordered.slice(0, cut);
   const tail = cut < 0 ? [] : ordered.slice(cut);
   let h = "";
-  if (tail.length) h += `<div class="fact-group-title">未処理（${head.length}件）</div>`;
+  if (head.length && tail.length) h += `<div class="fact-group-title">未処理（${head.length}件）</div>`;
   h += head.map(c => renderFact(c, tail.length ? "fresh" : "")).join("");
   if (tail.length) {
-    h += `<div class="fact-group-title">処理済み（コピー済み・${tail.length}件）</div>`;
+    h += `<div class="fact-group-title">処理済み（${tail.length}件）</div>`;
     h += tail.map(c => renderFact(c, "handled")).join("");
   }
   return h;
@@ -2112,6 +2112,17 @@ function buildNav() {
 
 async function load(force) {
   try {
+    try {
+      const bres = await fetch("/api/build", { cache: "no-store" });
+      const bdata = await bres.json();
+      const meta = document.querySelector ? document.querySelector('meta[name="x-build"]') : null;
+      const cur = meta ? meta.getAttribute("content") : "";
+      if (cur && bdata.build && bdata.build !== cur) {
+        try { sessionStorage.setItem("dash-keep-tab", "1"); } catch (e) {}
+        location.reload();
+        return;
+      }
+    } catch (e) {}
     const res = await fetch("/api/summary" + (force ? "?force=1" : ""), { cache: "no-store" });
     const data = await res.json();
     state.data = data;
@@ -2165,8 +2176,13 @@ schedule();
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // Force git tab to be active on page load
-    showTab('git');
+    // Force git tab to be active on page load (版ズレ再読み込み時は維持)
+    let keep = false;
+    try {
+      keep = sessionStorage.getItem("dash-keep-tab") === "1";
+      sessionStorage.removeItem("dash-keep-tab");
+    } catch (e) {}
+    if (!keep) showTab('git');
   });
 </script></body>
 </html>
