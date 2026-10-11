@@ -875,10 +875,17 @@ def collect_session(paired: dict | None = None) -> dict:
         }
     evidence = collect_evidence(target)
     target_session = next((s for s in sessions if s.get("specialist") == target), {})
+    recorded_materials = []
+    for rec in target_session.get("records", []):
+        for phrase in rec.get("materials", []) or []:
+            recorded_materials.append(
+                {"phrase": phrase, "at": rec.get("at"), "record": rec.get("id")}
+            )
     return {
         "sessions": sessions,
         "target": target,
         "submitted": submitted,
+        "recorded_materials": recorded_materials,
         "started": started,
         "steps": steps,
         "next": nxt,

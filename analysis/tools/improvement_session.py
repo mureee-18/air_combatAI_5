@@ -317,6 +317,7 @@ def cmd_record(args) -> None:
     state = load_state(args.specialist)
     latest = state.get("cycles", [])[-1]["metrics"] if state.get("cycles") else {}
     record_id = next_record_id(path, args.kind)
+    materials = [m for m in (getattr(args, "materials", "") or "").split("|") if m.strip()]
     with path.open("a", encoding="utf-8") as f:
         f.write(f"\n## {record_id} [{args.kind}/{args.source}] {datetime.now().isoformat(timespec='seconds')}\n")
         f.write(f"- 種別: {args.kind}（{KIND_LABEL[args.kind]}）\n")
@@ -324,6 +325,8 @@ def cmd_record(args) -> None:
         f.write(f"- 方向性: {args.direction}\n")
         if getattr(args, "hypothesis", ""):
             f.write(f"- 仮説: {args.hypothesis}\n")
+        if materials:
+            f.write(f"- 材料: {len(materials)} 件を紐付け（ダッシュボードの処理済み判定用）\n")
         f.write(f"- 変更: {args.changes}\n")
         f.write(f"- 検証: {args.verification}\n")
         if latest:
@@ -336,10 +339,34 @@ def cmd_record(args) -> None:
         "source": args.source,
         "hypothesis": getattr(args, "hypothesis", "") or "",
         "at": datetime.now().isoformat(timespec="seconds"),
+        "materials": materials,
     })
     save_state(args.specialist, state)
     print(f"記録しました: {path}")
-    print(f"  {record_id} [{args.kind}/{args.source}]")
+    print(f"  {record_id} [{args.kind}/{args.source}] materials={len(materials)}")
+
+
+def cmd_link(args) -> None:
+    state = load_state(args.specialist)
+    if not state:
+        raise SystemExit(f"セッション未開始: {args.specialist}")
+    records = state.get("records", [])
+    if not records:
+        raise SystemExit("記録がありません")
+    target = getattr(args, "record", "") or ""
+    rec = next((r for r in records if r.get("id") == target), None) if target else records[-1]
+    if rec is None:
+        raise SystemExit(f"記録が見つかりません: {target}")
+    materials = [m for m in (args.materials or "").split("|") if m.strip()]
+    seen = set(rec.setdefault("materials", []))
+    added = 0
+    for m in materials:
+        if m not in seen:
+            rec["materials"].append(m)
+            seen.add(m)
+            added += 1
+    save_state(args.specialist, state)
+    print(f"{rec['id']} に材料 {added} 件を紐付け（計 {len(rec['materials'])} 件）")
 
 
 def cmd_check(args) -> None:
@@ -431,7 +458,17 @@ def main() -> None:
     p.add_argument("--verification", default="")
     p.add_argument("--next-steps", dest="next_steps", default="")
     p.add_argument("--hypothesis", default="", help="紐付ける仮説の id（例: N-002）。省略可")
+    p.add_argument("--materials", default="",
+                   help="処理した事実カードの phrase を | 区切りで記録（ダッシュボードの処理済み判定用）")
     p.set_defaults(func=cmd_record)
+
+    p = sub.add_parser("link")
+    p.add_argument("--specialist", required=True)
+    p.add_argument("--materials", required=True,
+                   help="事実カードの phrase を | 区切りで指定")
+    p.add_argument("--record", default="",
+                   help="紐付ける記録 id（例: O-059）。省略時は最新")
+    p.set_defaults(func=cmd_link)
 
     p = sub.add_parser("check")
     p.add_argument("--specialist", required=True)

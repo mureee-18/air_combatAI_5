@@ -536,7 +536,22 @@ function cardKey(c) { return (c.id || "") + "::" + djb2(c.phrase || ""); }
 function loadHandled() { try { return JSON.parse(localStorage.getItem(HANDLED_KEY) || "{}"); } catch (e) { return {}; } }
 function saveHandled(m) { try { const ks = Object.keys(m); while (ks.length > 300) delete m[ks.shift()]; localStorage.setItem(HANDLED_KEY, JSON.stringify(m)); } catch (e) {} }
 function handledThreshold() { try { const t = (typeof state !== "undefined" && state.data && state.data.agent_mtime) || 0; const n = Number(t); return n > 0 ? n : 0; } catch (e) { return 0; } }
-function isHandled(c) { const ts = loadHandled()[cardKey(c)]; if (!ts) return false; const th = handledThreshold(); if (th && ts / 1000 < th) return false; return true; }
+function recordedPhrases() { try { const r = (typeof state !== "undefined" && state.data && state.data.session && state.data.session.recorded_materials) || []; return Array.isArray(r) ? r : []; } catch (e) { return []; } }
+function isHandled(c) {
+  const th = handledThreshold();
+  const key = cardKey(c);
+  const ts = loadHandled()[key];
+  if (ts && !(th && ts / 1000 < th)) return true;
+  const phrase = c.phrase || "";
+  if (!phrase) return false;
+  for (const r of recordedPhrases()) {
+    if (r.phrase !== phrase) continue;
+    const at = Date.parse(r.at || "");
+    if (th && !(at >= th * 1000)) continue;
+    return true;
+  }
+  return false;
+}
 function sortByHandled(list) { const un = [], hd = []; list.forEach(c => { (isHandled(c) ? hd : un).push(c); }); return un.concat(hd); }
 document.addEventListener("click", e => {
   const btn = e.target && e.target.closest ? e.target.closest("button.copy.material") : null;
