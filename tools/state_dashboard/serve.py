@@ -257,6 +257,7 @@ def _trajectory_values(traj: dict) -> dict:
     out["fire_gap_flight"] = _scalar(gap.get("flight_block"))
     out["fire_gap_noammo"] = _scalar(gap.get("no_ammo"))
     out["threat_frames"] = sum((traj.get("warn_frames") or {}).values()) or None
+    out["stranded_ammo"] = _scalar(traj.get("stranded_ammo"))
     out["pre_launch_threat"] = _scalar(traj.get("pre_launch_suppressed"))
     out["detect_duty"] = _scalar(traj.get("detect_duty"))
     out["lost_range_km"] = _scalar(traj.get("lost_max"))
@@ -1235,6 +1236,9 @@ def _trajectory_facts(log_rel: str) -> dict | None:
             for v in [ammo_end.get(s)]
             if v is not None
         ),
+        "stranded_ammo": _stranded_ammo(
+            ammo_end, (frames[-1].get("own", {}) if frames else {}).keys()
+        ),
         "fire_gap": {
             "requests": gap["requests"],
             "launched": len(launches),
@@ -1419,6 +1423,15 @@ def _metric_cards(
         for card in out:
             if card.get("id") == "metric:detect_duty":
                 card["hypothesis"] = duty_branch
+    stranded = _scalar(traj.get("stranded_ammo"))
+    if stranded is not None and stranded > 0:
+        for card in out:
+            if card.get("id") == "metric:stranded_ammo":
+                card["hypothesis"] = (
+                    f"撃墜機が {stranded:g}発を持ち去った。死蔵を減らすには"
+                    f"生存を延ばす方向（N-036/037 の salvo・分離軸）。"
+                    f"発射制限による温存は逆効果（N-028 で棄却済み）。"
+                )
     return out
 
 
@@ -1495,6 +1508,17 @@ def _duty_branch_hypothesis(duty) -> str | None:
     return (
         "探知duty率は中位で識別可否の証拠不十分。現状維持しつつ監視する。"
     )
+
+
+def _stranded_ammo(ammo_end: dict, alive_slots) -> float | None:
+    """死蔵弾数: 撃墜機が持ち去った残弾の合計（生存機の分は含めない）.
+
+    N-036 の集中死で弾が失効する経路を数値化する。純粋関数（テスト用）。
+    """
+    if not ammo_end:
+        return None
+    alive = set(alive_slots or [])
+    return sum(float(v) for s, v in ammo_end.items() if s not in alive and v is not None)
 
 
 def _fire_gap_stats(frames: list[dict]) -> dict:

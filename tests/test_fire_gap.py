@@ -38,6 +38,13 @@ def test_gap_empty_frames():
         "requests": 0, "flight_block": 0, "no_ammo": 0, "by_slot": {}}
 
 
+def test_stranded_counts_only_dead_slots():
+    assert serve._stranded_ammo({"1": 0.0, "2": 2.0, "3": 2.0, "4": 2.0}, {"1"}) == 6.0
+    assert serve._stranded_ammo({"1": 0.0, "2": 2.0}, {"1", "2"}) == 0.0
+    assert serve._stranded_ammo({}, {"1"}) is None
+    assert serve._stranded_ammo({"1": 0.0}, set()) == 0.0
+
+
 def test_agent_newer_than_log_returns_bool_or_none():
     assert serve._agent_newer_than_log(None) is None
     assert serve._agent_newer_than_log("no/such/log.json") is None
