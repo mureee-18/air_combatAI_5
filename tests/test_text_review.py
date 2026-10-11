@@ -69,6 +69,21 @@ def test_review_summary_shape():
     assert summary["changelog"]["last_entry"] is not None
 
 
+def test_body_matches_detects_dropped_char():
+    diff = mod.body_matches("ruth は UUID", "truth は UUID")
+    assert len(diff) >= 1
+
+
+def test_body_matches_ignores_trailing_newlines():
+    assert mod.body_matches("abc\n", "abc") == []
+    assert mod.body_matches("abc\ndef", "abc\ndef\n\n") == []
+
+
+def test_body_matches_detects_tab_debris():
+    diff = mod.body_matches("spec に、\truth", "spec に、`truth`")
+    assert len(diff) >= 1
+
+
 def test_changelog_entry_date_parsed():
     fresh = mod.changelog_freshness()
     assert fresh["exists"] is True

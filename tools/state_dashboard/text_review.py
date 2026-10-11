@@ -224,6 +224,27 @@ def pr_reviews() -> dict:
     return {"available": True, "prs": prs}
 
 
+def normalize_body(text: str) -> list[str]:
+    """PR本文の比較用正規化（行末空白・末尾空行の差を吸収）。"""
+    lines = (text or "").replace("\r\n", "\n").split("\n")
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return [ln.rstrip() for ln in lines]
+
+
+def body_matches(fetched: str, source: str) -> list[str]:
+    """書いた本文と読んだ本文の差分行を返す。空なら一致（脱字も検出可）。"""
+    want = normalize_body(source)
+    got = normalize_body(fetched)
+    diff: list[str] = []
+    for i, (w, g) in enumerate(zip(want, got), 1):
+        if w != g:
+            diff.append(f"{i}行目: 期待 {w[:40]!r} / 実際 {g[:40]!r}")
+    if len(want) != len(got):
+        diff.append(f"行数: 期待 {len(want)} / 実際 {len(got)}")
+    return diff
+
+
 def _card(
     cid: str,
     title: str,
