@@ -356,13 +356,16 @@ def test_handled_materials_sink_and_clear():
     assert "copyIntent" in html
     assert "mark-handled" in html
     assert "処理済みにする" in html
+    assert "recordedPhrases" in html
+    assert "recorded_materials" in html
     assert "reset-handled" not in html
-    assert "handledThreshold" in html
-    assert "agent_mtime" in html
+    assert "handledThreshold" not in html
+    assert "agent_mtime" not in html
 
 
-def test_agent_mtime_is_numeric():
-    assert serve.agent_config_mtime() > 0
+def test_session_exposes_recorded_materials():
+    session = serve.collect_session()
+    assert isinstance(session.get("recorded_materials"), list)
 
 
 def test_index_improvement_cycle_tab_unchanged():
@@ -532,7 +535,6 @@ def test_http_endpoints():
             payload = json.loads(res.read().decode("utf-8"))
         assert set(payload.keys()) == {
             "generated_at",
-            "agent_mtime",
             "repo_root",
             "environment",
             "submission",

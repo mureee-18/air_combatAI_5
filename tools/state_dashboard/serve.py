@@ -2153,22 +2153,10 @@ def collect_rules() -> dict:
     return data
 
 
-def agent_config_mtime() -> float:
-    """Agent 設定の最新 mtime（処理済み判定の無効化用）。取れなければ 0."""
-    try:
-        cands = [REPO_ROOT / "agent" / "args.json", REPO_ROOT / "agent" / "config.json"]
-        cands += list((REPO_ROOT / "agent" / "strategy").rglob("*.py"))
-        mtimes = [p.stat().st_mtime for p in cands if p.is_file()]
-    except OSError:
-        return 0.0
-    return max(mtimes) if mtimes else 0.0
-
-
 def collect_summary() -> dict:
     session = collect_session()
     return {
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "agent_mtime": agent_config_mtime(),
         "repo_root": str(REPO_ROOT),
         "environment": collect_environment(),
         "submission": collect_submission(),

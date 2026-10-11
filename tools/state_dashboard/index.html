@@ -535,20 +535,13 @@ function djb2(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5
 function cardKey(c) { return (c.id || "") + "::" + djb2(c.phrase || ""); }
 function loadHandled() { try { return JSON.parse(localStorage.getItem(HANDLED_KEY) || "{}"); } catch (e) { return {}; } }
 function saveHandled(m) { try { const ks = Object.keys(m); while (ks.length > 300) delete m[ks.shift()]; localStorage.setItem(HANDLED_KEY, JSON.stringify(m)); } catch (e) {} }
-function handledThreshold() { try { const t = (typeof state !== "undefined" && state.data && state.data.agent_mtime) || 0; const n = Number(t); return n > 0 ? n : 0; } catch (e) { return 0; } }
 function recordedPhrases() { try { const r = (typeof state !== "undefined" && state.data && state.data.session && state.data.session.recorded_materials) || []; return Array.isArray(r) ? r : []; } catch (e) { return []; } }
 function isHandled(c) {
-  const th = handledThreshold();
-  const key = cardKey(c);
-  const ts = loadHandled()[key];
-  if (ts && !(th && ts / 1000 < th)) return true;
+  if (loadHandled()[cardKey(c)]) return true;
   const phrase = c.phrase || "";
   if (!phrase) return false;
   for (const r of recordedPhrases()) {
-    if (r.phrase !== phrase) continue;
-    const at = Date.parse(r.at || "");
-    if (th && !(at >= th * 1000)) continue;
-    return true;
+    if (r.phrase === phrase) return true;
   }
   return false;
 }
