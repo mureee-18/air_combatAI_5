@@ -33,9 +33,6 @@ class DefaultPolicy(StandalonePolicy):
         self.beamRangeKm = float(args.get("beamRangeKm", 45.0))
         self.breakRangeKm = float(args.get("breakRangeKm", 35.0))
         self.marginAzDeg = float(args.get("marginAzDeg", 120.0))
-        self.evadeCrankDeg = float(args.get("evadeCrankDeg", 0.0))
-        self.escortDetectRangeKm = float(args.get("escortDetectRangeKm", 120.0))
-        self.escortClearRatio = float(args.get("escortClearRatio", 0.5))
 
     def step(self, observation, reward, done, info, agentFullName, observation_space, action_space):
         own = np.asarray(observation["own"], dtype=np.float64)
@@ -46,50 +43,32 @@ class DefaultPolicy(StandalonePolicy):
         numSpeed = int(action_space["speed"].n)
 
         desiredAz = 0.0
-        speedIndex = numSpeed // 2
+        speedIndex = numSpeed - 1
         targetIndex = 0
 
         detected = list(np.where(enemy[:, 0] > 0.5)[0])
         if len(detected) > 0:
-            # 護衛対象機候補: 遠方（escortDetectRangeKm より遠い）
-            escort_target = [i for i in detected if enemy[i, 2] > self.escortDetectRangeKm]
-            escort_fighters = [i for i in detected if enemy[i, 2] <= self.escortDetectRangeKm]
-            fighter_count = len(escort_fighters)
-
-            # 護衛機が 1 以下なら護衛対象機（遠方）を最優先
-            target_escort_target = (len(escort_target) > 0 and fighter_count <= 1)
-
-            if target_escort_target:
-                # 護衛対象機へ: 最近接の護衛対象機を狙う
-                best = min(escort_target, key=lambda i: enemy[i, 2])
-                bestDist = float(enemy[best, 2])
-                breaking = self.breakRangeKm > 0.0 and bestDist <= self.breakRangeKm
-                if breaking:
-                    desiredAz = enemy[best, 1] + 180.0
-                elif self.beamRangeKm > 0.0 and bestDist <= self.beamRangeKm:
-                    desiredAz = enemy[best, 1] + 30.0
-                else:
-                    desiredAz = enemy[best, 1]
+            near = [i for i in detected if enemy[i, 2] <= self.engageRangeKm]
+            escorted = [i for i in detected if enemy[i, 4] > 0.5]
+            pool = near if len(near) > 0 else (escorted if len(escorted) > 0 else detected)
+            best = min(pool, key=lambda i: enemy[i, 2])
+            bestDist = float(enemy[best, 2])
+            breaking = self.breakRangeKm > 0.0 and bestDist <= self.breakRangeKm
+            if breaking:
+                desiredAz = enemy[best, 1] + 180.0
+            elif self.beamRangeKm > 0.0 and bestDist <= self.beamRangeKm:
+                desiredAz = enemy[best, 1] + 80.0
             else:
-                # ベースライン: 最近接の敵を狙う。45km で 30° ビーム（センサ維持・防御）
-                best = min(detected, key=lambda i: enemy[i, 2])
-                bestDist = float(enemy[best, 2])
-                breaking = self.breakRangeKm > 0.0 and bestDist <= self.breakRangeKm
-                if breaking:
-                    desiredAz = enemy[best, 1] + 180.0
-                elif self.beamRangeKm > 0.0 and bestDist <= self.beamRangeKm:
-                    desiredAz = enemy[best, 1] + 30.0
-                else:
-                    desiredAz = enemy[best, 1]
+                desiredAz = enemy[best, 1]
 
             speedIndex = numSpeed - 1
-            if not breaking and enemy[best, 2] <= self.fireRangeKm and threat[0] < 0.5:
+            if not breaking and bestDist <= self.fireRangeKm and threat[0] < 0.5:
                 targetIndex = int(best) + 1
         else:
             desiredAz = 0.0
 
         if threat[0] > 0.5:
-            desiredAz = threat[1] + 180.0 - self.evadeCrankDeg
+            desiredAz = threat[1] + 180.0
             targetIndex = 0
 
         marginSide, marginFront, marginBack = own[5], own[6], own[7]
