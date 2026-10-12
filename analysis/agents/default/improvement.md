@@ -845,3 +845,21 @@
 - 検証: seeds1-6(12戦): 0/10/2 avg0.456 our2.67 enemy3.75（基準 0/11/1 avg0.478 / N-049b 0/12/0 avg0.5）。R2・B4 で新規の敗戦2件（後退が敵を通す）。
 - 指標: {"avg_score": 0.456, "avg_our_alive": 2.67, "avg_enemy_alive": 3.75, "games": 12}
 - 次の一手: ライン系の総括: -20不発(N-049) / -60ハードは敗戦をB6→R8へ移動し中立(N-049b) / -60ゲート付きソフトは2敗で悪化(N-050)。防衛行動は負けを頑健に減らせない。スコア>0.5の唯一の筋は敵護衛対象機撃墜であり、護衛戦闘機排除→到達の2段階設計が不可欠。
+
+## O-088 [observation/log] 2026-10-12T17:50:23
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 非探知時の方位を直近の敵方位保持に変えると敵生存がむしろ増え、スコアは改善しない（N-051 棄却）
+- 変更: N-051: 非探知時に desiredAz=0 を self._lastEnemyBearing（直近探知の敵方位）保持に変更（1変数）
+- 検証: seeds1-3×両面(6戦): 0/6/0 avg_score 0.500 our 3.33 enemy 3.67（基準 0/6/0 0.500 our 2.67 enemy 3.33）。予測 avg_enemy_alive 3.33→3.0以下 に対し 3.67 で逆。our_alive は 2.67→3.33 に改善したが引き分けは生存数無関係でスコア 0.5 のまま。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: N-051 棄却・revert。方位保持は交戦を減らし両軍の生存を増やすため、敵生存↑で採点に不利。detect_duty 軸（識別の可否条件）からの改善筋は閉鎖。
+
+## O-089 [observation/code] 2026-10-12T17:54:55
+- 種別: observation（実測に基づく事実）
+- 出所: code（自作コードの読み取り）
+- 方向性: detect_duty を条件指標としてカード/軸表から除去（③軸整理）
+- 変更: custom_metrics.json から detect_duty カード削除、serve.py の _duty_branch_hypothesis と分岐を削除、HYPOTHESIS_POLICY.md の行を削除し削除済みへ追記（計算は残置）
+- 検証: ruff All checks passed / tests/test_state_dashboard.py 37 passed / custom_metrics.json は有効な JSON
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: detect_duty 材料からの新規仮説は立てない（O-088 と同一材料ルール）。計算は残すので必要なら戻せる。

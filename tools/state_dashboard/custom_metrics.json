@@ -101,16 +101,6 @@
       "unit": "戦"
     },
     {
-      "id": "detect_duty",
-      "label": "探知duty率",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "higher",
-      "digits": 2,
-      "note": "全フレーム中敵を探知していた割合。低いとUUID追跡など履歴系の識別は不可（O-054）。高いゲームでは運動学的識別軸が開く目安。目標値は置かない。",
-      "unit": "率"
-    },
-    {
       "id": "stranded_ammo",
       "label": "死蔵弾数",
       "from": "trajectory",
