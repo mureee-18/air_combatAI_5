@@ -863,3 +863,12 @@
 - 検証: ruff All checks passed / tests/test_state_dashboard.py 37 passed / custom_metrics.json は有効な JSON
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 3.67, "games": 6}
 - 次の一手: detect_duty 材料からの新規仮説は立てない（O-088 と同一材料ルール）。計算は残すので必要なら戻せる。
+
+## O-090 [observation/code] 2026-10-12T17:59:38
+- 種別: observation（実測に基づく事実）
+- 出所: code（自作コードの読み取り）
+- 方向性: min_dist_km の目標25を解除（参考値化・③軸整備）
+- 変更: custom_metrics.json の min_dist_km target 25→null、note 更新（接近距離は採点に無関係・接近軸は N-029 閉鎖）、HYPOTHESIS_POLICY.md の目標の解除へ追記（カードは診断用に残置）
+- 検証: custom_metrics.json 有効な JSON・target=None / tests/test_state_dashboard.py 37 passed。カード仮説欄は serve.py:1541-1547 が既に「新規仮説なし」を表示
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: min_dist 材料からの新規仮説は立てない（fireRange/break/beam は再試験禁止、接近軸は閉鎖）。接近は引き分けで採点に影響しない。

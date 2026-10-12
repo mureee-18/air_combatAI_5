@@ -31,9 +31,9 @@
       "from": "trajectory",
       "source": "log",
       "direction": "lower",
-      "target": 25,
+      "target": null,
       "digits": 1,
-      "note": "敵を最も近接したときの距離。近ければ近いほど射撃が楽になる。"
+      "note": "敵を最も近接したときの距離（参考値）。接近距離は引き分けで採点に影響せず、近接を深める変数（fireRange/break/beam）は全て棄却済み、接近軸は N-029 で閉鎖。目標は置かない。"
     },
     {
       "id": "fire_orders",
