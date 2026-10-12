@@ -5,9 +5,9 @@ match_config["seed"] を読むため、同一 seed 群で A/B を比較できる
 side bias を消すため --colors both（Red と Blue の両面で対戦）を基本とする。
 
 コンテナ内で実行する:
-    docker exec atla5-cpu bash -lc "cd C:\\Users\\K\\Documents\\GitHub\\air_combatAI_5\\workspace && python /repo/local_test/run_eval_paired.py \
+    docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py \
         --myagent-module-path Agents/MyAgent --seeds 1,2,3 --colors both \
-        --out C:\\Users\\K\\Documents\\GitHub\\air_combatAI_5\\workspace/paired/default.json"
+        --out /workspace/paired/default.json"
 """
 
 from __future__ import annotations
@@ -21,7 +21,10 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, "C:\\Users\\K\\Documents\\GitHub\\air_combatAI_5\\workspace")
+# コンテナでは workspace が /workspace に別マウントされ、ホストではリポジトリ直下にある。
+# どちらでも動くよう、存在する方を使う。
+_workspace = Path("/workspace") if Path("/workspace").is_dir() else Path(__file__).resolve().parent.parent / "workspace"
+sys.path.insert(0, str(_workspace))
 
 from src.fight import Fight  # noqa: E402
 
