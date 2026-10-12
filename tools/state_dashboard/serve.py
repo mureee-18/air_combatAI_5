@@ -1556,19 +1556,6 @@ def _metric_cards(
                 "発射数の増加は命中・勝敗を動かさない（N-018・N-025 で閉鎖）。"
                 "量でなく生存の軸へ。"
             )
-    wf = traj.get("warn_frames") or {}
-    if wf and sum(wf.values()):
-        top = max(wf.items(), key=lambda kv: kv[1])
-        if top[1] / sum(wf.values()) >= 0.6:
-            text = (
-                f"{top[0]}号機に集中。deep-pusherが被弾を吸収する構造（N-036系）。"
-                "生存軸で見る。"
-            )
-        else:
-            text = "脅威が分散。生存軸（N-036/037）で見る。"
-        for card in out:
-            if card.get("id") == "metric:threat_frames":
-                card["hypothesis"] = text
     return out
 
 

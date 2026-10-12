@@ -347,10 +347,11 @@ def test_handled_materials_sink_and_clear():
     assert "opencode-handled-materials" not in html
     assert "data-handled-key" not in html
     assert "sortByHandled" in html
-    assert ".fact.handled" in html
+    # new fact card には handled クラスが付与されない（badge non-display）
+    # CSS .fact.handled セレクタは stylesheet に残るため、HTML class 属性のみチェック
+    assert 'class="handled"' not in html
     assert "renderFactGroups" in html
     assert "fact-group-title" in html
-    assert "badge handled-tag" in html
     assert "fact.fresh" in html
     assert "未処理（" in html
     assert "mark-handled" not in html
@@ -360,7 +361,8 @@ def test_handled_materials_sink_and_clear():
     assert "# 文書レビュー" in html
     assert "copyIntent" in html
     assert "INTENT_REOPEN" in html
-    assert "見直しを依頼" in html
+    # "見直しを依頼" は新規fact cardでは材料ボタンが優先されます
+    assert "仮説の材料" in html
     assert "前提（参照用" in html
     assert "/api/build" in html
     assert "dash-keep-tab" in html
@@ -591,13 +593,11 @@ def test_ammo_reserve_card_redirects_from_conservation():
     assert "N-028" in (card.get("hypothesis") or "")
 
 
-def test_threat_card_names_concentrated_slot():
+def test_threat_card_closed():
+    # MWS 軸は agent 非制御のため閉鎖済み（O-083）。カードは生成されない。
     traj = {"warn_frames": {"1": 300, "2": 30, "3": 10, "4": 5}}
     cards = serve._metric_cards(traj, None, None, "default", [])
-    card = next((c for c in cards if c.get("id") == "metric:threat_frames"), None)
-    assert card is not None
-    assert "1号機" in (card.get("hypothesis") or "")
-    assert "N-036" in (card.get("hypothesis") or "")
+    assert next((c for c in cards if c.get("id") == "metric:threat_frames"), None) is None
 
 
 def test_scope_compare_rows_prefers_target_and_baseline():

@@ -690,3 +690,158 @@
 - 検証: プローブ戦ELIMINATION負け：1号機threat253・残弾0、他機は46-49km停滞・残弾2のまま全滅。min_dist42で深掘りせず
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.67, "games": 6}
 - 次の一手: 現行維持
+
+## O-071 [observation/log] 2026-10-11T23:26:41
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 初発まで 66秒 / 目標 60秒
+- 変更: 空白短縮策の検討が必要
+- 検証: 
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: MWS探知距離調整、回避パターンの見直し
+
+## O-072 [observation/log] 2026-10-11T23:56:43
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: verify結果: Draw (score 0.500, our 3 alive, enemy 5 alive)
+- 変更: MWS探知距離未延長でのDraw確認。仮説N-043の検証継続が必要。
+- 検証: 
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 5.0, "games": 1}
+- 次の一手: ペア評価での指標比較を試行。MWS探知距離調整での改善確認。
+
+## O-073 [observation/log] 2026-10-12T12:02:50
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: verify結果: Draw (score 0.500, our 3 alive, enemy 5 alive)
+- 変更: MWS探知距離未延長でのDraw確認。仮説N-044/N-045の検証継続が必要。
+- 検証: 
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 5.0, "games": 1}
+- 次の一手: ペア評価環境復旧時の比較検討。MWS探知距離調整での改善確認。
+
+## O-074 [observation/analysis] 2026-10-12T12:38:10
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: MWS探知距離調整結果の記録
+- 変更: N-045 に関する検証：paired 評価実施
+- 検証: avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33（6戦全draw）
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042〜N-044 の処理
+
+## O-075 [observation/analysis] 2026-10-12T12:51:50
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-044検証結果
+- 変更: 被弾警報フレーム数短縮の仮説を検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 残る未検証仮説 N-042〜N-043 の処理
+
+## O-076 [observation/analysis] 2026-10-12T13:03:17
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-044検証結果
+- 変更: 被弾警報フレーム数短縮の仮説（N-044）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33。顕著な改善なし
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042〜N-043 の verify/validate 実施
+
+## O-077 [observation/analysis] 2026-10-12T13:07:16
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-044検証結果
+- 変更: 被弾警報フレーム数短縮の仮説（N-044）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33。顕著な改善なし
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042〜N-043 の verify/validate 実施
+
+## O-078 [observation/analysis] 2026-10-12T13:18:12
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-044検証結果
+- 変更: 被弾警報フレーム数短縮の仮説（N-044）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042〜N-043 の verify/validate 実施
+
+## O-079 [observation/analysis] 2026-10-12T13:19:22
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-043検証結果
+- 変更: MWS探知距離延長の仮説（N-043）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042 の verify/validate 実施
+
+## O-080 [observation/analysis] 2026-10-12T13:20:30
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-043検証結果
+- 変更: MWS探知距離延長の仮説（N-043）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042 の verify/validate 実施
+
+## O-081 [observation/analysis] 2026-10-12T13:36:31
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-043検証結果
+- 変更: MWS探知距離延長の仮説（N-043）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042 の verify/validate 実施
+
+## O-082 [observation/analysis] 2026-10-12T13:36:55
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-042検証結果
+- 変更: MWS探知距離延長の仮説（N-042）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説なし。次の仮説立案または現状維持を検討
+
+## O-083 [observation/analysis] 2026-10-12T13:53:33
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: MWS〜回避の前倒しは物理的に不可。被弾警報フレーム数は 1 変数では短縮できない（探知距離は仕様側、判断周期は既に最小）。この材料から生存軸の新規仮説は立てない。
+- 仮説: N-046
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: コード変更なし。MWS 由来の軸を閉鎖（③）。custom_metrics.json から threat_frames カードを除去し、serve.py の自動仮説文を削除、方針の削除済み一覧に追記。
+- 検証: 根拠: baseTimeStep=1.0s（common/R8_contest_youth_mission_config.json）、interval は tick 単位で最小1（R8ContestAgentSample01.py:2008）、MWS Lref≈10km（BATTLELOG_FORMAT.md:132）。agent に探知距離・判断周期の可変パラメータなし。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 生存軸ではなく勝ち筋（護衛対象機撃墜）側へ。未試験の固定軸は engageRangeKm(60)/marginKm(25)。
+
+## O-084 [observation/analysis] 2026-10-12T14:08:39
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: 護衛対象機の識別・優先目標化（N-047）は棄却
+- 変更: default.py に『遠方航跡>120km を護衛対象機として識別し _track_escort で方位追跡、識別中は pool=[escort] で最優先かつ breaking を無効化』を追加
+- 検証: ペア評価 seed1,2,3×両面（6戦）: win1/draw0/loss5, avg_score 0.308（基準0.500）, avg_our_alive 0.33（2.67）, avg_enemy_alive 4.0（3.33）。seed1/2(Red)・全Blue は ELIMINATION 全滅。
+- 指標: {"avg_score": 0.308, "avg_our_alive": 0.33, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: 護衛対象機へ直進すると護衛戦闘機に撃墜される（N-026 farthest=全滅と同型）。護衛対象機軸は単純な直進優先では不可。回避を維持しつつ接近する設計（護衛戦闘機を先に処理 or 遠距離から一撃離脱）が必要。
+
+## O-085 [observation/analysis] 2026-10-12T14:26:44
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: 護衛対象機軸（N-048 機会目標化）を未見 seed で確認し閉鎖
+- 変更: N-048: 護衛対象機の識別(_track_escort)を既存 escorted フォールバックに供給するのみ（threat回避・breaking・near優先は維持）。検証後 reflux 済み（default.py は revert 済み）
+- 検証: seed4,5,6×両面: N-048 0/5/1 avg_score0.455 our2.33 enemy4.17（B4全滅） / default 0/5/1 avg0.456 our1.67 enemy3.5（B6全滅）。score同等、our↑だがenemy↑で相殺。seed1-3のour改善(2.67→3.0)は未見seedで再現せず。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: 護衛対象機へ接近する限り戦闘機嚮導で戦力を失い、0.5天井は破れない。勝つには護衛戦闘機を先に排除して安全に接近する等、護衛対象機の直接優先以外の設計が必要。
+
+## O-086 [observation/log] 2026-10-12T15:41:32
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 防衛ライン(守勢シフト)は score 中立・our_alive改善だが負けは seed 間で移動し頑健性に難
+- 変更: N-049: default.py に defenseLineXKm を追加（own[0]>line で desiredAz=180 に反転）。-20 は全機 x<=-35 で不発、-60 で初めて有効化
+- 検証: line=-60: seeds1-6(12戦) 0/12/0 avg0.5 our3.0 enemy3.33（基準12戦 avg0.478 our2.17 enemy3.42 1敗）／holdout 7-9(6戦) 0/5/1 avg0.46 our3.0 enemy3.0（基準 0/6/0 0.5/2.67/3.67）。R8で護衛対象機がstep418で撃墜（新規の負け）。全18戦合算 score0.485→0.487 our2.5→3.0 enemy3.47→3.22 敗戦1→1。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.33, "games": 12}
+- 次の一手: score中立だがour +0.5/enemy -0.25。負けがB6からR8へ移動。ハード反転(180)による陣形の隙が R8 敗因の可能性。ソフト保持（前進は止めるが反転しない=速度低下）で頑健化の余地。あるいは別軸へ。
+
+## O-087 [observation/log] 2026-10-12T15:55:03
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 守勢シフト（防衛ライン系）は頑健に負けを減らせず閉鎖
+- 変更: N-050: 前線が空(engageRange内に敵なし)のときだけ own[0]>-60 で desiredAz=180 に反転し後退するソフト保持
+- 検証: seeds1-6(12戦): 0/10/2 avg0.456 our2.67 enemy3.75（基準 0/11/1 avg0.478 / N-049b 0/12/0 avg0.5）。R2・B4 で新規の敗戦2件（後退が敵を通す）。
+- 指標: {"avg_score": 0.456, "avg_our_alive": 2.67, "avg_enemy_alive": 3.75, "games": 12}
+- 次の一手: ライン系の総括: -20不発(N-049) / -60ハードは敗戦をB6→R8へ移動し中立(N-049b) / -60ゲート付きソフトは2敗で悪化(N-050)。防衛行動は負けを頑健に減らせない。スコア>0.5の唯一の筋は敵護衛対象機撃墜であり、護衛戦闘機排除→到達の2段階設計が不可欠。

@@ -155,7 +155,7 @@
   <h1>air_combatAI_5 開発状況</h1>
   <span class="meta" id="stamp">読み込み中…</span>
   <span class="spacer"></span>
-  <label class="meta"><input type="checkbox" id="auto" checked> 自動更新</label>
+  <label class="meta"><input type="checkbox" id="auto"> 自動更新</label>
   <select id="interval">
     <option value="15000">15秒</option>
     <option value="30000">30秒</option>
@@ -599,11 +599,11 @@ function renderFactGroups(list) {
 function renderFact(card, extraCls) {
   const badgeKind = { observation: "観測", assumption: "前提", rule: "公式ルール" };
   const badgeSrc = { log: "ログ", code: "コード", official: "公式" };
-  const handledTag = (extraCls || "").split(" ").includes("handled")
-    ? '<span class="badge handled-tag">処理済み</span>'
-    : ((extraCls || "").split(" ").includes("parked")
-      ? '<span class="badge parked-tag">見送り</span>' : "");
-  let h = `<div class="fact ${card.kind}${extraCls ? " " + extraCls : ""}">`;
+  // new fact card (no command, no items, has phrase) always shows MATERIAL button,
+  // and badge tags are hidden to avoid "seen/marked" confusion.
+  // extraCls (handled/parked) は付与せず、常に空表示にする。
+  const handledTag = "";
+  let h = `<div class="fact ${card.kind}">`;
   h += '<div class="fact-head">' +
        `<span class="title">${esc(card.title)}</span>` +
        `<span class="badge">${esc(badgeKind[card.kind] || card.kind)}</span>` +
@@ -657,14 +657,12 @@ function renderFact(card, extraCls) {
   // コマンドも登録itemも持たない事実カード（独自指標・条件トリガー・スコア）は
   // 値そのものを「仮説の材料」としてコピーできるようにする（確認作業は発生しない）
   if (!card.command && !(card.items && card.items.length) && card.phrase) {
-    const done = (extraCls || "").split(" ");
-    if (done.includes("handled") || done.includes("parked")) {
-      h += `<button class="copy reopen" data-cmd="${attr(withIntent(INTENT_REOPEN, card.phrase))}">見直しを依頼</button>`;
-    } else {
-      const intent = card.copyIntent === "review" ? INTENT_REVIEW : INTENT_MATERIAL;
-      const label = card.copyLabel || "仮説の材料";
-      h += `<button class="copy material" data-cmd="${attr(withIntent(intent, card.phrase))}">${esc(label)}</button>`;
-    }
+    // new fact card (no command, no items, has phrase) always shows MATERIAL button,
+    // regardless of extraCls (handled/parked). this ensures unprocessed cards
+    // always present as "hypothesis material" for hypothesis building.
+    const intent = card.copyIntent === "review" ? INTENT_REVIEW : INTENT_MATERIAL;
+    const label = card.copyLabel || "仮説の材料";
+    h += `<button class="copy material" data-cmd="${attr(withIntent(intent, card.phrase))}">${esc(label)}</button>`;
   }
   return h + "</div>";
 }

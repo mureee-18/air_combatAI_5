@@ -90,16 +90,6 @@
       "unit": "率"
     },
     {
-      "id": "threat_frames",
-      "label": "被弾警報フレーム数",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "lower",
-      "digits": 0,
-      "note": "全機の被弾警報（MWS）が出ていた合計フレーム。唯一残る生存軸の目安。多い場合は回避機動の見直し、警報なく死ぬ場合は探知外の奇襲で早期離脱軸。目標値は置かず参考値。",
-      "unit": "フレーム"
-    },
-    {
       "id": "wipe_count",
       "label": "全滅戦数",
       "from": "paired",
