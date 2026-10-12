@@ -15,6 +15,7 @@
            align-items: center; flex-wrap: wrap; background: #0d1218; position: sticky; top: 0; z-index: 5; }
   h1 { font-size: 17px; margin: 0; font-weight: 600; }
   .meta { color: var(--muted); font-size: 12px; }
+  .meta.warn { color: var(--warn); font-weight: 600; }
   .spacer { flex: 1; }
   button, select { background: #1f2a36; color: var(--fg); border: 1px solid var(--line);
                    border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
@@ -97,6 +98,13 @@
   .facts { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
   .fact { flex: 1 1 460px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: #131b23; }
   .fact.hyp { border-color: #3d5a2e; } .fact.rule { border-color: #3b4a6b; }
+  .fact.handled { opacity: .8; background: #10151a; border-color: #2a333b; border-style: dashed; }
+  .fact.handled .fact-head .title { color: var(--muted); }
+  .fact.parked { opacity: .7; }
+  .badge.parked-tag { background: transparent; color: var(--muted); border-color: var(--line); }
+  .fact.fresh { border-left: 3px solid var(--accent); }
+  .badge.handled-tag { background: #262d34; color: #8b949e; border-color: #3a4249; }
+  .fact-group-title { font-size: 13px; color: var(--muted); margin: 10px 0 4px; font-weight: 600; }
   .fact-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
   .fact-head .title { font-size: 14px; font-weight: 600; color: var(--accent); }
   .badge { font-size: 11px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); color: var(--muted); }
@@ -147,7 +155,7 @@
   <h1>air_combatAI_5 開発状況</h1>
   <span class="meta" id="stamp">読み込み中…</span>
   <span class="spacer"></span>
-  <label class="meta"><input type="checkbox" id="auto" checked> 自動更新</label>
+  <label class="meta"><input type="checkbox" id="auto"> 自動更新</label>
   <select id="interval">
     <option value="15000">15秒</option>
     <option value="30000">30秒</option>
@@ -505,6 +513,8 @@ const INTENT_FACT = "# 事実確認（仮説登録なし）— 実行して結�
 const INTENT_MATERIAL = "# 仮説の材料 — この事実を前提に仮説を1本立ててください\n";
 const INTENT_ASSUMPTION = "# 前提登録 — この行をAIに貼って登録依頼\n";
 const INTENT_HYPOTHESIS = "# 仮説登録 — この行をAIに貼って登録依頼\n";
+const INTENT_REVIEW = "# 文書レビュー — この指摘の修正をお願いします\n";
+const INTENT_REOPEN = "# 見直し依頼 — この材料は対応不要とされているが、見直しを求めます。理由も書いてください\n";
 
 function withIntent(intent, cmd) {
   return cmd ? intent + cmd : cmd;
@@ -522,6 +532,18 @@ function bindCopy(root) {
     btn.addEventListener("click", () => copy(btn.dataset.cmd, btn));
   });
 }
+
+// 処理済み＝記録連動のみ。コピーしただけでは付けない。
+function recordedPhrases() { try { const r = (typeof state !== "undefined" && state.data && state.data.session && state.data.session.recorded_materials) || []; return Array.isArray(r) ? r : []; } catch (e) { return []; } }
+function isHandled(c) {
+  const phrase = c.phrase || "";
+  if (!phrase) return false;
+  for (const r of recordedPhrases()) {
+    if (r.phrase === phrase) return true;
+  }
+  return false;
+}
+function sortByHandled(list) { const un = [], hd = []; list.forEach(c => { (isHandled(c) ? hd : un).push(c); }); return un.concat(hd); }
 
 function bindFactToggle(root) {
   root.querySelectorAll("button[data-fact-toggle]").forEach(btn => {
@@ -548,15 +570,45 @@ function renderSteps(steps) {
   return h + "</div>";
 }
 
-function renderFact(card) {
+const PARKED_PATTERNS = ["新規仮説はない", "変数はない", "閉鎖", "棄却済み"];
+function isParked(c) {
+  const t = c.hypothesis || "";
+  return PARKED_PATTERNS.some(p => t.indexOf(p) >= 0);
+}
+function renderFactGroups(list) {
+  const un = [], pk = [], hd = [];
+  list.forEach(c => {
+    if (isHandled(c)) hd.push(c);
+    else if (isParked(c)) pk.push(c);
+    else un.push(c);
+  });
+  const anySub = pk.length + hd.length > 0;
+  let h = "";
+  if (un.length && (pk.length || hd.length)) h += `<div class="fact-group-title">未処理（${un.length}件）</div>`;
+  h += un.map(c => renderFact(c, (pk.length || hd.length) ? "fresh" : "")).join("");
+  if (pk.length) {
+    h += `<div class="fact-group-title">見送り（対応不要・${pk.length}件）</div>`;
+    h += pk.map(c => renderFact(c, "parked")).join("");
+  }
+  if (hd.length) {
+    h += `<div class="fact-group-title">処理済み（${hd.length}件）</div>`;
+    h += hd.map(c => renderFact(c, "handled")).join("");
+  }
+  return h;
+}
+function renderFact(card, extraCls) {
   const badgeKind = { observation: "観測", assumption: "前提", rule: "公式ルール" };
   const badgeSrc = { log: "ログ", code: "コード", official: "公式" };
+  // new fact card (no command, no items, has phrase) always shows MATERIAL button,
+  // and badge tags are hidden to avoid "seen/marked" confusion.
+  // extraCls (handled/parked) は付与せず、常に空表示にする。
+  const handledTag = "";
   let h = `<div class="fact ${card.kind}">`;
   h += '<div class="fact-head">' +
        `<span class="title">${esc(card.title)}</span>` +
        `<span class="badge">${esc(badgeKind[card.kind] || card.kind)}</span>` +
        `<span class="badge${card.source === "official" ? " official" : ""}">` +
-       `${esc(badgeSrc[card.source] || card.source)}</span></div>`;
+       `${esc(badgeSrc[card.source] || card.source)}</span>${handledTag}</div>`;
   if (card.summary) h += `<div class="summary clamp2">${esc(card.summary)}</div>`;
 
   if (card.evidence && card.evidence.length) {
@@ -605,7 +657,12 @@ function renderFact(card) {
   // コマンドも登録itemも持たない事実カード（独自指標・条件トリガー・スコア）は
   // 値そのものを「仮説の材料」としてコピーできるようにする（確認作業は発生しない）
   if (!card.command && !(card.items && card.items.length) && card.phrase) {
-    h += `<button class="copy material" data-cmd="${attr(withIntent(INTENT_MATERIAL, card.phrase))}">仮説の材料</button>`;
+    // new fact card (no command, no items, has phrase) always shows MATERIAL button,
+    // regardless of extraCls (handled/parked). this ensures unprocessed cards
+    // always present as "hypothesis material" for hypothesis building.
+    const intent = card.copyIntent === "review" ? INTENT_REVIEW : INTENT_MATERIAL;
+    const label = card.copyLabel || "仮説の材料";
+    h += `<button class="copy material" data-cmd="${attr(withIntent(intent, card.phrase))}">${esc(label)}</button>`;
   }
   return h + "</div>";
 }
@@ -786,11 +843,25 @@ function renderHypothesis(d) {
   }
 
   h += "<h2>事実カード（ここから仮説を立てる材料）</h2>";
-  const facts = (s.evidence || []).filter(c => c.id !== "paired");
+  const facts = (s.evidence || []).filter(c => c.id !== "paired" && c.kind !== "assumption" && c.kind !== "rule");
+  const premises = (s.evidence || []).filter(c => c.kind === "assumption" || c.kind === "rule");
   if (!facts.length) {
     h += '<div class="empty">事実カードを組み立てるデータがありません（ログ・軌跡）。</div>';
   } else {
-    h += '<div class="facts">' + facts.map(renderFact).join("") + "</div>";
+    h += '<div class="facts">' + renderFactGroups(facts) + "</div>";
+  }
+  if (premises.length) {
+    h += "<h2>前提（参照用・処理済み管理の対象外）</h2>";
+    h += '<div class="facts">' + premises.map(c => renderFact(c, "")).join("") + "</div>";
+  }
+
+  const ow = s.open_work || {};
+  const unv = ow.unverified || [], nxt = ow.next_steps || [];
+  if (unv.length || nxt.length) {
+    h += "<h2>未着手の宿題</h2>" + '<ul class="fact-list">';
+    unv.forEach(x => { h += `<li><span class="title">${esc(x.id)} 未検証</span><span class="text">${esc(x.text)}</span></li>`; });
+    nxt.forEach(x => { h += `<li><span class="title">${esc(x.id)}${x.at ? " " + esc(x.at) : ""} 次の一手</span><span class="text">${esc(x.text)}</span></li>`; });
+    h += "</ul>";
   }
 
   h += "<h2>仮説ビルダー（選んで登録）</h2>";
@@ -939,8 +1010,17 @@ function renderGit(d) {
   ]);
   h += "<h2>直近のコミット</h2>";
   h += g.recent.length ? "<pre>" + esc(g.recent.join("\n")) + "</pre>" : '<div class="empty">なし</div>';
+  const rcards = (g.review && g.review.cards) || [];
+  if (g.review && g.review.error) {
+    h += `<p class="meta">文章レビュー取得失敗: ${esc(g.review.error)}</p>`;
+  } else {
+    h += "<h2>文章レビュー（文字化け・最新性）</h2>";
+    if (g.review && g.review.note) h += `<p class="meta">${esc(g.review.note)}</p>`;
+    if (rcards.length) h += renderFactGroups(rcards);
+  }
   document.getElementById("git").innerHTML = h;
   bindCopy(document.getElementById("git"));
+  bindFactToggle(document.getElementById("git"));
 }
 
 function renderCmd(d) {
@@ -2041,10 +2121,25 @@ function buildNav() {
 
 async function load(force) {
   try {
+    try {
+      const bres = await fetch("/api/build", { cache: "no-store" });
+      const bdata = await bres.json();
+      const meta = document.querySelector ? document.querySelector('meta[name="x-build"]') : null;
+      const cur = meta ? meta.getAttribute("content") : "";
+      if (cur && bdata.build && bdata.build !== cur) {
+        try { sessionStorage.setItem("dash-keep-tab", "1"); } catch (e) {}
+        location.reload();
+        return;
+      }
+    } catch (e) {}
     const res = await fetch("/api/summary" + (force ? "?force=1" : ""), { cache: "no-store" });
     const data = await res.json();
     state.data = data;
-    document.getElementById("stamp").textContent = "更新 " + data.generated_at;
+    const stampEl = document.getElementById("stamp");
+    const ageMs = Date.parse(String(data.generated_at || "").replace(" ", "T"));
+    const stale = !isNaN(ageMs) && (Date.now() - ageMs > 180000);
+    stampEl.textContent = "更新 " + data.generated_at + (stale ? "（古い可能性あり・再読み込み推奨）" : "");
+    if (stampEl.classList) stampEl.classList.toggle("warn", !!stale);
     // Compute evidence diffs before rendering
     markEvidenceDiffs(data);
     renderEnv(data); renderSub(data); renderEval(data); renderLogs(data);
@@ -2078,6 +2173,10 @@ function markEvidenceDiffs(data) {
 buildNav();
 showTab((location.hash || "#git").slice(1));
 window.addEventListener("hashchange", () => showTab((location.hash || "#git").slice(1)));
+document.addEventListener("visibilitychange", () => {
+  const auto = document.getElementById ? document.getElementById("auto") : null;
+  if (!document.hidden && auto && auto.checked) load(true);
+});
 window.addEventListener("resize", () => { if (traj.data) drawTraj(); });
 load(false);
 document.getElementById("refresh").addEventListener("click", () => load(true));
@@ -2094,8 +2193,13 @@ schedule();
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // Force git tab to be active on page load
-    showTab('git');
+    // Force git tab to be active on page load (版ズレ再読み込み時は維持)
+    let keep = false;
+    try {
+      keep = sessionStorage.getItem("dash-keep-tab") === "1";
+      sessionStorage.removeItem("dash-keep-tab");
+    } catch (e) {}
+    if (!keep) showTab('git');
   });
 </script></body>
 </html>

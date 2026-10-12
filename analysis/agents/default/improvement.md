@@ -503,3 +503,345 @@
 - 検証: 現行系11戦はsuppressed全て0。旧narrow-window系のみ抑制支配（f25s4:137/341、f25s5:245/487、fr25win:216/634）。窓が狭いと脅威 veto で初発が300-600秒遅延。ペア評価0-6-0/0.5で基準維持
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 窓を狭める変更時はpre_launch_threatを監視。現行維持
+
+## O-052 [observation/log] 2026-10-11T10:07:20
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: N-034トリップワイヤーの初の前向き試験。抑制ゼロで発火せず、閉鎖を硬化
+- 仮説: N-034
+- 変更: 実装変更なし（ログ付き1戦を追加測定）
+- 検証: 新1戦: detect t=30→launch t=190、lag 160、suppressed 0。現行設定12戦連続で抑制ゼロ。ペア評価0-6-0/0.5で基準維持
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行維持。抑制支配が出たら軸を開く条件は継続
+
+## O-053 [observation/log] 2026-10-11T10:12:47
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escort単フレーム識別は不可能と確定。残る理論経路はUUID追跡による運動学的識別のみ
+- 変更: 実装変更なし（一時プローブでlive trackをダンプ後に完全除去・再デプロイ済み）
+- 検証: track含有: pos/vel/time/truth/crsあり・specなし。truth属性はUUID（個体ID）で目標種別情報なし。BATTLELOGの制約をliveで再確認
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: UUIDのフレーム間安定性が未確認。安定なら速度・旋回率履歴でescort推定が唯一の残存経路。不安定なら勝利への道は閉鎖
+
+## O-054 [observation/log] 2026-10-11T10:41:02
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: UUID安定性は部分確認（同一UUIDが20km連続追跡）。ただしdutyが低く運動学的識別は実用困難と判断し経路を保留
+- 仮説: N-035
+- 変更: 実装変更なし（一時UUIDプローブで150フレーム追跡後に完全除去・再デプロイ済み）
+- 検証: 4 UUID、最多n=10/150（7%）、span 20km連続。序盤の探知自体が疎で、旋回率推定に足る密度なし。稠密phaseは未測定
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行維持。稠密追跡の設計なしに着手しない
+
+## O-055 [observation/log] 2026-10-11T11:24:30
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 2-4号機の集中死パターンを発見。転換率0.22は敗戦の随伴現象で主因ではない
+- 仮説: N-036
+- 変更: 実装変更なし（全38ログの死亡時刻を調査）
+- 検証: 複数 distinct ゲームで2-4号機が214-240秒帯に集中死（10件超）、1号機は生存。1号機min_dist 20km・残弾0、2-4号機は44-50km停滞・残弾2のまま死亡。kill envelope仮説が立つ
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: dwellと生死の関係を測定し、編隊分散・min-range機序を検証する
+
+## O-056 [observation/log] 2026-10-11T11:27:14
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 残弾6の内訳は生存機0・撃墜機持ち去り6。有効残弾は0でN-036の敗因構造と整合
+- 仮説: N-036
+- 変更: 実装変更なし（ammo_reserveを生存機のみに修正）
+- 検証: 最新ログ: usable 0.0（total 6）。1号機0＋撃墜3機が各2発を持ち去り。指標修正を検証済み
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: N-036のdwell測定を継続
+
+## O-057 [observation/log] 2026-10-11T11:36:05
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: N-036の包絡機序を棄却しsalvo・分離機序に組み替え。全38ログ級のdwell調査と2戦の脅威タイミングで確定
+- 仮説: N-037
+- 変更: 実装変更なし
+- 検証: dwell分布は生存・死亡で同一（例：生存0/40/60 vs 死亡0/41/59）。脅威は死亡直前に全機飽和（10/10）。死亡時刻はシナリオ律動の疑い。eval/log_1では全滅、cur5では1号機のみ生存
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: salvo到来時の回避行動と生存の関係を測定する
+
+## O-058 [observation/log] 2026-10-11T11:49:40
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: evadeCrankDeg 15を採用。脅威離脱の真っ直ぐ尾追いを15度ずらし生存が向上
+- 仮説: N-038
+- 変更: default.pyにevadeCrankDeg分岐を追加＋args.jsonに15.0を設定
+- 検証: ペア評価: 0勝6分0敗、avg_score 0.500維持、avg_our_alive 2.67→3.00、enemy 3.33→3.50（誤差範囲）。敗戦・全滅なし。1戦で165度クランク211フレームを確認
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: 現行に採用。ruff/tests/zip_check合格
+
+## O-059 [observation/log] 2026-10-11T11:54:48
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 機体別内訳で配分構造を確定。1号機が要求55%・撃ち尽くし、他機は残弾を持ったまま死亡
+- 仮説: N-036
+- 変更: 実装変更なし（新per-slot証拠を適用）
+- 検証: 121要求中1号機67（55%）・無弾28は全て1号機。2-4号機は54要求・無弾0・残弾各2を残して死亡。6発が死と共に失効。転換率ギャップは死亡の随伴現象と確定
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: N-036/N-037のsalvo・分離軸を継続
+
+## O-060 [observation/log] 2026-10-11T12:05:39
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 残弾目標8を解除。温存誘導はN-028棄却済みでstranded目標0と矛盾するため
+- 変更: 実装変更なし（custom_metricsの目標のみ解除）
+- 検証: 全引き分け0.5下で残弾0〜10は無相関。目標8の追求＝温存＝0.456に悪化の実績あり
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: 参考値として監視継続
+
+## O-061 [observation/log] 2026-10-11T14:37:51
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 未処理表示の9件超を現物照合し、処理済みを記録連動に紐付け
+- 変更: 実装変更なし（serve/indexの記録連動＋本バックフィル）
+- 検証: 全カードの値・出所・既存記録を照合。lag-188は抑制0を確認。トリガー類は自動誘導が正常発火。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: 以降の材料は記録時にmaterialsを付けて自動処理済み化
+
+## O-062 [observation/log] 2026-10-11T14:48:50
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: evadeCrankDeg 15→25 は棄却。用量は単調でなく15付近が峰
+- 仮説: N-039
+- 変更: args.json evadeCrankDeg 15→25 を適用し1戦・ペア評価を実施 → 悪化を確認し15へ巻き戻し
+- 検証: ペア評価: 0勝6分0敗、avg_score 0.500維持、avg_our_alive 2.17（3.0→低下）、enemy 3.33→3.83。0→2.67、15→3.0、25→2.17で峰は15付近
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.17, "avg_enemy_alive": 3.83, "games": 6}
+- 次の一手: 15を維持。用量探索は終了
+
+## O-063 [observation/log] 2026-10-11T15:17:50
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: crank-25戦の脅威は振動型salvoで1号機に集中。N-039棄却の機序補強
+- 仮説: N-039
+- 変更: 実装変更なし
+- 検証: 1号機275が200/300/400/500/600秒帯に波状（400帯は100/100飽和）。2-4号機は200-399のみ。以後沈黙。深掘り機が全波を被る構造
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.17, "avg_enemy_alive": 3.83, "games": 6}
+- 次の一手: 現行維持
+
+## O-064 [observation/log] 2026-10-11T15:21:06
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: crank-25試験戦の全量確定。深追い+131・duty0.62・trigger_ammo_dry初発火
+- 仮説: N-039
+- 変更: 実装変更なし
+- 検証: req634（1号機561）・発射19・lag199/抑制0・min_dist31・max_x+131・reserve0・stranded4・duty0.62・threat398。TIMEUP引き分けRed2/Blue2。dutyは自前の0.5閾値を超過
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.17, "avg_enemy_alive": 3.83, "games": 6}
+- 次の一手: 現行維持。稠密phaseのUUID追跡は別途設計時に
+
+## O-065 [observation/log] 2026-10-11T16:13:45
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: ゴースト仮説は的中。初発空白の定義を持続探知起点に修正し199→56に
+- 仮説: N-040
+- 変更: 実装変更なし（serve.pyのlag算出を持続8連続起点に修正）
+- 検証: t=3探知は1フレームで消えるゴースト。持続開始t=146→初発t=202で真の空白56秒（目標60に肉薄）。全ログで再計算される
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.17, "avg_enemy_alive": 3.83, "games": 6}
+- 次の一手: 現行維持
+
+## O-066 [observation/log] 2026-10-11T16:31:47
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: N-040のペア評価確認。クランク現行の基準値を再検証
+- 仮説: N-040
+- 変更: 実装変更なし
+- 検証: 0-6-0 / 0.5 / 3.0 / 3.5 でクランク基準値と一致
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: 現行維持
+
+## O-067 [observation/log] 2026-10-11T16:46:46
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: crank-15の採用を取り消し0.0に戻す。未見seedでcrank-0が優位
+- 仮説: N-041
+- 変更: args.json evadeCrankDeg 15→0.0に戻す（分岐コードは残置・デフォルト無効）
+- 検証: seed4-6: crank15が0-4-2/0.412/1.17、crank0が0-5-1/0.456/1.67で全指標上回る。12戦合計もcrank-0が優位（全滅1 vs 2）
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: 採用判定は複数seed必須にルール化
+
+## O-068 [observation/log] 2026-10-11T17:07:44
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: seeds 7-9でcrank-0の汎化を再確認。全滅なし
+- 仮説: N-041
+- 変更: 実装変更なし
+- 検証: 0-6-0 / 0.5 / 2.67 / 3.67。全滅0。18戦合計で全滅1のみ（4-6の1戦）。crank-0維持を支持
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: 現行維持
+
+## O-069 [observation/log] 2026-10-11T18:00:53
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: N-035前進：接近局面でUUID追跡は稠密（最大83連続）。分類器は未設計のため軸は開設計画のまま
+- 仮説: N-035
+- 変更: 実装変更なし（一時プローブで測定後に完全除去・再デプロイ済み）
+- 検証: 300フレームで5航跡・各81-94ヒット・maxrun 63-83・span 29-48km。旋回率推定に足る密度。識別ルールと命中は未検証
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: 分類器の設計＋enemies_direct真値での検証が次の手（未着手）
+
+## O-070 [observation/log] 2026-10-11T18:02:14
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 脅威の1号機集中を再確認（253/288=88%）。深掘り機が被弾を吸収する構造
+- 仮説: N-036
+- 変更: 実装変更なし
+- 検証: プローブ戦ELIMINATION負け：1号機threat253・残弾0、他機は46-49km停滞・残弾2のまま全滅。min_dist42で深掘りせず
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: 現行維持
+
+## O-071 [observation/log] 2026-10-11T23:26:41
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 初発まで 66秒 / 目標 60秒
+- 変更: 空白短縮策の検討が必要
+- 検証: 
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: MWS探知距離調整、回避パターンの見直し
+
+## O-072 [observation/log] 2026-10-11T23:56:43
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: verify結果: Draw (score 0.500, our 3 alive, enemy 5 alive)
+- 変更: MWS探知距離未延長でのDraw確認。仮説N-043の検証継続が必要。
+- 検証: 
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 5.0, "games": 1}
+- 次の一手: ペア評価での指標比較を試行。MWS探知距離調整での改善確認。
+
+## O-073 [observation/log] 2026-10-12T12:02:50
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: verify結果: Draw (score 0.500, our 3 alive, enemy 5 alive)
+- 変更: MWS探知距離未延長でのDraw確認。仮説N-044/N-045の検証継続が必要。
+- 検証: 
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 5.0, "games": 1}
+- 次の一手: ペア評価環境復旧時の比較検討。MWS探知距離調整での改善確認。
+
+## O-074 [observation/analysis] 2026-10-12T12:38:10
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: MWS探知距離調整結果の記録
+- 変更: N-045 に関する検証：paired 評価実施
+- 検証: avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33（6戦全draw）
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042〜N-044 の処理
+
+## O-075 [observation/analysis] 2026-10-12T12:51:50
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-044検証結果
+- 変更: 被弾警報フレーム数短縮の仮説を検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 残る未検証仮説 N-042〜N-043 の処理
+
+## O-076 [observation/analysis] 2026-10-12T13:03:17
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-044検証結果
+- 変更: 被弾警報フレーム数短縮の仮説（N-044）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33。顕著な改善なし
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042〜N-043 の verify/validate 実施
+
+## O-077 [observation/analysis] 2026-10-12T13:07:16
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-044検証結果
+- 変更: 被弾警報フレーム数短縮の仮説（N-044）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33。顕著な改善なし
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042〜N-043 の verify/validate 実施
+
+## O-078 [observation/analysis] 2026-10-12T13:18:12
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-044検証結果
+- 変更: 被弾警報フレーム数短縮の仮説（N-044）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042〜N-043 の verify/validate 実施
+
+## O-079 [observation/analysis] 2026-10-12T13:19:22
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-043検証結果
+- 変更: MWS探知距離延長の仮説（N-043）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042 の verify/validate 実施
+
+## O-080 [observation/analysis] 2026-10-12T13:20:30
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-043検証結果
+- 変更: MWS探知距離延長の仮説（N-043）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042 の verify/validate 実施
+
+## O-081 [observation/analysis] 2026-10-12T13:36:31
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-043検証結果
+- 変更: MWS探知距離延長の仮説（N-043）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説 N-042 の verify/validate 実施
+
+## O-082 [observation/analysis] 2026-10-12T13:36:55
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: N-042検証結果
+- 変更: MWS探知距離延長の仮説（N-042）をpaired評価で検証
+- 検証: seed 1,2,3×両面 6戦：全draw、avg_score 0.500、avg_our_alive 2.67、avg_enemy_alive 3.33
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 未検証仮説なし。次の仮説立案または現状維持を検討
+
+## O-083 [observation/analysis] 2026-10-12T13:53:33
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: MWS〜回避の前倒しは物理的に不可。被弾警報フレーム数は 1 変数では短縮できない（探知距離は仕様側、判断周期は既に最小）。この材料から生存軸の新規仮説は立てない。
+- 仮説: N-046
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: コード変更なし。MWS 由来の軸を閉鎖（③）。custom_metrics.json から threat_frames カードを除去し、serve.py の自動仮説文を削除、方針の削除済み一覧に追記。
+- 検証: 根拠: baseTimeStep=1.0s（common/R8_contest_youth_mission_config.json）、interval は tick 単位で最小1（R8ContestAgentSample01.py:2008）、MWS Lref≈10km（BATTLELOG_FORMAT.md:132）。agent に探知距離・判断周期の可変パラメータなし。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 生存軸ではなく勝ち筋（護衛対象機撃墜）側へ。未試験の固定軸は engageRangeKm(60)/marginKm(25)。
+
+## O-084 [observation/analysis] 2026-10-12T14:08:39
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: 護衛対象機の識別・優先目標化（N-047）は棄却
+- 変更: default.py に『遠方航跡>120km を護衛対象機として識別し _track_escort で方位追跡、識別中は pool=[escort] で最優先かつ breaking を無効化』を追加
+- 検証: ペア評価 seed1,2,3×両面（6戦）: win1/draw0/loss5, avg_score 0.308（基準0.500）, avg_our_alive 0.33（2.67）, avg_enemy_alive 4.0（3.33）。seed1/2(Red)・全Blue は ELIMINATION 全滅。
+- 指標: {"avg_score": 0.308, "avg_our_alive": 0.33, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: 護衛対象機へ直進すると護衛戦闘機に撃墜される（N-026 farthest=全滅と同型）。護衛対象機軸は単純な直進優先では不可。回避を維持しつつ接近する設計（護衛戦闘機を先に処理 or 遠距離から一撃離脱）が必要。
+
+## O-085 [observation/analysis] 2026-10-12T14:26:44
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: 護衛対象機軸（N-048 機会目標化）を未見 seed で確認し閉鎖
+- 変更: N-048: 護衛対象機の識別(_track_escort)を既存 escorted フォールバックに供給するのみ（threat回避・breaking・near優先は維持）。検証後 reflux 済み（default.py は revert 済み）
+- 検証: seed4,5,6×両面: N-048 0/5/1 avg_score0.455 our2.33 enemy4.17（B4全滅） / default 0/5/1 avg0.456 our1.67 enemy3.5（B6全滅）。score同等、our↑だがenemy↑で相殺。seed1-3のour改善(2.67→3.0)は未見seedで再現せず。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: 護衛対象機へ接近する限り戦闘機嚮導で戦力を失い、0.5天井は破れない。勝つには護衛戦闘機を先に排除して安全に接近する等、護衛対象機の直接優先以外の設計が必要。
+
+## O-086 [observation/log] 2026-10-12T15:41:32
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 防衛ライン(守勢シフト)は score 中立・our_alive改善だが負けは seed 間で移動し頑健性に難
+- 変更: N-049: default.py に defenseLineXKm を追加（own[0]>line で desiredAz=180 に反転）。-20 は全機 x<=-35 で不発、-60 で初めて有効化
+- 検証: line=-60: seeds1-6(12戦) 0/12/0 avg0.5 our3.0 enemy3.33（基準12戦 avg0.478 our2.17 enemy3.42 1敗）／holdout 7-9(6戦) 0/5/1 avg0.46 our3.0 enemy3.0（基準 0/6/0 0.5/2.67/3.67）。R8で護衛対象機がstep418で撃墜（新規の負け）。全18戦合算 score0.485→0.487 our2.5→3.0 enemy3.47→3.22 敗戦1→1。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.33, "games": 12}
+- 次の一手: score中立だがour +0.5/enemy -0.25。負けがB6からR8へ移動。ハード反転(180)による陣形の隙が R8 敗因の可能性。ソフト保持（前進は止めるが反転しない=速度低下）で頑健化の余地。あるいは別軸へ。
+
+## O-087 [observation/log] 2026-10-12T15:55:03
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 守勢シフト（防衛ライン系）は頑健に負けを減らせず閉鎖
+- 変更: N-050: 前線が空(engageRange内に敵なし)のときだけ own[0]>-60 で desiredAz=180 に反転し後退するソフト保持
+- 検証: seeds1-6(12戦): 0/10/2 avg0.456 our2.67 enemy3.75（基準 0/11/1 avg0.478 / N-049b 0/12/0 avg0.5）。R2・B4 で新規の敗戦2件（後退が敵を通す）。
+- 指標: {"avg_score": 0.456, "avg_our_alive": 2.67, "avg_enemy_alive": 3.75, "games": 12}
+- 次の一手: ライン系の総括: -20不発(N-049) / -60ハードは敗戦をB6→R8へ移動し中立(N-049b) / -60ゲート付きソフトは2敗で悪化(N-050)。防衛行動は負けを頑健に減らせない。スコア>0.5の唯一の筋は敵護衛対象機撃墜であり、護衛戦闘機排除→到達の2段階設計が不可欠。

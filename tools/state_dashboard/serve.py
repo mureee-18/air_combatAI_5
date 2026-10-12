@@ -257,7 +257,9 @@ def _trajectory_values(traj: dict) -> dict:
     out["fire_gap_flight"] = _scalar(gap.get("flight_block"))
     out["fire_gap_noammo"] = _scalar(gap.get("no_ammo"))
     out["threat_frames"] = sum((traj.get("warn_frames") or {}).values()) or None
+    out["stranded_ammo"] = _scalar(traj.get("stranded_ammo"))
     out["pre_launch_threat"] = _scalar(traj.get("pre_launch_suppressed"))
+    out["detect_duty"] = _scalar(traj.get("detect_duty"))
     out["lost_range_km"] = _scalar(traj.get("lost_max"))
     out["max_advance_x_km"] = _scalar(traj.get("max_advance_x"))
     out["escort_min_dist_km"] = _scalar(traj.get("escort_min_dist"))
@@ -873,15 +875,23 @@ def collect_session(paired: dict | None = None) -> dict:
         }
     evidence = collect_evidence(target)
     target_session = next((s for s in sessions if s.get("specialist") == target), {})
+    recorded_materials = []
+    for rec in target_session.get("records", []):
+        for phrase in rec.get("materials", []) or []:
+            recorded_materials.append(
+                {"phrase": phrase, "at": rec.get("at"), "record": rec.get("id")}
+            )
     return {
         "sessions": sessions,
         "target": target,
         "submitted": submitted,
+        "recorded_materials": recorded_materials,
         "started": started,
         "steps": steps,
         "next": nxt,
         "hypotheses": target_session.get("hypotheses", []),
         "cycles": target_session.get("cycles", []),
+        "open_work": _open_work(target, target_session),
         "paired": paired,
         "metric_sources": METRIC_SOURCES,
         "policy": collect_hypothesis_policy(),
@@ -893,6 +903,37 @@ def collect_session(paired: dict | None = None) -> dict:
             paired=_evidence_derived.get("paired"),
         ),
     }
+
+
+def _open_work(target: str, target_session: dict) -> dict:
+    """未着手の宿題（未検証の仮説＋記録の次の一手）。事実カードが枯れても次が見える."""
+    validated = {
+        c.get("hypothesis")
+        for c in target_session.get("cycles", [])
+        if c.get("kind") == "validate" and c.get("hypothesis")
+    }
+    unverified = [
+        {"id": h.get("id"), "text": (h.get("text") or "")[:80]}
+        for h in target_session.get("hypotheses", [])
+        if h.get("id") not in validated
+    ][-8:]
+    md = REPO_ROOT / "analysis" / "agents" / target / "improvement.md"
+    nexts: list[dict] = []
+    try:
+        text = md.read_text(encoding="utf-8") if md.exists() else ""
+    except OSError:
+        text = ""
+    if text:
+        for section in re.split(r"^##\s+", text, flags=re.M)[1:]:
+            head = re.match(r"(\S+)\s+\[[^\]]+\]\s*(\d{4}-\d{2}-\d{2})?", section)
+            rid = head.group(1) if head else "?"
+            at = head.group(2) if head and head.group(2) else ""
+            found = re.findall(r"^-\s*次の一手:\s*(.+)$", section, flags=re.M)
+            if found and found[-1].strip():
+                nexts.append({"id": rid, "at": at, "text": found[-1].strip()[:100]})
+    # 「現行維持」は宿題ではないので落とす
+    nexts = [r for r in nexts if r["text"] != "現行維持"]
+    return {"unverified": unverified, "next_steps": nexts[-8:]}
 
 
 def _session_state(name: str) -> dict:
@@ -1189,25 +1230,29 @@ def _trajectory_facts(log_rel: str) -> dict | None:
                 escort_min_dist = d if escort_min_dist is None else min(escort_min_dist, d)
 
     used = {e["slot"] for e in launches}
-    # 発射要求（aim）の内訳: 飛行中ブロック / 無弾 / それ以外。
-    # 78→16 のような差が出たとき、どこで止まっているかを示す目安。
-    gap_requests = 0
-    gap_flight = 0
-    gap_noammo = 0
-    for f in frames:
-        flying = {s.get("slot") for s in f.get("shots", [])}
-        for a in f.get("aim", []):
-            slot = a.get("slot")
-            gap_requests += 1
-            if slot in flying:
-                gap_flight += 1
-                continue
-            ammo = (f.get("own", {}).get(slot) or {}).get("ammo")
-            if ammo is not None and float(ammo) <= 0:
-                gap_noammo += 1
+    gap = _fire_gap_stats(frames)
+    # 持続探知の開始: 8 連続フレームで敵がいる最初の位置。
+    # 初発の1フレームゴースト（t=3 の1発探知など）を起点にすると空白が
+    # 水増しされるため（N-040）。8 は trajectory.py の DETECT_MISS_FRAMES と対称。
+    # 持続が無ければ従来の初探知にフォールバックする。
+    first_persistent = None
+    run = 0
+    for i, f in enumerate(frames):
+        if f.get("enemy"):
+            run += 1
+            if run >= 8 and first_persistent is None:
+                first_persistent = i - 8 + 1
+        else:
+            run = 0
     lag = None
-    if first_detect is not None and first_launch is not None:
-        lag = first_launch - first_detect
+    base = first_persistent if first_persistent is not None else first_detect
+    if base is not None and first_launch is not None:
+        lag = first_launch - base
+    # 探知 duty 率: 敵を探知していたフレームの割合。UUID 追跡など履歴系の
+    # 識別（O-054）の可否条件。低いと運動学的識別は不可。
+    detect_duty = None
+    if frames:
+        detect_duty = sum(1 for f in frames if f.get("enemy")) / len(frames)
     # 初発前の被弾警報フレーム数: lag の内訳（接近時間か脅威ゲート抑制か）の切り分け用。
     # 脅威下では射撃指示が出ない（threat gate）ため、警報が多い空白は抑制が主因。
     pre_launch_suppressed = 0
@@ -1220,10 +1265,12 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "frames": payload["frame_count"],
         "slots": payload["slots"],
         "first_detect": first_detect,
+        "first_persistent": first_persistent,
         "first_lock": first_lock,
         "first_launch": first_launch,
         "lag": lag,
         "pre_launch_suppressed": pre_launch_suppressed,
+        "detect_duty": detect_duty,
         "launch_count": len(launches),
         "launched_slots": sorted(used),
         "ammo_start": ammo_start,
@@ -1235,14 +1282,23 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "lost_t": lost,
         "max_advance_x": round(max_x, 1) if max_x is not None else None,
         "escort_min_dist": round(escort_min_dist, 1) if escort_min_dist is not None else None,
+        # 有効残弾: 終了時に生存機が持っていた残弾のみ。撃墜機の残弾は
+        # 使えないため含めない（6発中0発が有効だった敗戦例あり）。
         "ammo_reserve": sum(
-            v for v in (ammo_end.get(s) for s in payload["slots"]) if v is not None
+            v
+            for s in (frames[-1].get("own", {}) if frames else {})
+            for v in [ammo_end.get(s)]
+            if v is not None
+        ),
+        "stranded_ammo": _stranded_ammo(
+            ammo_end, (frames[-1].get("own", {}) if frames else {}).keys()
         ),
         "fire_gap": {
-            "requests": gap_requests,
+            "requests": gap["requests"],
             "launched": len(launches),
-            "flight_block": gap_flight,
-            "no_ammo": gap_noammo,
+            "flight_block": gap["flight_block"],
+            "no_ammo": gap["no_ammo"],
+            "by_slot": gap["by_slot"],
         },
         "result": payload.get("result") or {},
     }
@@ -1286,6 +1342,30 @@ def _paired_game_rows(label: str) -> list[dict]:
         return [r for r in rows if isinstance(r, dict)]
     except Exception:  # noqa: BLE001
         return []
+
+
+def _scope_compare_rows(rows: list[dict], target: str) -> list[dict]:
+    """仮説タブの比較カード用に現行ターゲットとベースラインだけ残す.
+
+    全ファイル比較だと古い実験が worst に居座るため。両方揃わなければ
+    空を返し、呼び出し側は従来表示にフォールバックする。
+    """
+
+    def _is(row, label):
+        if not isinstance(row, dict):
+            return False
+        if row.get("name") == label:
+            return True
+        try:
+            return Path(str(row.get("file", ""))).stem == label
+        except Exception:
+            return False
+
+    ours = next((r for r in rows or [] if _is(r, target)), None)
+    base = next((r for r in rows or [] if _is(r, "baseline")), None)
+    if ours is None or base is None:
+        return []
+    return [ours, base]
 
 
 def _paired_evidence() -> dict | None:
@@ -1365,7 +1445,7 @@ def _metric_cards(
     if traj.get("escort_min_dist") is None:
         direct = _newest_direct_facts(newest[1:])
         if direct is not None:
-            for k in ("escort_min_dist", "ammo_reserve", "max_advance_x"):
+            for k in ("escort_min_dist", "ammo_reserve", "max_advance_x", "escort_log"):
                 if traj.get(k) is None:
                     traj[k] = direct.get(k)
     buckets = {
@@ -1411,6 +1491,71 @@ def _metric_cards(
         tail = f"［飛行中{int(fb or 0)}・無弾{int(na or 0)}］"
         if len(card.get("phrase", "") + tail) <= 120:
             card["phrase"] = card.get("phrase", "") + tail
+    lag_branch = _lag_branch_hypothesis(traj.get("lag"), traj.get("pre_launch_suppressed"))
+    if lag_branch is not None:
+        for card in out:
+            if card.get("id") in ("metric:first_launch_lag", "metric:pre_launch_threat"):
+                card["hypothesis"] = lag_branch
+    duty_branch = _duty_branch_hypothesis((traj.get("detect_duty")))
+    if duty_branch is not None:
+        for card in out:
+            if card.get("id") == "metric:detect_duty":
+                card["hypothesis"] = duty_branch
+    stranded = _scalar(traj.get("stranded_ammo"))
+    if stranded is not None and stranded > 0:
+        for card in out:
+            if card.get("id") == "metric:stranded_ammo":
+                card["hypothesis"] = (
+                    f"撃墜機が {stranded:g}発を持ち去った。死蔵を減らすには"
+                    f"生存を延ばす方向（N-036/037 の salvo・分離軸）。"
+                    f"発射制限による温存は逆効果（N-028 で棄却済み）。"
+                )
+    adv = _scalar(traj.get("max_advance_x"))
+    if adv is not None and adv < 0:
+        for card in out:
+            if card.get("id") == "metric:max_advance_x_km":
+                card["hypothesis"] = (
+                    "前に出ていない後退基調のゲーム。脅威下の後退が主因の可能性があり、"
+                    "threat_frames と合わせて生存軸で読む。進出距離自体の延伸に"
+                    "変数はない（N-029 で閉鎖）。"
+                )
+    escort_branch = _escort_branch_hypothesis(traj.get("escort_min_dist"))
+    if escort_branch is not None:
+        for card in out:
+            if card.get("id") == "metric:escort_min_dist_km":
+                card["hypothesis"] = escort_branch
+    esc_log = traj.get("escort_log")
+    if esc_log:
+        for card in out:
+            if card.get("id") == "metric:escort_min_dist_km":
+                card.setdefault("evidence", []).append(
+                    {"label": "出所ログ", "value": esc_log, "num": False}
+                )
+    for card in out:
+        if card.get("id") == "metric:ammo_reserve":
+            card["hypothesis"] = (
+                "残弾を増やす方向（温存）は逆効果（N-028 で棄却済み）。"
+                "残弾量は勝敗と無相関のため、この数値から立てる新規仮説はない。別軸へ。"
+            )
+    for card in out:
+        if card.get("id") == "metric:fire_orders":
+            card["hypothesis"] = (
+                "射撃指示の増加は命中・勝敗を動かさない（N-018・N-025 で閉鎖）。"
+                "参考値としてのみ見る。"
+            )
+    for card in out:
+        if card.get("id") == "metric:min_dist_km":
+            card["hypothesis"] = (
+                "接近自体は命中を生まない。接近を深める変更は全て敗戦増で"
+                "棄却済み（fireRange縮小 N-017・N-022、break遅延 N-031）。"
+                "この数値から立てる新規仮説はない。別軸へ。"
+            )
+    for card in out:
+        if card.get("id") == "metric:launch_count":
+            card["hypothesis"] = (
+                "発射数の増加は命中・勝敗を動かさない（N-018・N-025 で閉鎖）。"
+                "量でなく生存の軸へ。"
+            )
     return out
 
 
@@ -1426,10 +1571,8 @@ def _fire_gap_hypothesis(orders, launches, fb, na) -> str:
     na_n = int(na or 0)
     if na_n >= fb_n and na_n > 0:
         return (
-            f"無弾指示 {na_n}回が主因。残る温存変数は maxSimulShot 4→2 のみ"
-            f"（fireRange縮小は N-017・N-022 で棄却済み）。"
-            f"maxSimulShot 4→2 で無弾指示率の低下と後半発射の出現を予測するが、"
-            f"火力低下のため avg_score 0.5 維持・enemy_alive 不変の可能性大。"
+            f"無弾指示 {na_n}回が主因。温存軸は N-028 で閉鎖済みのため"
+            f"新規仮説はない。別軸（生存・escort識別）へ。"
         )
     if fb_n > 0:
         return (
@@ -1442,7 +1585,148 @@ def _fire_gap_hypothesis(orders, launches, fb, na) -> str:
     )
 
 
-def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) -> list[dict]:
+def _lag_branch_hypothesis(lag, suppressed) -> str | None:
+    """初発空白の内訳から分岐ガイド文を作る（f25s5: 245/487 等の実測で調整）.
+
+    抑制支配（警報が lag の2割以上かつ20フレーム以上）のときだけ
+    脅威下射撃軸を開く。それ以外は接近時間要因で手出し不可。
+    """
+    if lag is None or suppressed is None:
+        return None
+    lag_f, sup_f = float(lag), float(suppressed)
+    if lag_f > 0 and sup_f >= 20 and sup_f / lag_f >= 0.2:
+        return (
+            f"初発前の警報 {int(sup_f)}回（空白の{sup_f / lag_f:.0%}）が初発を遅らせている。"
+            f"脅威ゲートが主因のため、脅威下でも射撃する方向が次の候補"
+            f"（未試行。発射アスペクト悪化のリスクあり）。"
+        )
+    return (
+        "初発前の警報は少なく、空白は接近時間（探知距離・シナリオ）要因。"
+        "速度は既に最大のため手出しできる変数はない。別軸へ。"
+    )
+
+
+def _duty_branch_hypothesis(duty) -> str | None:
+    """探知duty率から履歴系識別の可否を自動判定する.
+
+    per-UUID duty ≦ 全体duty のため、全体 0.3 未満なら個別追跡は必ず疎で不可
+    （O-054: per-UUID 7%）。0.5 以上なら密な可能性があり軸の再検討対象。
+    中間は証拠不十分で監視継続。しきい値は目安。
+    """
+    if duty is None:
+        return None
+    d = float(duty)
+    if d < 0.3:
+        return (
+            "探知duty率が低く、UUID追跡など履歴系の識別は不可"
+            "（per-UUID duty は全体以下になるため）。"
+            "運動学的識別軸は閉鎖維持。別軸へ。"
+        )
+    if d >= 0.5:
+        return (
+            "探知duty率が高く、履歴系識別の検討が可能。"
+            "UUID追跡＋速度・旋回率分類の設計が次の候補（未試行）。"
+        )
+    return (
+        "探知duty率は中位で識別可否の証拠不十分。現状維持しつつ監視する。"
+    )
+
+
+def _stranded_ammo(ammo_end: dict, alive_slots) -> float | None:
+    """死蔵弾数: 撃墜機が持ち去った残弾の合計（生存機の分は含めない）.
+
+    N-036 の集中死で弾が失効する経路を数値化する。純粋関数（テスト用）。
+    """
+    if not ammo_end:
+        return None
+    alive = set(alive_slots or [])
+    return sum(float(v) for s, v in ammo_end.items() if s not in alive and v is not None)
+
+
+def _fire_gap_stats(frames: list[dict]) -> dict:
+    """発射要求（aim）の内訳: 飛行中ブロック / 無弾 / 機体別.
+
+    78→16 のような差が出たとき、どこで・誰が止まっているかを示す目安。
+    合成フレームでも動く純粋関数（テスト用）。
+    """
+    gap_requests = 0
+    gap_flight = 0
+    gap_noammo = 0
+    by_slot: dict[str, dict] = {}
+    for f in frames or []:
+        flying = {s.get("slot") for s in f.get("shots", [])}
+        for a in f.get("aim", []):
+            slot = a.get("slot")
+            gap_requests += 1
+            entry = by_slot.setdefault(slot, {"req": 0, "flight": 0, "noammo": 0})
+            entry["req"] += 1
+            if slot in flying:
+                gap_flight += 1
+                entry["flight"] += 1
+                continue
+            ammo = (f.get("own", {}).get(slot) or {}).get("ammo")
+            if ammo is not None and float(ammo) <= 0:
+                gap_noammo += 1
+                entry["noammo"] += 1
+    return {
+        "requests": gap_requests,
+        "flight_block": gap_flight,
+        "no_ammo": gap_noammo,
+        "by_slot": by_slot,
+    }
+
+
+def _agent_newer_than_log(log_rel: str | None) -> bool | None:
+    """対戦ログより後に Agent 設定が変わっていたら True（状態不一致の可能性）.
+
+    材料の対戦時と現行設定が違うかを見る目安。どちらかの mtime が取れなければ None。
+    """
+    if not log_rel:
+        return None
+    try:
+        log_mtime = (REPO_ROOT / log_rel).stat().st_mtime
+    except OSError:
+        return None
+    agent_dir = REPO_ROOT / "agent"
+    newest = 0.0
+    try:
+        for path in list(agent_dir.rglob("*.py")) + [agent_dir / "args.json", agent_dir / "config.json"]:
+            if path.is_file():
+                newest = max(newest, path.stat().st_mtime)
+    except OSError:
+        return None
+    if not newest:
+        return None
+    return newest > log_mtime
+
+
+def _escort_branch_hypothesis(dist) -> str | None:
+    """護衛対象機への最短距離から分岐ガイド文を作る.
+
+    到達（20km 以内）は必要条件に過ぎず、勝ちには命中・撃墜が要る。
+    未到達はシナリオ支配で変数なし（N-029 で閉鎖）。
+    """
+    if dist is None:
+        return None
+    if float(dist) <= 20:
+        return (
+            "護衛対象機に到達済み。到達だけでは勝てず、命中・撃墜"
+            "（ELIMINATION 成立）が条件。発射・命中軸で見る。"
+        )
+    return (
+        "未到達。接近はシナリオ支配で変数なし（N-029 で閉鎖）。"
+        "到達しても命中が無ければ勝てない。"
+    )
+
+
+def _wipe_games(rows: list[dict]) -> list[dict]:
+    """自機生存 0 の全滅戦だけを返す（純粋関数）."""
+    return [r for r in (rows or []) if isinstance(r, dict) and _scalar(r.get("our_alive")) == 0]
+
+
+def _trigger_cards(
+    facts: dict | None, stats: dict | None, paired: dict | None, target: str = ""
+) -> list[dict]:
     """実測が条件を満たす間だけ出るカード（解消すると自動で消える）."""
 
     out: list[dict] = []
@@ -1460,7 +1744,10 @@ def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) 
                     {"label": "最大進出 x[km]", "value": max_x, "num": True, "digits": 0},
                     {"label": "最終残弾[発]", "value": reserve, "num": True, "digits": 0},
                 ],
-                "hypothesis": "残弾を温存する方向に1変数だけ変えれば、到達時に撃てる可能性がある。",
+                "hypothesis": (
+                    "深追いしても命中が無ければ意味がない。"
+                    "到達時の発射・命中軸で見る（温存は N-028 で棄却済み）。"
+                ),
                 "phrase": f"深追いしたが残弾が尽きていた（x={max_x:g} / 残弾 {reserve:g}）",
                 "metric": "最大進出 x と最終残弾（目標ボード）",
                 "from_tab": "自機視点",
@@ -1484,9 +1771,20 @@ def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) 
                 evidence.append({"label": "うち飛行中ブロック", "value": fb, "num": True, "digits": 0})
             if na is not None:
                 evidence.append({"label": "うち無弾指示", "value": na, "num": True, "digits": 0})
+            by_slot = (facts.get("fire_gap") or {}).get("by_slot") or {}
+            if by_slot:
+                top = max(by_slot.items(), key=lambda kv: kv[1].get("req", 0))
+                evidence.append(
+                    {"label": "最多要求", "value": f"{top[0]}号機 {int(top[1].get('req', 0))}回", "num": False}
+                )
+            stale = _agent_newer_than_log(facts.get("log"))
+            if stale:
+                evidence.append(
+                    {"label": "設定", "value": "対戦後に変更あり（状態不一致の可能性）", "num": False}
+                )
             if na and fb is not None and na >= fb and na > 0:
                 guide = (
-                    "無弾指示が主因。序盤に撃ち尽くしており、温存・節約軸で仮説を立てる目安。"
+                    "無弾指示が主因。温存軸は N-028 で閉鎖済みのため新規仮説はない。"
                 )
             elif fb and fb > 0:
                 guide = (
@@ -1518,28 +1816,29 @@ def _trigger_cards(facts: dict | None, stats: dict | None, paired: dict | None) 
                 "command": "",
                 "command_label": "",
             })
-    if paired:
-        wm = paired["worst"]["metrics"]
-        ours, theirs = wm.get("avg_our_alive"), wm.get("avg_enemy_alive")
-        if ours is not None and ours == 0 and (theirs or 0) >= 3:
-            out.append({
-                "id": "trigger_wiped",
-                "kind": "observation",
-                "source": "log",
-                "title": f"自機が全滅している試合がある（自機 {ours} / 敵 {theirs}）",
-                "summary": "敵を落とせず全滅している。距離・タイミングで有利な射撃機会を作れていない。",
-                "evidence": [
-                    {"label": "自機生存", "value": ours, "num": True, "digits": 2},
-                    {"label": "敵生存", "value": theirs, "num": True, "digits": 2},
-                ],
-                "hypothesis": "交戦距離（min_dist_km）か迎撃タイミングのどちらかを1変数だけ変える。",
-                "phrase": f"自機が全滅している試合がある（自機 {ours} / 敵 {theirs}）",
-                "metric": "avg_our_alive / avg_enemy_alive",
-                "from_tab": "評価",
-                "from_path": f"workspace/paired/{paired['worst'].get('file', '')}",
-                "command": "",
-                "command_label": "",
-            })
+    # 全滅カードは現行ターゲットのファイル内だけを見る。古い実験ファイルの
+    # worst と比べると stale が常時発火するため（def_fr90 等）。
+    wipes = _wipe_games(_paired_game_rows(target)) if target else []
+    if wipes:
+        games = "・".join(f"{r.get('color', '?')} seed{r.get('seed', '?')}" for r in wipes[:3])
+        out.append({
+            "id": "trigger_wiped",
+            "kind": "observation",
+            "source": "log",
+            "title": f"現行{target}で全滅 {len(wipes)}戦（{games}）",
+            "summary": "全滅戦では生存を延ばす方向が最優先。脅威下の回避・salvoへの対応（N-036/037）で見る。",
+            "evidence": [
+                {"label": "全滅戦数", "value": len(wipes), "num": True, "digits": 0},
+                {"label": "内訳", "value": games, "num": False},
+            ],
+            "hypothesis": "全滅戦のseed・色で共通する被弾パターンを特定し、生存軸の1変数で仮説を立てる。",
+            "phrase": f"現行{target}で全滅{len(wipes)}戦（{games}）",
+            "metric": "wipe_count",
+            "from_tab": "評価",
+            "from_path": f"workspace/paired/{target}.json",
+            "command": "",
+            "command_label": "",
+        })
     return out
 
 
@@ -1560,13 +1859,23 @@ def collect_evidence(target: str) -> list[dict]:
     paired = _paired_evidence()
     _evidence_derived["paired"] = paired
     if paired:
-        worst, best = paired["worst"], paired["best"]
-        wm, _ = worst["metrics"], best["metrics"]
+        scoped = _scope_compare_rows(paired.get("rows", []), specialist)
+        rows = scoped if len(scoped) == 2 else paired["rows"]
+        worst = min(rows, key=lambda r: ((r.get("metrics") or {}).get("avg_score") or 0))
+        best = max(rows, key=lambda r: ((r.get("metrics") or {}).get("avg_score") or 0))
+        wm, bm = worst["metrics"], best["metrics"]
+        gap = round((bm.get("avg_score", 0) or 0) - (wm.get("avg_score", 0) or 0), 3)
+        verb = "劣る" if gap > 0 else "互角"
+        if worst["name"] == best["name"] and len(rows) >= 2:
+            other = next((r for r in rows if r is not best), best)
+            title = f"{worst['name']} と {other['name']} は互角（avg_score差 {gap}）"
+        else:
+            title = f"{worst['name']} は {best['name']} に avg_score {gap} 差で{verb}"
         cards.append({
             "id": "paired",
             "kind": "observation",
             "source": "log",
-            "title": f"{worst['name']} は {best['name']} に avg_score {paired['gap']} 差で劣る",
+            "title": title,
             "summary": (
                 f"{worst['name']}: 自機生存 {wm.get('avg_our_alive')} / 敵生存 {wm.get('avg_enemy_alive')}。"
                 "敵を1機も落とせず全滅しているなら、原因は『弾が少ない』ことではなく"
@@ -1579,7 +1888,7 @@ def collect_evidence(target: str) -> list[dict]:
                     "num": True,
                     "digits": 3,
                 }
-                for entry in paired["rows"]
+                for entry in rows
             ] + [
                 {"label": f"{worst['name']} 自機生存", "value": wm.get("avg_our_alive"), "num": True, "digits": 2},
                 {"label": f"{worst['name']} 敵生存", "value": wm.get("avg_enemy_alive"), "num": True, "digits": 2},
@@ -1622,7 +1931,7 @@ def collect_evidence(target: str) -> list[dict]:
     #     指標を足す/消す、実測が閾値を超える/解消すると枚数が動的に変わる
     stats_ok = stats if (stats and "error" not in stats) else None
     cards.extend(_metric_cards(facts, stats_ok, paired, specialist, newest))
-    cards.extend(_trigger_cards(facts, stats_ok, paired))
+    cards.extend(_trigger_cards(facts, stats_ok, paired, specialist))
 
     # 4) 前提（assumption）として登録すべき既知の制約
     constraints = _known_constraints()
@@ -1670,7 +1979,7 @@ def collect_evidence(target: str) -> list[dict]:
                 {"label": "敗者のスコア", "value": "1 - 勝者のスコア", "num": False},
                 {"label": "TIMEUP", "value": "両者 0.5", "num": False},
             ],
-            "hypothesis": None,
+            "hypothesis": "採点式の確認用。引き分けの積み重ねでは順位は上がらない。新規仮説はない。",
             "phrase": "TIMEUP はスコア 0.5、0.6 以上は撃墜時だけ",
             "metric": "avg_score が 0.5 を超えてるか（超えて初めて改善）",
             "from_tab": "ルール",
@@ -1859,6 +2168,27 @@ def collect_causes(target: str, facts: dict | None = None,
     }
 
 
+_text_review_module_cached = None
+
+
+def _text_review_module():
+    """tools/state_dashboard/text_review.py を import する（テスト時はパス解決）."""
+    global _text_review_module_cached
+    if _text_review_module_cached is not None:
+        return _text_review_module_cached
+    try:
+        import text_review as module
+    except ImportError:
+        import importlib.util as _ilu
+
+        path = Path(__file__).resolve().parent / "text_review.py"
+        spec = _ilu.spec_from_file_location("text_review", path)
+        module = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    _text_review_module_cached = module
+    return module
+
+
 def collect_git() -> dict:
     branch = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], timeout=10)
     head = run_cmd(["git", "log", "-1", "--format=%h %s"], timeout=10)
@@ -1884,6 +2214,10 @@ def collect_git() -> dict:
         if len(parts) == 2:
             ab = {"behind": int(parts[0]), "ahead": int(parts[1])}
 
+    try:
+        review = _text_review_module().review_summary()
+    except Exception as exc:  # noqa: BLE001
+        review = {"error": str(exc), "cards": []}
     return {
         "branch": (branch or "").strip(),
         "head": (head or "").strip(),
@@ -1892,6 +2226,7 @@ def collect_git() -> dict:
         "ahead_behind": ab,
         "dirty": counts,
         "recent": [line for line in (recent or "").splitlines() if line.strip()],
+        "review": review,
     }
 
 

@@ -170,10 +170,18 @@ def test_collect_paired_shape():
         assert set(entry.keys()) == {"name", "mtime", "metrics", "rows"}
 
 
+def test_session_has_open_work():
+    session = serve.collect_session()
+    assert isinstance(session.get("open_work"), dict)
+    assert isinstance(session["open_work"].get("unverified"), list)
+    assert isinstance(session["open_work"].get("next_steps"), list)
+
+
 def test_collect_git_shape():
     git = serve.collect_git()
-    assert set(git.keys()) == {"branch", "head", "remote", "upstream", "ahead_behind", "dirty", "recent"}
+    assert set(git.keys()) == {"branch", "head", "remote", "upstream", "ahead_behind", "dirty", "recent", "review"}
     assert set(git["dirty"].keys()) == {"modified", "untracked", "other"}
+    assert isinstance(git["review"].get("cards"), list)
 
 
 def test_commands_are_documented_and_copyable():
@@ -267,16 +275,16 @@ def test_session_evidence_cards_are_observable_and_have_sources():
 def test_session_evidence_paired_card_reflects_metrics():
     paired = serve.collect_paired()
     with_metrics = [f for f in paired["files"] if (f.get("metrics") or {}).get("avg_score") is not None]
-    cards = serve.collect_session()["evidence"]
-    card = next((c for c in cards if c["id"] == "paired"), None)
     if len(with_metrics) < 2:
-        assert card is None
-        return
+        pytest.skip("ペア評価データが無い環境ではスキップ")
+    session = serve.collect_session()
+    target = session.get("target") or "default"
+    cards = session["evidence"]
+    card = next((c for c in cards if c["id"] == "paired"), None)
     assert card is not None
     labels = [row["label"] for row in card["evidence"]]
-    for entry in with_metrics:
-        name = (entry.get("metrics") or {}).get("label") or entry["name"]
-        assert f"{name} avg_score" in labels
+    assert any(target in label for label in labels)
+    assert any("baseline" in label for label in labels)
 
 
 def test_session_steps_mark_hypothesis_current_when_empty():
@@ -334,8 +342,47 @@ def test_index_hypothesis_tab_hides_registered_fact_cards():
     end = html.index("function renderSession")
     block = html[start:end]
     assert 'c.id !== "paired"' in block
-    assert "facts.map(renderFact)" in block
+    assert "renderFactGroups(facts)" in block
     assert "s.evidence.map(renderFact)" not in block
+
+
+def test_handled_materials_sink_and_clear():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    assert "opencode-handled-materials" not in html
+    assert "data-handled-key" not in html
+    assert "sortByHandled" in html
+    # new fact card には handled クラスが付与されない（badge non-display）
+    # CSS .fact.handled セレクタは stylesheet に残るため、HTML class 属性のみチェック
+    assert 'class="handled"' not in html
+    assert "renderFactGroups" in html
+    assert "fact-group-title" in html
+    assert "fact.fresh" in html
+    assert "未処理（" in html
+    assert "mark-handled" not in html
+    assert 'id="hypho-copy"' in html
+    assert "border-style: dashed" in html
+    assert "INTENT_REVIEW" in html
+    assert "# 文書レビュー" in html
+    assert "copyIntent" in html
+    assert "INTENT_REOPEN" in html
+    # "見直しを依頼" は新規fact cardでは材料ボタンが優先されます
+    assert "仮説の材料" in html
+    assert "前提（参照用" in html
+    assert "/api/build" in html
+    assert "dash-keep-tab" in html
+    assert "visibilitychange" in html
+    assert "古い可能性あり" in html
+    assert ".meta.warn" in html
+    assert "recordedPhrases" in html
+    assert "recorded_materials" in html
+    assert "reset-handled" not in html
+    assert "handledThreshold" not in html
+    assert "agent_mtime" not in html
+
+
+def test_session_exposes_recorded_materials():
+    session = serve.collect_session()
+    assert isinstance(session.get("recorded_materials"), list)
 
 
 def test_index_improvement_cycle_tab_unchanged():
@@ -535,3 +582,66 @@ def test_http_endpoints():
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_escort_branch_hypothesis_splits_reached_and_unreached():
+    assert serve._escort_branch_hypothesis(None) is None
+    assert "N-029" in serve._escort_branch_hypothesis(152.7)
+    assert "ELIMINATION" in serve._escort_branch_hypothesis(19.6)
+
+
+def test_ammo_reserve_card_redirects_from_conservation():
+    cards = serve._metric_cards({"ammo_reserve": 0.0}, None, None, "default", [])
+    card = next((c for c in cards if c.get("id") == "metric:ammo_reserve"), None)
+    assert card is not None
+    assert "N-028" in (card.get("hypothesis") or "")
+
+
+def test_threat_card_closed():
+    # MWS 軸は agent 非制御のため閉鎖済み（O-083）。カードは生成されない。
+    traj = {"warn_frames": {"1": 300, "2": 30, "3": 10, "4": 5}}
+    cards = serve._metric_cards(traj, None, None, "default", [])
+    assert next((c for c in cards if c.get("id") == "metric:threat_frames"), None) is None
+
+
+def test_scope_compare_rows_prefers_target_and_baseline():
+    rows = [
+        {"name": "def_fr90", "file": "def_fr90.json", "metrics": {"avg_score": 0.229}},
+        {"name": "default", "file": "default.json", "metrics": {"avg_score": 0.5}},
+        {"name": "baseline", "file": "baseline.json", "metrics": {"avg_score": 0.5}},
+    ]
+    scoped = serve._scope_compare_rows(rows, "default")
+    assert [r["name"] for r in scoped] == ["default", "baseline"]
+    assert serve._scope_compare_rows(rows, "missing") == []
+    assert serve._scope_compare_rows([rows[0]], "default") == []
+
+
+def test_min_dist_and_launch_count_cards_redirect():
+    cards = serve._metric_cards({"min_dist": {"1": 31.0}, "launch_count": 8}, None, None, "default", [])
+    dist = next((c for c in cards if c.get("id") == "metric:min_dist_km"), None)
+    assert dist is not None
+    assert "N-017" in (dist.get("hypothesis") or "")
+    launches = next((c for c in cards if c.get("id") == "metric:launch_count"), None)
+    assert launches is not None
+    assert "N-018" in (launches.get("hypothesis") or "")
+
+
+def test_fire_orders_card_redirects_from_volume():
+    stats = {"agents": [{"fire_orders": 634}]}
+    cards = serve._metric_cards({}, stats, None, "default", [])
+    orders = next((c for c in cards if c.get("id") == "metric:fire_orders"), None)
+    assert orders is not None
+    assert "N-018" in (orders.get("hypothesis") or "")
+
+
+def test_wipe_games_picks_zero_alive_only():
+    rows = [
+        {"color": "Red", "seed": 1, "our_alive": 3.0},
+        {"color": "Blue", "seed": 3, "our_alive": 0.0},
+        {"color": "Red", "seed": 2},
+    ]
+    wipes = serve._wipe_games(rows)
+    assert len(wipes) == 1
+    assert wipes[0]["seed"] == 3
+    assert serve._wipe_games([]) == []
+    assert serve._wipe_games(None) == []

@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-10-11
+
+### 改善サイクル（default specialist、提出物は fr50+break35 のまま）
+
+- N-016〜N-035 を検証。発射量・包絡・温存・配分・前進・接近・離脱の各軸は棄却または閉鎖
+- escort 識別の live プローブ：track に spec なし、`truth` は UUID と確定。単フレーム識別は不可能
+- UUID 安定性の実測：持続するが duty 7% で運動学的識別は実用困難、経路を保留
+- ペア評価の基準値 0-6-0 / 0.500 / our 2.67 / enemy 3.33 を維持
+
+### dashboard（仮説タブ・git タブ）
+
+- 新指標：発射転換率（内訳の自動仮説文付き）、被弾警報フレーム数、全滅戦数、探知duty率（可否の自動判定付き）
+- lag 系カードに抑制シェアの自動分岐を追加
+- 定期整理ルーティンを確立し、`avg_enemy_alive` と `pre_launch_threat` のカードを除去
+- git タブに文書レビュー（文字化け・最新性、コピー釦付き）を追加
+
 ## 2026-10-10
 
 ### agent: breakRangeKm 35 離脱ルール（default specialist）

@@ -155,3 +155,22 @@ def test_check_reports_records_by_kind(session, capsys):
     out = capsys.readouterr().out
     assert "記録: 1 件" in out
     assert "observation=1" in out
+
+
+def test_todo_lists_unverified_hypothesis_and_next_steps(session, capsys):
+    session.cmd_start(make_args())
+    session.cmd_hypothesis(make_args(text="仮説A", source="log"))
+    session.cmd_hypothesis(make_args(text="仮説B", source="log"))
+    hyps = session.load_state("baseline")["hypotheses"]
+    state = session.load_state("baseline")
+    state.setdefault("cycles", []).append(
+        {"kind": "validate", "hypothesis": hyps[0]["id"], "metrics": {}, "paired": True}
+    )
+    session.save_state("baseline", state)
+    session.cmd_record(make_args(kind="observation", source="log", next_steps="次はX"))
+    capsys.readouterr()
+    session.cmd_todo(make_args())
+    out = capsys.readouterr().out
+    assert hyps[1]["id"] in out
+    assert hyps[0]["id"] not in out
+    assert "次はX" in out
