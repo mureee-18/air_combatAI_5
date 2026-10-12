@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-10-12
+
+### 改善サイクル（default specialist、提出物は fr50+break35 のまま）
+
+- 護衛対象機軸（N-047/N-048）・守勢軸（N-049/N-049b/N-050）を検証し全敗、棄却・巻き戻し（O-084〜O-087）
+- 探知duty率から非探知時の方位を直近の敵方位保持に変える形態（N-051）は交戦を減らし
+  avg_enemy_alive 3.33→3.67 と悪化・avg_score 0.500 不変で棄却（O-088）
+- ペア評価の基準値 0-6-0 / 0.500 / our 2.67 / enemy 3.33 を維持
+
+### dashboard（仮説タブ・指標整理）
+
+- MWS の被弾警報フレーム数（threat_frames）カードを除去。仕様側センサ約10km固定で
+  agent 側の 1 変数では短縮できない（O-083）
+- 探知duty率カードと可否の自動分岐を除去。識別可否の条件指標であり単独では改善軸に使わない（O-089）
+- 最短交戦距離（min_dist_km）の目標25を解除（参考値化）。接近は引き分けで採点に無関係・
+  接近軸は N-029 で閉鎖済み（O-090）
+
+### 開発基盤（CI・ペア評価ハーネス・gitignore）
+
+- ペア評価データの無い環境で `test_session_evidence_paired_card_reflects_metrics` が失敗していたのを、
+  件数不足時に `pytest.skip` するガードで修正
+- `run_eval_paired.py` の workspace パス解決を `/workspace` 優先にし、コンテナで PYTHONPATH 不要に
+- `.gitignore` に `local_test/simulator/`, `local_test/src/`, `baseline_paired_raw.txt`,
+  `paired_baseline_raw.txt` を追記
+
 ## 2026-10-11
 
 ### 改善サイクル（default specialist、提出物は fr50+break35 のまま）
