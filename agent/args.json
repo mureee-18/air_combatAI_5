@@ -1,8 +1,11 @@
 {
     "type": "Fixed",
     "specialist": "default",
-    "fireRangeKm": 50.0,
+    "fireRangeKm": 60.0,
     "breakRangeKm": 35.0,
+    "beamRangeKm": 45.0,
     "evadeCrankDeg": 0.0,
-    "marginKm": 25.0
+    "marginKm": 25.0,
+    "escortDetectRangeKm": 120.0,
+    "escortClearRatio": 0.5
 }
