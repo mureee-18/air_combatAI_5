@@ -273,6 +273,10 @@ def test_session_evidence_cards_are_observable_and_have_sources():
 
 
 def test_session_evidence_paired_card_reflects_metrics():
+    paired = serve.collect_paired()
+    with_metrics = [f for f in paired["files"] if (f.get("metrics") or {}).get("avg_score") is not None]
+    if len(with_metrics) < 2:
+        pytest.skip("ペア評価データが無い環境ではスキップ")
     session = serve.collect_session()
     target = session.get("target") or "default"
     cards = session["evidence"]
