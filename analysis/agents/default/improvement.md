@@ -872,3 +872,23 @@
 - 検証: custom_metrics.json 有効な JSON・target=None / tests/test_state_dashboard.py 37 passed。カード仮説欄は serve.py:1541-1547 が既に「新規仮説なし」を表示
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 3.67, "games": 6}
 - 次の一手: min_dist 材料からの新規仮説は立てない（fireRange/break/beam は再試験禁止、接近軸は閉鎖）。接近は引き分けで採点に影響しない。
+
+## O-091 [observation/log] 2026-10-12T18:31:59
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 境界回避 marginKm 25→40 が採点・生存を動かすかを確認（未試験固定軸の消化）
+- 仮説: N-052
+- 変更: agent/args.json の marginKm を 25→40 に変更（1変数）。検証後に 25 へ巻き戻し
+- 検証: ペア評価 seeds1,2,3×両面=6戦: 0勝6分0敗, avg_score 0.500, avg_our_alive 2.67, avg_enemy_alive 3.33。全6戦が default(marginKm25) と score/our_alive/enemy_alive/endReason まで完全一致。予測 our 2.67→3.0・score→0.55 は外れ。marginKm は採点・生存を動かさない（実効なし）。仮説 N-052 棄却
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 1変数の数値ノブは全滅。勝ち筋（護衛対象機撃墜）の設計軸へ。O-084/085 の護衛戦闘機の先制排除など、1変数では表せない構造変更のみ残る
+
+## O-092 [observation/log] 2026-10-12T18:41:42
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: marginKm 実効なしの汎化確認（未見 seed 4-6）
+- 仮説: N-052
+- 変更: 変更なし（marginKm=40 と =25 を同一 seed 群で比較するだけ）
+- 検証: ペア評価 seeds4,5,6×両面=6戦: marginKm=40 も =25 も 0勝5分1敗, avg_score 0.456, avg_our_alive 1.67, avg_enemy_alive 3.5。全6戦（Blue seed6 の ELIMINATION 含む）で score/生存/endReason まで完全一致。seeds1-3 と合わせ 12戦すべて同一。marginKm は採点・生存を動かさない
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 1変数の数値ノブは全滅。勝ち筋（護衛対象機撃墜）の構造変更のみが残る（O-084/085）

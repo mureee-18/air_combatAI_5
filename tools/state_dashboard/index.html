@@ -818,6 +818,38 @@ function bindHypothesisBuilder(root, s, d) {
   rebuild();
 }
 
+function renderDirections(s) {
+  const dir = (s && s.directions) || {};
+  const items = dir.items || [];
+  if (!items.length) return "";
+  let h = "<h2>設計の方向（1変数では表せない材料）</h2>";
+  if (dir.note) h += `<p class="meta">${esc(dir.note)}</p>`;
+  items.forEach(it => {
+    h += '<div class="fact direction">';
+    h += '<div class="fact-head">' +
+         `<span class="title">${esc(it.title)}</span>` +
+         '<span class="badge">方向</span>' +
+         '<span class="badge">設計</span></div>';
+    if (it.summary) h += `<div class="summary">${esc(it.summary)}</div>`;
+    if (it.why && it.why.length) {
+      h += '<div class="k">なぜ直接接近が失敗するか（実測）</div><ul class="fact-list">';
+      it.why.forEach(x => { h += `<li><span class="text">${esc(x)}</span></li>`; });
+      h += "</ul>";
+    }
+    if (it.steps && it.steps.length) {
+      h += '<div class="k">候補の設計（1変数ずつに割ってから着手）</div><ul class="fact-list">';
+      it.steps.forEach(x => { h += `<li><span class="text">${esc(x)}</span></li>`; });
+      h += "</ul>";
+    }
+    if (it.metrics) h += `<div class="metric">判定指標: <b>${esc(it.metrics)}</b></div>`;
+    if (it.records && it.records.length) {
+      h += `<div class="meta">記録: ${it.records.map(esc).join(" / ")}</div>`;
+    }
+    h += "</div>";
+  });
+  return h;
+}
+
 function renderHypothesis(d) {
   syncHypothesis();
   const s = d.session;
@@ -854,6 +886,8 @@ function renderHypothesis(d) {
     h += "<h2>前提（参照用・処理済み管理の対象外）</h2>";
     h += '<div class="facts">' + premises.map(c => renderFact(c, "")).join("") + "</div>";
   }
+
+  h += renderDirections(s);
 
   const ow = s.open_work || {};
   const unv = ow.unverified || [], nxt = ow.next_steps || [];

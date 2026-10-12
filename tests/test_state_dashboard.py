@@ -645,3 +645,56 @@ def test_wipe_games_picks_zero_alive_only():
     assert wipes[0]["seed"] == 3
     assert serve._wipe_games([]) == []
     assert serve._wipe_games(None) == []
+
+
+def test_tested_axes_parsed_from_policy_table():
+    # policy の「検証済みの変数軸」表から変数名を読めていること
+    tested = serve._tested_axes()
+    assert {"fireRangeKm", "maxSimulShot", "breakRangeKm",
+            "beamRangeKm", "targetMode", "evadeCrankDeg"} <= tested
+    # 表の見出し・区切り行を変数名として拾わない
+    assert "変数" not in tested
+    assert "" not in tested
+
+
+def test_axis_cards_render_untested_axis(monkeypatch):
+    # 閉鎖軸が無い（=全部未試験）状態で、軸カードが正しい形で出ること
+    monkeypatch.setattr(serve, "_tested_axes", lambda: set())
+    cards = serve._axis_cards()
+    assert cards, "未試験軸があるならカードを出す"
+    card = next(c for c in cards if c["id"] == "axis:marginKm")
+    assert card["kind"] == "observation"
+    assert card["source"] == "code"
+    assert "marginKm" in card["title"]
+    assert card["phrase"] and len(card["phrase"]) <= 120
+    assert card["hypothesis"]
+    assert card["evidence"] and all(row["value"] is not None for row in card["evidence"])
+
+
+def test_axis_cards_exclude_tested_axes():
+    # policy の表に載った軸は必ずカードから除外される（足せば自動で消える）
+    tested = serve._tested_axes()
+    cards = serve._axis_cards()
+    ids = {c["id"] for c in cards}
+    for card in cards:
+        var = card["id"].split(":", 1)[1]
+        assert var not in tested
+        assert card["kind"] == "observation"
+        assert card["source"] == "code"
+    assert "axis:fireRangeKm" not in ids
+
+
+def test_collect_directions_shape():
+    # 数値ノブが全滅しても材料が残るよう、設計の方向を 1 件以上返す
+    d = serve.collect_directions()
+    assert isinstance(d, dict)
+    items = d["items"]
+    assert items, "設計の方向が 1 件も無い"
+    for it in items:
+        assert it["id"]
+        assert it["title"]
+        assert it["summary"]
+        assert isinstance(it["why"], list) and it["why"]
+        assert isinstance(it["steps"], list) and it["steps"]
+        assert isinstance(it["records"], list)
+        assert isinstance(it["paths"], list)

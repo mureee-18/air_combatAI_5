@@ -895,6 +895,7 @@ def collect_session(paired: dict | None = None) -> dict:
         "paired": paired,
         "metric_sources": METRIC_SOURCES,
         "policy": collect_hypothesis_policy(),
+        "directions": collect_directions(),
         "evidence": evidence,
         "causes": collect_causes(
             target,
@@ -1168,6 +1169,135 @@ def _known_constraints() -> list[dict]:
             detail = (head + sep + tail).strip() if sep else body
             out.append({"title": title, "detail": detail})
     return out
+
+
+# ── 未試験の軸（閉鎖済み軸の補集合）────────────────────────────────────
+#
+# 仮説が触れてよい「ノブ」の全体から、HYPOTHESIS_POLICY.md の
+# 「検証済みの変数軸（再試験禁止）」表にある変数を引いた残りを事実カードにする。
+# 閉鎖済み軸の条件指標カードは仮説にならないため、生きている材料はここだけになる。
+# 軸を試験したら policy の表へ 1 行足せば、このカードは自動で消える。
+_AGENT_AXES = (
+    "fireRangeKm",
+    "maxSimulShot",
+    "breakRangeKm",
+    "beamRangeKm",
+    "targetMode",
+    "evadeCrankDeg",
+    "marginKm",
+)
+
+_AXIS_META = {
+    "marginKm": {
+        "label": "境界回避マージン",
+        "unit": "km",
+        "digits": 0,
+        "current": 25.0,
+        "propose": 40.0,
+        "text": "陣営境界へ寄る前に回避へ入る距離。増やすと境界への張り付きが減り、"
+                "被弾・全滅（wipe_count）が減る可能性がある。",
+        "judge": "avg_our_alive / avg_score",
+        "hypothesis": "境界回避マージン marginKm を 25 から 40 に増やすと、境界張り付きが"
+                      "減って被弾が減り、avg_our_alive が 2.67 から 3.0 に増え、"
+                      "avg_score が 0.5 から 0.55 になる",
+    },
+}
+
+
+def _tested_axes() -> set:
+    """HYPOTHESIS_POLICY.md の『検証済みの変数軸』表から試験済みの変数名を読む."""
+
+    doc = REPO_ROOT / "tools" / "state_dashboard" / "HYPOTHESIS_POLICY.md"
+    if not doc.exists():
+        return set()
+    text = doc.read_text(encoding="utf-8")
+    marker = "## 検証済みの変数軸（再試験禁止）"
+    if marker not in text:
+        return set()
+    section = text.split(marker, 1)[1].split("\n## ", 1)[0]
+    out = set()
+    for line in section.splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cell = line.split("|")[1].strip().strip("`")
+        if not cell or cell == "変数" or set(cell) <= {"-", ":", " "}:
+            continue
+        out.add(cell)
+    return out
+
+
+def _axis_cards() -> list[dict]:
+    """未試験の軸を事実カードにする（生きている仮説材料）."""
+
+    tested = _tested_axes()
+    args = load_json(REPO_ROOT / "agent" / "args.json") or {}
+    out = []
+    for var in _AGENT_AXES:
+        if var in tested:
+            continue
+        meta = _AXIS_META.get(var)
+        if meta is None:
+            continue
+        cur = meta["current"]
+        if _scalar(args.get(var)) is not None:
+            cur = _scalar(args.get(var))
+        unit = meta["unit"]
+        digits = int(meta["digits"])
+        out.append({
+            "id": f"axis:{var}",
+            "kind": "observation",
+            "source": "code",
+            "title": (
+                f"未試験の軸: {meta['label']} {var} = {cur:g}{unit}（1変数で試せる残り）"
+            ),
+            "summary": (
+                f"{meta['text']} 閉鎖済み軸（policy の表）の補集合として残った"
+                "1 変数のノブ。この軸を試験したら policy の表へ足すとカードが消える。"
+            ),
+            "evidence": [
+                {"label": var, "value": cur, "num": True, "digits": digits},
+                {"label": "提案値", "value": meta["propose"], "num": True, "digits": digits},
+            ],
+            "hypothesis": meta["hypothesis"],
+            "phrase": f"未試験の軸 {meta['label']}({var}) は {cur:g}{unit}（1変数で試せる残り）",
+            "metric": meta["judge"],
+            "from_tab": "コード",
+            "from_path": "agent/args.json, agent/strategy/specialists/default.py",
+            "command": "",
+            "command_label": "",
+        })
+    return out
+
+
+# ── 設計の方向（1変数では表せない材料）────────────────────────────────
+#
+# 数値ノブ（policy の表・未試験の軸）が全滅しても、勝ち筋のような構造変更は
+# まだ材料として残る。これは 1 変数の仮説にそのまま分解できないため、
+# 事実カードとは別枠の「方向カード」として仮説タブに出す。
+# 定義は tools/state_dashboard/directions.json（読み取り専用・手で整理する）。
+def collect_directions() -> dict:
+    """設計の方向（1変数では表せない材料）を directions.json から読む."""
+
+    path = REPO_ROOT / "tools" / "state_dashboard" / "directions.json"
+    data = load_json(path)
+    if not isinstance(data, dict):
+        return {"note": "", "items": []}
+    items = []
+    for it in data.get("items", []):
+        if not isinstance(it, dict) or not it.get("id"):
+            continue
+        items.append({
+            "id": it.get("id"),
+            "title": it.get("title", ""),
+            "summary": it.get("summary", ""),
+            "why": [str(x) for x in (it.get("why") or [])],
+            "steps": [str(x) for x in (it.get("steps") or [])],
+            "records": [str(x) for x in (it.get("records") or [])],
+            "metrics": it.get("metrics", ""),
+            "paths": [str(x) for x in (it.get("paths") or [])],
+        })
+    return {"note": data.get("note", ""), "items": items}
 
 
 def _trajectory_facts(log_rel: str) -> dict | None:
@@ -1901,6 +2031,9 @@ def collect_evidence(target: str) -> list[dict]:
     stats_ok = stats if (stats and "error" not in stats) else None
     cards.extend(_metric_cards(facts, stats_ok, paired, specialist, newest))
     cards.extend(_trigger_cards(facts, stats_ok, paired, specialist))
+    # 3c) 未試験の軸（閉鎖済み軸の補集合）。閉鎖軸カードは仮説にならないため、
+    #     生きている仮説材料をここで必ず 1 枚以上出せるようにする。
+    cards.extend(_axis_cards())
 
     # 4) 前提（assumption）として登録すべき既知の制約
     constraints = _known_constraints()
