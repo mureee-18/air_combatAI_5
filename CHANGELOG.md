@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-10-13
+
+### ベースライン完全復帰・実験コード削除（default specialist）
+
+- 実験コード（護衛対象機識別・hit-and-run・30°ビーム・最遠距離狙い等）を全削除し、純粋なベースライン実装に復帰
+- `agent/args.json`: fireRangeKm=50, breakRangeKm=35, marginKm=25 に復帰（実験パラメータ `beamRangeKm` `escortDetectRangeKm` `escortClearRatio` `hitAndRunFrames` 等を削除）
+- `default.py`: 80°ビーム@45km・最近接優先・最大速度・evadeCrankDeg 削除の純粋ベースライン実装に復帰
+- ペア評価（seeds 1-3 × 両面 = 6戦）: 0勝6分0敗 / avg_score 0.500 / avg_our_alive 3.0 / avg_enemy_alive 3.17 でベースライン確認
+- 全実験変種（fireRange 60/80, beamRange 30/40, hit-and-run, 護衛機切替閾値, 最遠距離狙い等）を試し、0.500 を超える改善はなし
+
+### PR #4 マージ・dashboard 更新
+
+- PR #4 本文修正・ヘッダー SHA 更新（bda530b）し、マージ可能状態に
+- dashboard: 未試験軸カード自動生成・設計の方向カード追加等
+
 ## 2026-10-12
 
 ### 改善サイクル（default specialist、提出物は fr50+break35 のまま）
