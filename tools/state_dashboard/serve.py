@@ -264,6 +264,17 @@ def _trajectory_values(traj: dict) -> dict:
     out["max_advance_x_km"] = _scalar(traj.get("max_advance_x"))
     out["escort_min_dist_km"] = _scalar(traj.get("escort_min_dist"))
     out["ammo_reserve"] = _scalar(traj.get("ammo_reserve"))
+    # 命中関連指標
+    hits = _scalar(traj.get("hits"))
+    misses = _scalar(traj.get("misses"))
+    launch_count = _scalar(traj.get("launch_count"))
+    out["hits"] = hits
+    out["misses"] = misses
+    out["launch_count"] = launch_count
+    out["hit_rate"] = (hits / launch_count) if (hits is not None and launch_count) else None
+    out["hit_count"] = hits
+    out["first_shot_hit"] = float(traj.get("first_shot_hit")) if traj.get("first_shot_hit") is not None else None
+    out["first_shot_distance"] = _scalar(traj.get("first_shot_distance"))
     return out
 
 
@@ -835,6 +846,7 @@ def collect_session(paired: dict | None = None) -> dict:
                     "hypotheses": state.get("hypotheses", []),
                     "cycles": state.get("cycles", []),
                     "records": state.get("records", []),
+                    "deepened_materials": state.get("deepened_materials", []),
                 }
             )
     submitted = (load_json(REPO_ROOT / "agent" / "args.json") or {}).get("specialist")
@@ -881,11 +893,25 @@ def collect_session(paired: dict | None = None) -> dict:
             recorded_materials.append(
                 {"phrase": phrase, "at": rec.get("at"), "record": rec.get("id")}
             )
+    deepened_materials = target_session.get("deepened_materials", [])
+    deepened_by_phrase = {d.get("phrase", ""): d for d in deepened_materials if d.get("phrase")}
+    deepened_by_id = {d.get("card_id", ""): d for d in deepened_materials if d.get("card_id")}
+    for card in evidence:
+        card_id = card.get("id", "")
+        phrase = card.get("phrase", "")
+        match = deepened_by_id.get(card_id) or deepened_by_phrase.get(phrase)
+        if match:
+            card["deepened"] = True
+            findings = match.get("findings", "")
+            if findings:
+                card["deepened_finding"] = findings
+                card["summary"] = findings
     return {
         "sessions": sessions,
         "target": target,
         "submitted": submitted,
         "recorded_materials": recorded_materials,
+        "deepened_materials": deepened_materials,
         "started": started,
         "steps": steps,
         "next": nxt,
@@ -1313,11 +1339,31 @@ def _trajectory_facts(log_rel: str) -> dict | None:
 
     events = payload["events"]
     first_detect = next((i for i, f in enumerate(frames) if f["enemy"]), None)
-    first_launch = next((e["t"] for e in events if e["kind"] == "launch"), None)
+    launches = [e for e in events if e["kind"] == "launch"]
+    first_launch_t = launches[0]["t"] if launches else None
     locks = [e["t"] for e in events if e["kind"] == "lock"]
     first_lock = locks[0] if locks else None
     lost = [e["t"] for e in events if e["kind"] == "lost"]
-    launches = [e for e in events if e["kind"] == "launch"]
+
+    # 最初の発射の命中判定と距離を算出
+    first_shot_hit = None
+    first_shot_distance = None
+    if launches:
+        first_launch = launches[0]
+        first_slot = first_launch.get("slot")
+        first_dist = first_launch.get("dist")
+        # 対応する hit/miss イベントをフレームから探す
+        hit_event = None
+        for f in frames:
+            for e in f.get("events", []):
+                if e.get("kind") in ("hit", "miss") and e.get("slot") == first_slot:
+                    hit_event = e
+                    break
+            if hit_event:
+                break
+        if hit_event:
+            first_shot_hit = (hit_event.get("kind") == "hit")
+        first_shot_distance = first_dist
 
     warn_frames: dict[str, int] = {}
     min_dist: dict[str, float] = {}
@@ -1360,6 +1406,31 @@ def _trajectory_facts(log_rel: str) -> dict | None:
                 escort_min_dist = d if escort_min_dist is None else min(escort_min_dist, d)
 
     used = {e["slot"] for e in launches}
+    
+    # 命中/空振りカウント
+    hits = sum(1 for f in frames for e in f.get("events", []) if e.get("kind") == "hit")
+    misses = sum(1 for f in frames for e in f.get("events", []) if e.get("kind") == "miss")
+    
+    # 最初の発射の命中判定と距離を算出
+    first_shot_hit = None
+    first_shot_distance = None
+    if launches:
+        first_launch = launches[0]
+        first_slot = first_launch.get("slot")
+        first_dist = first_launch.get("dist")
+        # 対応する hit/miss イベントをフレームから探す
+        hit_event = None
+        for f in frames:
+            for e in f.get("events", []):
+                if e.get("kind") in ("hit", "miss") and e.get("slot") == first_slot:
+                    hit_event = e
+                    break
+            if hit_event:
+                break
+        if hit_event:
+            first_shot_hit = (hit_event.get("kind") == "hit")
+        first_shot_distance = first_dist
+    
     gap = _fire_gap_stats(frames)
     # 持続探知の開始: 8 連続フレームで敵がいる最初の位置。
     # 初発の1フレームゴースト（t=3 の1発探知など）を起点にすると空白が
@@ -1376,8 +1447,8 @@ def _trajectory_facts(log_rel: str) -> dict | None:
             run = 0
     lag = None
     base = first_persistent if first_persistent is not None else first_detect
-    if base is not None and first_launch is not None:
-        lag = first_launch - base
+    if base is not None and first_launch_t is not None:
+        lag = first_launch_t - base
     # 探知 duty 率: 敵を探知していたフレームの割合。UUID 追跡など履歴系の
     # 識別（O-054）の可否条件。低いと運動学的識別は不可。
     detect_duty = None
@@ -1386,8 +1457,8 @@ def _trajectory_facts(log_rel: str) -> dict | None:
     # 初発前の被弾警報フレーム数: lag の内訳（接近時間か脅威ゲート抑制か）の切り分け用。
     # 脅威下では射撃指示が出ない（threat gate）ため、警報が多い空白は抑制が主因。
     pre_launch_suppressed = 0
-    if first_launch is not None:
-        for f in frames[:first_launch]:
+    if first_launch_t is not None:
+        for f in frames[:first_launch_t]:
             if f.get("threat"):
                 pre_launch_suppressed += 1
     return {
@@ -1397,11 +1468,10 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "first_detect": first_detect,
         "first_persistent": first_persistent,
         "first_lock": first_lock,
-        "first_launch": first_launch,
+        "first_launch": first_launch_t,
         "lag": lag,
         "pre_launch_suppressed": pre_launch_suppressed,
         "detect_duty": detect_duty,
-        "launch_count": len(launches),
         "launched_slots": sorted(used),
         "ammo_start": ammo_start,
         "ammo_end": ammo_end,
@@ -1431,6 +1501,12 @@ def _trajectory_facts(log_rel: str) -> dict | None:
             "by_slot": gap["by_slot"],
         },
         "result": payload.get("result") or {},
+        # 命中関連指標
+        "hits": hits,
+        "misses": misses,
+        "launch_count": len(launches),
+        "first_shot_hit": float(first_shot_hit) if first_shot_hit is not None else None,
+        "first_shot_distance": first_shot_distance,
     }
 
 

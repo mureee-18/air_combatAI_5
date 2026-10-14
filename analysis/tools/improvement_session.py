@@ -370,6 +370,30 @@ def cmd_link(args) -> None:
     print(f"{rec['id']} に材料 {added} 件を紐付け（計 {len(rec['materials'])} 件）")
 
 
+def cmd_deepen(args) -> None:
+    state = load_state(args.specialist)
+    if not state:
+        raise SystemExit(f"セッション未開始: {args.specialist}")
+    card_id = (getattr(args, "card_id", "") or "").strip()
+    phrase = normalize_text(args.phrase) if args.phrase else ""
+    if not card_id and not phrase:
+        raise SystemExit("phrase か --card-id のどちらかを指定すること")
+    findings = normalize_text(args.findings)
+    entry = {
+        "findings": findings,
+        "at": datetime.now().isoformat(timespec="seconds"),
+    }
+    if card_id:
+        entry["card_id"] = card_id
+    if phrase:
+        entry["phrase"] = phrase
+    state.setdefault("deepened_materials", []).append(entry)
+    save_state(args.specialist, state)
+    label = card_id or phrase[:60]
+    print(f"深掘りを記録: {label}")
+    print(f"  発見: {findings[:80]}")
+
+
 def cmd_todo(args) -> None:
     state = load_state(args.specialist)
     if not state:
@@ -513,6 +537,13 @@ def main() -> None:
     p.add_argument("--record", default="",
                    help="紐付ける記録 id（例: O-059）。省略時は最新")
     p.set_defaults(func=cmd_link)
+
+    p = sub.add_parser("deepen")
+    p.add_argument("phrase", nargs="?", default="", help="深掘り対象の事実カードの phrase（--card-id とどちらか必須）")
+    p.add_argument("findings", help="深掘りで分かったこと（例: trajectory で射撃距離 40-50km の命中率が低い）")
+    p.add_argument("--card-id", default="", help="事実カードの安定 ID（例: metric:hit_rate）。phrase より優先")
+    p.add_argument("--specialist", required=True)
+    p.set_defaults(func=cmd_deepen)
 
     p = sub.add_parser("todo")
     p.add_argument("--specialist", required=True)

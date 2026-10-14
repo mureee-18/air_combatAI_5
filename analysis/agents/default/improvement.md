@@ -892,3 +892,22 @@
 - 検証: ペア評価 seeds4,5,6×両面=6戦: marginKm=40 も =25 も 0勝5分1敗, avg_score 0.456, avg_our_alive 1.67, avg_enemy_alive 3.5。全6戦（Blue seed6 の ELIMINATION 含む）で score/生存/endReason まで完全一致。seeds1-3 と合わせ 12戦すべて同一。marginKm は採点・生存を動かさない
 - 指標: {"avg_score": 0.5, "avg_our_alive": 2.67, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 1変数の数値ノブは全滅。勝ち筋（護衛対象機撃墜）の構造変更のみが残る（O-084/085）
+
+## O-093 [observation/log] 2026-10-13T21:41:44
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 最短交戦距離 0.1km 改善のため beamRangeKm を 35km に拡大
+- 仮説: N-117
+- 変更: agent/args.json beamRangeKm 45→35
+- 検証: 1ゲーム検証で全滅（0 vs 3, score 0.235）。早期ビームがセンサロスト早発・交戦不能を招き大幅悪化。予測 our 3.5 / score 0.520 は外れ
+- 指標: {"avg_score": 0.5, "avg_our_alive": 4.0, "avg_enemy_alive": 5.0, "games": 1}
+- 次の一手: beamRangeKm=45 に戻し基線維持
+
+## O-094 [observation/log] 2026-10-14T22:30:35
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: fireRangeKm=40 では hit_rate が 0.0 に悪化（予測 0.35 以上と逆）。射撃開始が近すぎると命中しない。
+- 変更: agent/args.json の fireRangeKm を 50→40→50 に戻した（現状 baseline 復帰）
+- 検証: 1戦: draw / score=0.500 / alive our=5 enemy=3 / hit_rate=0.0
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: N-118 棄却。fireRangeKm は 50 が最良。別軸（hit_rate 向け）を検討
