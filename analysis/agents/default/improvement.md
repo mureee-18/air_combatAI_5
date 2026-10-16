@@ -911,3 +911,75 @@
 - 検証: 1戦: draw / score=0.500 / alive our=5 enemy=3 / hit_rate=0.0
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
 - 次の一手: N-118 棄却。fireRangeKm は 50 が最良。別軸（hit_rate 向け）を検討
+
+## O-095 [observation/log] 2026-10-15T10:19:33
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: trackConfirmFrames=3 で命中0→1発に改善、hit_rate 0.045。avg_score は 0.500 のまま
+- 変更: default.py に trackConfirmFrames 追加（同一ターゲット連続追跡Nフレームで射撃）、args.json trackConfirmFrames=3
+- 検証: 1戦: hits 1 / launches 22 / hit_rate 0.045（従来 0/24）。ペア評価 6戦: avg_score 0.500 変化なし
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: trackConfirmFrames の値調整（5等）か、命中率が低い別の原因（射撃角度・相対速度）を深掘り
+
+## O-096 [observation/log] 2026-10-15T10:23:16
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: trackConfirmFrames スイープ: 3=22発1命中/0.045、4=3発0命中、5=7発0命中。3が最良だが効果は小さい
+- 変更: args.json trackConfirmFrames を 3→4→5→3 と変更して1戦ずつ比較
+- 検証: 各1戦: f3=hits1/launch22, f4=hits0/launch3, f5=hits0/launch7。基線(f0)=hits0/launch24
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: trackConfirmFrames 単独では hit_rate 0.35 に届かない。射撃角度・相対速度など別の深掘りが必要
+
+## O-097 [observation/code] 2026-10-15T22:12:32
+- 種別: observation（実測に基づく事実）
+- 出所: code（自作コードの読み取り）
+- 方向性: trackConfirmFrames の判定を index 連続から位置連続（trackPosToleranceKm=10km）に変更
+- 変更: default.py: ターゲット位置を own x,y + dist·cos/sin で算出し、直前フレームから10km以内なら trackCount 増加
+- 検証: 1戦: launches 24 / hits 1 / hit_rate 0.042（indexベース 22/1/0.045 と同水準）。ペア評価6戦 avg_score 0.500 変化なし
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: 位置ベース・indexベースいずれも hit_rate 0.35 に届かず。射撃距離帯（43-50km）自体の命中率が低い可能性を検証
+
+## O-098 [observation/log] 2026-10-15T22:59:05
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛対象機はセンサで識別不能（escort flag 常に0）、距離187-215kmで射程外。ELIMINATION 勝利なしでは score は 0.500 が上限
+- 変更: 護衛対象機優先ターゲット選択を実装したが escort flag が常に0のため無効、元に戻した
+- 検証: 観測ログ: escort flag 全フレームで0.0。遠方敵(>100km)は t=34 で 214km、最小でも 187km。ELIMINATION なし = 全戦 TIMEUP draw = score 0.500
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: ELIMINATION なしで 0.500 を超える手段があるか、または深い進出による護衛対象機攻撃の可行性を検討
+
+## O-099 [observation/log] 2026-10-16T18:47:47
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escortSeekDistKm=150 は score を 0.500→0.315 に悪化（敗戦4/6）。escort分岐が射撃とビーム回避を止めてしまうため
+- 変更: escortSeekDistKm=150（遠方目標優先接近）を args.json/default.py に追加
+- 検証: ペア評価 seeds1-3×両面: win0/draw2/loss4, avg_score 0.315, our_alive 0.33。オフライン再現で escort中113フレーム・射撃指令0を確認
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: escort分岐を『安全時のみ旋回優先・射撃/回避は通常どおり』に修正して再検証、または撤回
+
+## O-100 [observation/log] 2026-10-16T19:11:10
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 専任追跡機(escortChaserCount=1)でも ELIMINATION は0、avg_score 0.474（PENALTY敗戦1）。最接近は100kmまで改善したが射程50kmには届かず
+- 変更: escortChaserCount=1: offset<1 の1機が追跡機（脅威時のみ旋回差し替え・marginFront/Back無効化・射撃は通常）
+- 検証: ペア評価: win0/draw5/loss1(PENALTY), score 0.474, our_alive 2.83。1戦検証で slot2 の far 最接近 100.2km（従来138km）。y=±150 越境で PENALTY 確認（marginFront 無効化が原因）
+- 指標: {"avg_score": 0.474, "avg_our_alive": 2.83, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: 追跡機のミサイル温存（戦闘機に撃たず護衛対象機のみ狙う）と margin 復活（PENALTY回避）を検証。ただし3回連続不成立のため方向転換も要検討
+
+## O-101 [observation/log] 2026-10-16T19:30:59
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 追跡機のミサイル温存(escortChaserHoldFire=1)＋margin復活でも ELIMINATION 0、avg_score 0.500（PENALTY消滅は確認）
+- 変更: 温存: chaserは escort候補が fireRangeKm 内のみ射撃・escortSeekDistKm 150→60（射程内まで候補維持）・margin 全機復活・agentFullName は ':' 分割先頭を使用（フレームワークは agent:model:policy 形式のため chaser 認定が外れていたバグを修正）
+- 検証: ペア評価: win0/draw6/loss0, score 0.500, our_alive 2.5。1戦検証で chaser(slot2)が0発で温存を確認。ただし chaser が撃たないため 3対4 で戦力崩壊しour_alive は v2 の3.67から低下
+- 指標: {"avg_score": 0.5, "avg_our_alive": 2.5, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: ELIMINATION 4回尝试で全て不成立。接近距離の限界(センサ断続・Eが100km外)が構造要因。chaser温存は生存悪化のみで利益なし → 撤回検討
+
+## O-102 [observation/log] 2026-10-16T19:38:23
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: ELIMINATION 4試行は不成立と結論。ユーザー判断で v2（安全時のみescort旋回・全機射撃維持）に復帰
+- 変更: chaser/温存コードを削除、escortSeekDistKm=150 に復元、margin 通常どおり
+- 検証: ペア評価 seeds1-3×両面: win0/draw6/loss0, score 0.500, our_alive 3.67 — 旧v2(escortseek_safe)と完全一致。ruff clean
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.67, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: 提出は v2 状態。コミットはユーザー承認後に実施

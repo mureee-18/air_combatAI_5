@@ -4,5 +4,8 @@
     "fireRangeKm": 50.0,
     "breakRangeKm": 35.0,
     "evadeCrankDeg": 0.0,
-    "marginKm": 25.0
+    "marginKm": 25.0,
+    "trackConfirmFrames": 0,
+    "targetSpread": 0,
+    "escortSeekDistKm": 150
 }
