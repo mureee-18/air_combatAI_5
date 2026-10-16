@@ -983,3 +983,12 @@
 - 検証: ペア評価 seeds1-3×両面: win0/draw6/loss0, score 0.500, our_alive 3.67 — 旧v2(escortseek_safe)と完全一致。ruff clean
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.67, "avg_enemy_alive": 3.5, "games": 6}
 - 次の一手: 提出は v2 状態。コミットはユーザー承認後に実施
+
+## O-103 [observation/analysis] 2026-10-16T20:04:15
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: breakRangeKm 軸を sweep して未検証仮説 N-054〜N-098（最短交戦距離25km以下）を検証・棄却
+- 変更: breakRangeKm 35→25/20/45 を個別に検証し、いずれも採用せず35に復元
+- 検証: brk25: 0.500/3.83/3.83, brk20: 0.500/3.83/3.5, brk45: 0.456/2.0/3.83(明確悪化), 現行35: 0.500/3.67/3.5。45は棄却、25/20はscore据え置きで生存微改善のみ
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.67, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: 残る未検証軸なし。N-119(fireRange低下)はN-118/124で、N-121/122(track)はN-120/125で、N-126〜129(escort)はv1-v4で検証済み。全て棄却または採用せず
