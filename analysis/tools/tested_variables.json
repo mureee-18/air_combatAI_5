@@ -1,0 +1,176 @@
+{
+  "version": 1,
+  "note": "試験済みの変数の登録簿。仮説登録（hypothesis --variable）はここに載っている変数を拒否する。再試験する場合は --retest と理由が必要。値の列は試験値、refs は根拠（N-xxx / 結果ファイル名）。",
+  "variables": {
+    "fireRangeKm": {
+      "values": "25/30/35/38/40/50/60/70/90/120",
+      "result": "38・40 は敗戦増、30・50 は据置。50 を維持",
+      "refs": [
+        "N-017",
+        "N-022",
+        "N-118",
+        "N-124",
+        "def_fr*.json"
+      ]
+    },
+    "maxSimulShot": {
+      "values": "2/4/8",
+      "result": "2 は火力低下、8 は無効。4 を維持",
+      "refs": [
+        "N-021",
+        "N-028"
+      ]
+    },
+    "breakRangeKm": {
+      "values": "0/20/25/35/45",
+      "result": "0 は効果なし、45 は悪化。35 を維持",
+      "refs": [
+        "N-018",
+        "N-031",
+        "N-130",
+        "brk20.json",
+        "brk25.json",
+        "brk45.json"
+      ]
+    },
+    "beamRangeKm": {
+      "values": "0/30/35/40/45/50/55/60",
+      "result": "0 は全滅、55 は敗戦。45 を維持",
+      "refs": [
+        "N-024",
+        "N-032",
+        "beam*.json"
+      ]
+    },
+    "targetMode": {
+      "values": "nearest/farthest",
+      "result": "farthest は全滅。nearest を維持",
+      "refs": [
+        "N-026"
+      ]
+    },
+    "evadeCrankDeg": {
+      "values": "0/15/25",
+      "result": "15 で生存改善、25 は低下。15 を採用",
+      "refs": [
+        "N-038",
+        "N-039"
+      ]
+    },
+    "marginKm": {
+      "values": "25/35/40/45/60",
+      "result": "40 で挙動不変。25 を維持",
+      "refs": [
+        "N-052",
+        "O-091",
+        "O-092"
+      ]
+    },
+    "trackConfirmFrames": {
+      "values": "0/3/4/5（index 連続・位置連続 tol10）",
+      "result": "hit 最大 0.042（24 発 1 命中）。avg_score 0.500 据置",
+      "refs": [
+        "N-120",
+        "N-123",
+        "N-124",
+        "N-125"
+      ]
+    },
+    "trackPosToleranceKm": {
+      "values": "5/10",
+      "result": "5 も 10 も挙動不変（avg_score 0.500）。位置継続では命中改善なし",
+      "refs": [
+        "N-120",
+        "N-135"
+      ]
+    },
+    "launchIntervalFrames": {
+      "values": "0/30",
+      "result": "30 は一斉射撃を分割（gap=30 出現）するが hit_count 変化なし。avg_score 0.500 据置。0 を維持",
+      "refs": [
+        "N-133",
+        "N-134",
+        "N-137",
+        "li30.json",
+        "li30b.json"
+      ]
+    },
+    "targetSpread": {
+      "values": "0/4",
+      "result": "4 は生存 2.0・敗戦 2（棄却）",
+      "refs": [
+        "N-131"
+      ]
+    },
+    "escortSeekDistKm": {
+      "values": "60/100/150",
+      "result": "150 の純粋追跡は 0.315、安全時のみは 0.500（採用）",
+      "refs": [
+        "N-126",
+        "N-127",
+        "def_escort100.json"
+      ]
+    },
+    "escortChaserCount": {
+      "values": "1",
+      "result": "専任追跡機は 0.474（PENALTY 敗戦 1）",
+      "refs": [
+        "N-128"
+      ]
+    },
+    "escortChaserHoldFire": {
+      "values": "1",
+      "result": "温存は 0.500 だが生存 2.5（悪化）",
+      "refs": [
+        "N-129"
+      ]
+    },
+    "fireAspectDeg": {
+      "values": "30",
+      "result": "hit_rate 0.0 のまま。enemy_alive 悪化（棄却）",
+      "refs": [
+        "N-132"
+      ]
+    },
+    "escortForwardXKm": {
+      "values": "0/110",
+      "result": "110 は護衛候補選択が検知の81%・最小接近40.6km だが avg_score 0.500 据置（hit_rate 0）。0 を維持",
+      "refs": [
+        "N-138",
+        "ffx110.json"
+      ]
+    },
+    "escortFireMode": {
+      "values": "0/1",
+      "result": "1 は護衛候補への発射が射程内フレームの77%で成立するが avg_score 0.500 据置（hit_rate 0）。0 を維持",
+      "refs": [
+        "N-139",
+        "efm1.json"
+      ]
+    },
+    "beamHoldWhileArmed": {
+      "values": "0/1",
+      "result": "1 は命中率 0→0.184 だが beam 喪失で全滅（avg_score 0.278・our_alive 0.33）。0 を維持",
+      "refs": [
+        "N-140",
+        "bha1.json"
+      ]
+    },
+    "beamHoldFrames": {
+      "values": "0/10",
+      "result": "10 は命中 0→0.076 だが生存・敵生存数が悪化（avg_score 0.41・our_alive 2.0・enemy 4.0）。0 を維持",
+      "refs": [
+        "N-141",
+        "bhf10.json"
+      ]
+    },
+    "fireAlignDeg": {
+      "values": "0/30",
+      "result": "30 は命中 0→0.12 だが生存・敵生存数が悪化（avg_score 0.364・our_alive 1.33・enemy 4.0）。0 を維持",
+      "refs": [
+        "N-142",
+        "fad30.json"
+      ]
+    }
+  }
+}

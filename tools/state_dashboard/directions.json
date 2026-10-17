@@ -24,6 +24,48 @@
         "analysis/agents/default/improvement.md",
         "agent/strategy/specialists/default.py"
       ]
+    },
+    {
+      "id": "struct-firing-track",
+      "title": "射撃開始を距離ではなく追跡の安定度で決める",
+      "summary": "初発距離 47.1km（目標 30km）の原因は fireRangeKm=50 による距離判定。だが fireRangeKm は 30/38/40/50 すべて試験済みで、距離だけを動かすと命中・生存が悪化する（N-017/N-022/N-118/N-124）。距離ではなく『同じ目標を連続 N フレーム追跡できた時だけ発射』に置き換える構造変更が残る。",
+      "why": [
+        "fireRangeKm を 30〜50 で動かしても avg_score は 0.500 据置、40 以下は敗戦増（N-017/N-022/N-118/N-124）",
+        "trackConfirmFrames による連続追跡は 0.500 で据置。ただし目標の入れ替わりが多く、接近速度 85000km/h 超の不安定トラックに発射している（N-120/N-125）",
+        "初弾は実在しない目標に発射された可能性が高い（初弾命中 0 回、事実カード first_shot_hit）"
+      ],
+      "steps": [
+        "発射条件を『同一目標の連続追跡 N フレーム』に限定する（距離条件は据置、既存の trackConfirmFrames とは別の判定として実装）",
+        "1 変数として N のみを振る（N = 3 / 5）",
+        "判定は初発距離・初弾命中・avg_score・avg_our_alive の4指標。初弾命中が 0 のまま変わらなければ棄却"
+      ],
+      "records": ["N-120", "N-125", "N-118", "N-124"],
+      "metrics": "first_shot_distance / first_shot_hit / avg_score / avg_our_alive",
+      "paths": [
+        "agent/strategy/specialists/default.py",
+        "analysis/agents/default/improvement.md"
+      ]
+    },
+    {
+      "id": "struct-spread-with-cover",
+      "title": "同一目標への集中を保ったまま、回避を分担する",
+      "summary": "targetSpread で射撃先を分散すると、味方生存が 3.67→2.00 に落ちて敗戦 2 件が出た（N-131）。集中射撃そのものは命中 0 の原因だが、分散はその代償が大きい。集中を保ちつつ、機体ごとに回避（beam/break）の役割を分ける構造が残る。",
+      "why": [
+        "targetSpread=4 は発射先の row を 4 つに分散したが、avg_score 0.413・敗戦 2（N-131）",
+        "全機が同じ row1 に集中する現状は、命中 0（hit_count 0）の一因として観測されている",
+        "回避の役割分担は、既存の境界回避（marginKm）・beam/break の切替と干渉する"
+      ],
+      "steps": [
+        "役割（攻撃機 1 / 回避機 3 など）を機体名の offset で決める。役割の定義を 1 変数（攻撃機の数）として振る",
+        "攻撃機のみ発射、回避機は発射せず beam/break を優先する",
+        "判定は avg_our_alive と avg_score。avg_our_alive が 3.67 を割れば棄却"
+      ],
+      "records": ["N-131"],
+      "metrics": "avg_our_alive / avg_score / hit_count",
+      "paths": [
+        "agent/strategy/specialists/default.py",
+        "agent/args.json"
+      ]
     }
   ]
 }

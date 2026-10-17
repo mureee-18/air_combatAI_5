@@ -893,6 +893,22 @@ def collect_session(paired: dict | None = None) -> dict:
             recorded_materials.append(
                 {"phrase": phrase, "at": rec.get("at"), "record": rec.get("id")}
             )
+    fill_cards = (load_json(Path(__file__).with_name("card_fill.json")) or {}).get("cards", {})
+    for card in evidence:
+        fill = fill_cards.get(card.get("id", ""))
+        if fill:
+            card["cause"] = fill.get("cause", "")
+            card["variable"] = fill.get("variable", "")
+            card["variable_name"] = fill.get("variable_name", "")
+            card["variable_status"] = fill.get("variable_status", "none")
+            card["judge"] = fill.get("judge", "")
+            card["prediction"] = fill.get("prediction", "")
+            card["reason"] = fill.get("reason", "")
+            card["direction_id"] = fill.get("direction_id", "")
+            # 対象外・閉鎖の軸は『見送り』に分類させる（index.html の PARKED_PATTERNS で判定）
+            marker = {"none": "（変数はない）", "closed": "（閉鎖済みの軸）"}.get(card["variable_status"], "")
+            if marker and marker not in (card.get("hypothesis") or ""):
+                card["hypothesis"] = ((card.get("hypothesis") or "") + marker).strip()
     deepened_materials = target_session.get("deepened_materials", [])
     deepened_by_phrase = {d.get("phrase", ""): d for d in deepened_materials if d.get("phrase")}
     deepened_by_id = {d.get("card_id", ""): d for d in deepened_materials if d.get("card_id")}
@@ -917,6 +933,7 @@ def collect_session(paired: dict | None = None) -> dict:
         "next": nxt,
         "hypotheses": target_session.get("hypotheses", []),
         "cycles": target_session.get("cycles", []),
+        "pending": _pending_hypothesis_ids(target_session),
         "open_work": _open_work(target, target_session),
         "paired": paired,
         "metric_sources": METRIC_SOURCES,
@@ -932,17 +949,44 @@ def collect_session(paired: dict | None = None) -> dict:
     }
 
 
-def _open_work(target: str, target_session: dict) -> dict:
-    """未着手の宿題（未検証の仮説＋記録の次の一手）。事実カードが枯れても次が見える."""
-    validated = {
+def _validated_hypothesis_ids(target_session: dict) -> set:
+    """処理済みの仮説 id（validate サイクルまたは record で紐付いたもの）。
+
+    「未検証の仮説」を判定する唯一の正。ダッシュボードの検証タブと宿題欄は
+    どちらもこの関数を通す（ロジックの二重管理を避ける）。
+    """
+    ids = {
         c.get("hypothesis")
         for c in target_session.get("cycles", [])
         if c.get("kind") == "validate" and c.get("hypothesis")
     }
+    # record で紐付いた仮説も処理済み（重複や既存結果への参照として記録されたもの）
+    ids |= {
+        r.get("hypothesis")
+        for r in target_session.get("records", [])
+        if r.get("hypothesis")
+    }
+    return ids
+
+
+def _pending_hypothesis_ids(target_session: dict) -> list:
+    """まだ検証が必要な仮説 id（登録順）。"""
+    validated = _validated_hypothesis_ids(target_session)
+    return [
+        h.get("id")
+        for h in target_session.get("hypotheses", [])
+        if h.get("id") not in validated
+    ]
+
+
+def _open_work(target: str, target_session: dict) -> dict:
+    """未着手の宿題（未検証の仮説＋記録の次の一手）。事実カードが枯れても次が見える."""
+    pending = _pending_hypothesis_ids(target_session)
+    pending_set = set(pending)
     unverified = [
         {"id": h.get("id"), "text": (h.get("text") or "")[:80]}
         for h in target_session.get("hypotheses", [])
-        if h.get("id") not in validated
+        if h.get("id") in pending_set
     ][-8:]
     md = REPO_ROOT / "analysis" / "agents" / target / "improvement.md"
     nexts: list[dict] = []

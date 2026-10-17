@@ -668,16 +668,31 @@ function renderFact(card, extraCls) {
     const deepenCmd = `この事実カード「${card.title}」は深掘り未了。まず trajectory / battle_stats で射撃・接近・回避の分布を分析し、python analysis/tools/improvement_session.py deepen "" "<分析で分かったこと>" --card-id "${card.id}" --specialist ${state.data?.session?.target || "default"} で深掘りを記録する。`;
     h += `<button class="copy deepen" data-cmd="${attr(deepenCmd)}">深掘りする</button>`;
   }
-  // 仮説登録ボタン: 深掘り未了なら深掘りを先に促す
+  // 事実カードの仮説用フィールド（card_fill.json 由来）を表示する。未記入の枠は出さない
+  if (card.cause) {
+    const st = card.variable_status || "none";
+    const stLabel = {open: "未試験の数値ノブ", direction: "方向カード（構造変更）", closed: "検証済みの軸（再試験禁止）", none: "仮説対象外"}[st] || st;
+    h += `<div class="hyp-box"><div class="k">原因・変数（${esc(stLabel)}）</div>` +
+         `<div class="clamp2">原因: ${esc(card.cause)}</div>` +
+         (card.variable ? `<div class="clamp2">変数: ${esc(card.variable)}</div>` : "") +
+         (card.reason ? `<div class="clamp2">理由: ${esc(card.reason)}</div>` : "") +
+         `</div>`;
+  }
+  // 仮説登録ボタン: 深掘り未了なら深掘りを先に促す。雛形（<原因> 等）は出さず、カードの値だけで組む
   if (card.phrase) {
     const target = state.data?.session?.target || "default";
-    let hypothesisCmd;
+    const fillable = (card.variable_status === "open" || card.variable_status === "direction") && card.prediction;
+    let hypothesisCmd = null;
     if (needDeepen) {
       hypothesisCmd = `この事実カード「${card.title}」は深掘り未了。まず trajectory / battle_stats で射撃・接近・回避の分布を分析し、python analysis/tools/improvement_session.py deepen "" "<分析で分かったこと>" --card-id "${card.id}" --specialist ${target} で深掘りを記録してから、仮説を立てる。`;
-    } else {
-      hypothesisCmd = `python analysis/tools/improvement_session.py hypothesis "${card.phrase} の結果、<原因> ため、<変数> とすると、<挙動指標> になり、<判定指標> と予測する。" --specialist ${target} --source ${card.source || "log"}`;
+    } else if (fillable) {
+      const text = `${card.phrase} の結果、原因: ${card.cause}。変数: ${card.variable}。判定指標: ${card.judge}。予測: ${card.prediction}`;
+      const vname = card.variable_name || "<変数名>";
+      hypothesisCmd = `python analysis/tools/improvement_session.py hypothesis "${text}" --specialist ${target} --variable ${vname} --source ${card.source || "log"}`;
     }
-    h += `<button class="copy hypothesis" data-cmd="${attr(hypothesisCmd)}">仮説登録</button>`;
+    if (hypothesisCmd) {
+      h += `<button class="copy hypothesis" data-cmd="${attr(hypothesisCmd)}">仮説登録</button>`;
+    }
   }
   if (card.metric) h += `<div class="metric">判定指標: <b>${esc(card.metric)}</b></div>`;
   h += cmdRow(card.command, card.command_label, INTENT_FACT);
@@ -736,6 +751,9 @@ function renderHypothesisBuilder(s, d) {
        '<input data-hy="cause-text" placeholder="選択すると入る。1変数だけ書く"></div>';
   h += '<div class="hy-row"><label>変数</label>' +
        '<input data-hy="change" placeholder="1変数だけ書く（例: maxSimulShot の上限を 4 → 6）"></div>';
+  h += '<div class="hy-row"><label>変数名</label>' +
+       '<input data-hy="variable" placeholder="コード上の名前（例: maxSimulShot）。重複防止に使う">' +
+       '<span class="meta">事実カードを選ぶと自動で入る</span></div>';
   h += '<div class="hy-row"><label>挙動指標</label><select data-hy="metric">' +
        opt("", "（選ぶ）") +
        cm.map(m => opt(m.id, `${m.label}（${m.value === null ? "値なし" : m.value} → ${m.target === null ? "目標なし" : m.target}）`)).join("") +
@@ -815,8 +833,10 @@ function bindHypothesisBuilder(root, s, d) {
     const text = parts.join("、").replace(/、、/g, "、");
     const out = box.querySelector("#hypho-text");
     if (out) out.textContent = text;
+    const vname = (q("variable").value || "").trim() || "<変数名>";
     const line = INTENT_HYPOTHESIS +
       base + text + '" --specialist ' + (s.target || "default") +
+      " --variable " + vname +
       " --source " + q("source").value;
     box.querySelectorAll("button[data-cmd]").forEach(b => { b.dataset.cmd = line; });
   }
@@ -824,7 +844,10 @@ function bindHypothesisBuilder(root, s, d) {
   if (factEl) factEl.addEventListener("change", () => {
     const card = facts.find(c => c.id === factEl.value);
     q("fact-text").value = card ? card.phrase : "";
-    if (card) q("source").value = card.source || "log";
+    if (card) {
+      q("source").value = card.source || "log";
+      if (q("variable") && card.variable_name) q("variable").value = card.variable_name;
+    }
     rebuild();
   });
   const causeEl = q("cause");
@@ -838,7 +861,7 @@ function bindHypothesisBuilder(root, s, d) {
     const el = q(name);
     if (el) el.addEventListener("change", rebuild);
   });
-  ["fact-text", "cause-text", "change", "metric-text", "judge-text"].forEach(name => {
+  ["fact-text", "cause-text", "change", "variable", "metric-text", "judge-text"].forEach(name => {
     const el = q(name);
     if (el) el.addEventListener("input", rebuild);
   });
@@ -986,12 +1009,11 @@ function withHypothesis(cmd, id) {
 function renderVerify(d) {
   const s = d.session || {};
   const hyps = s.hypotheses || [];
-  const cycles = s.cycles || [];
   const steps = s.steps || [];
   const val = steps.find(x => x.key === "validate") || {};
-  const verified = new Set(cycles.filter(c => c.kind === "validate" && c.hypothesis)
-                                 .map(c => c.hypothesis));
-  const pend = hyps.filter(h => !verified.has(h.id));
+  // 未検証かどうかは serve.py の pending（validate/record 紐付けを除外）を唯一の正とする
+  const pendIds = new Set(s.pending || []);
+  const pend = hyps.filter(h => pendIds.has(h.id));
   if (!hyps.length) {
     document.getElementById("verify").innerHTML =
       '<div class="empty">検証する仮説がありません。<br>' +

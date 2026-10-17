@@ -177,6 +177,23 @@ def test_session_has_open_work():
     assert isinstance(session["open_work"].get("next_steps"), list)
 
 
+def test_pending_excludes_validated_and_recorded():
+    """検証タブの pending は validate か record で紐付いた仮説を除外する（唯一の正）."""
+    state = {
+        "hypotheses": [{"id": "N-1"}, {"id": "N-2"}, {"id": "N-3"}],
+        "cycles": [{"kind": "validate", "hypothesis": "N-1"}],
+        "records": [{"hypothesis": "N-2"}],
+    }
+    assert serve._pending_hypothesis_ids(state) == ["N-3"]
+
+
+def test_pending_key_in_session_payload():
+    session = serve.collect_session()
+    assert isinstance(session.get("pending"), list)
+    ids = {h["id"] for h in session["hypotheses"]}
+    assert set(session["pending"]) <= ids
+
+
 def test_collect_git_shape():
     git = serve.collect_git()
     assert set(git.keys()) == {"branch", "head", "remote", "upstream", "ahead_behind", "dirty", "recent", "review"}
@@ -327,8 +344,10 @@ def test_index_has_verify_tab_with_hypothesis_selector():
     # 検証タブにはカード（対象 specialist / 検証する仮説 / 現在地）を出さない
     assert "cards(" not in block
     assert "現在地" not in block
-    # 検証済みの仮説はセレクタから除外し、未検証の仮説だけ表示する
-    assert "hyps.filter(h => !verified.has(h.id))" in block
+    # 未検証かの判定は serve.py の pending（唯一の正）を使い、フロントで再計算しない
+    assert "new Set(s.pending" in block
+    assert "hyps.filter(h => pendIds.has(h.id))" in block
+    assert "verified" not in block
     assert "検証済み" in block  # 全件検証済みのときのメッセージ
     assert 'bindCopy(document.getElementById("verify"))' in block
     # 仮説が無いときはコマンドを描画しない（早期 return 後に1コマンドを描く）
@@ -407,7 +426,7 @@ def test_fact_cards_have_phrase_for_the_hypothesis_builder():
 
 def test_hypothesis_builder_has_inputs_and_one_copy_button():
     html = INDEX_PATH.read_text(encoding="utf-8")
-    for key in ("fact", "cause", "change", "metric", "judge", "source"):
+    for key in ("fact", "cause", "change", "variable", "metric", "judge", "source"):
         assert f'data-hy="{key}"' in html
     assert 'id="hypho-text"' in html
     assert 'id="hypho-copy"' in html
@@ -454,8 +473,8 @@ eval(js);
 
 const s = payload.session, d = payload;
 const hy = {};
-["fact","cause","change","metric","judge","source",
- "fact-text","cause-text","metric-text","judge-text"].forEach(n => { hy[n] = stubEl(); });
+["fact","cause","change","variable","metric","judge","source",
+ "fact-text","cause-text","variable-text","metric-text","judge-text"].forEach(n => { hy[n] = stubEl(); });
 const out = stubEl(), btn = stubEl();
 const box = {
   querySelector(sel) {
@@ -477,6 +496,7 @@ hy.fact.value = "constraints";
 hy.metric.value = "launch_count";
 hy.judge.value = "paired:" + def.name;
 hy.change.value = "maxSimulShot の上限を 4 から 6 に上げる";
+hy.variable.value = "maxSimulShot";
 bindHypothesisBuilder(root, s, d);
 hy.fact.fire("change");
 hy.metric.fire("change");
@@ -526,6 +546,7 @@ def test_hypothesis_builder_generates_command_in_browser_logic(tmp_path):
     assert cmd.startswith("# 仮説登録 — この行をAIに貼って登録依頼\n"
                           'python analysis/tools/improvement_session.py hypothesis "')
     assert f"--specialist {serve.collect_session()['target']}" in cmd
+    assert "--variable maxSimulShot" in cmd
     assert re.search(r"--source (log|analysis|code|official)$", cmd)
 
 

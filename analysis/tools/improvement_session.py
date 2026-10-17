@@ -249,14 +249,87 @@ def cmd_assumption(args) -> None:
     print(f"前提を記録: {text}")
 
 
+TESTED_VARIABLES_PATH = Path(__file__).with_name("tested_variables.json")
+
+
+def load_tested_variables() -> dict:
+    return json.loads(TESTED_VARIABLES_PATH.read_text(encoding="utf-8"))
+
+
+def add_tested_variable(variable: str, values: str, result: str, refs: list[str]) -> None:
+    """試験済みの変数を登録簿へ追加・更新する（記録漏れ防止）."""
+    data = load_tested_variables()
+    variables = data.setdefault("variables", {})
+    prev = variables.get(variable, {})
+    merged_values = values or prev.get("values", "")
+    if values and prev.get("values") and values not in prev.get("values", ""):
+        merged_values = f"{prev['values']}/{values}"
+    merged_refs = list(dict.fromkeys([*(prev.get("refs") or []), *refs]))
+    variables[variable] = {
+        "values": merged_values,
+        "result": result or prev.get("result", ""),
+        "refs": merged_refs,
+    }
+    TESTED_VARIABLES_PATH.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def variable_of_hypothesis(state: dict, hypothesis_id: str) -> str:
+    """仮説 id から変数名を引く（無ければ空文字）."""
+    for h in state.get("hypotheses", []):
+        if h.get("id") == hypothesis_id:
+            return h.get("variable", "") or ""
+    return ""
+
+
+def warn_untracked_variable(state: dict, hypothesis_id: str) -> None:
+    """紐付いた仮説の変数が登録簿に無いとき、追加コマンドを促す（記録漏れ防止）."""
+    variable = variable_of_hypothesis(state, hypothesis_id)
+    if not variable:
+        return
+    if variable in load_tested_variables().get("variables", {}):
+        return
+    print(f"⚠ 変数 {variable} がまだ登録簿（tested_variables.json）にありません。")
+    print("  試験した変数は仮説の重複を防ぐため登録すること:")
+    print(
+        "  python analysis/tools/improvement_session.py tested-variable "
+        f'--variable {variable} --values "<試験値>" --result "<結果>" '
+        f'--refs "{hypothesis_id}"'
+    )
+
+
+def check_variable_untested(variable: str, retest: str) -> None:
+    """登録簿に載っている変数は仮説にできない（重複・再試験の防止）。"""
+    data = load_tested_variables()
+    entry = data.get("variables", {}).get(variable)
+    if entry is None:
+        return
+    if retest.strip():
+        print(f"※ 試験済みの変数 {variable} を再試験します（理由: {retest}）")
+        return
+    refs = " / ".join(entry.get("refs", []))
+    values = entry.get("values")
+    result = entry.get("result")
+    print(f"登録拒否: 変数 {variable} は試験済み（値: {values}）")
+    print(f"  結果: {result}")
+    print(f"  根拠: {refs}")
+    print("同じ変数の仮説は立てない。別の変数を選ぶか、--retest に再試験の理由を書く。")
+    raise SystemExit(2)
+
+
 def cmd_hypothesis(args) -> None:
     validate_record("inference", args.source)
+    variable = getattr(args, "variable", "") or ""
+    retest = getattr(args, "retest", "") or ""
+    check_variable_untested(variable, retest)
     state = load_state(args.specialist)
     text = normalize_text(args.text)
     state.setdefault("hypotheses", []).append({
         "id": next_hypothesis_id(state),
         "kind": "inference",
         "source": args.source,
+        "variable": variable,
         "text": text,
         "at": datetime.now().isoformat(timespec="seconds"),
     })
@@ -308,6 +381,7 @@ def cmd_validate(args) -> None:
     print("勝率ではなく挙動指標（avg_our_alive / avg_enemy_alive / avg_score）で判定すること。")
     if not paired:
         print("※ 判定基準は seed 固定ペア評価。--paired workspace/paired/<label>.json を推奨。")
+    warn_untracked_variable(state, getattr(args, "hypothesis", "") or "")
 
 
 def cmd_record(args) -> None:
@@ -345,6 +419,18 @@ def cmd_record(args) -> None:
     save_state(args.specialist, state)
     print(f"記録しました: {path}")
     print(f"  {record_id} [{args.kind}/{args.source}] materials={len(materials)}")
+    warn_untracked_variable(state, getattr(args, "hypothesis", "") or "")
+
+
+def cmd_tested_variable(args) -> None:
+    """試験済みの変数を登録簿へ記録する（仮説の重複・再試験の防止）."""
+    refs = [r for r in (args.refs or "").split(",") if r.strip()]
+    add_tested_variable(args.variable, args.values, args.result, refs)
+    entry = load_tested_variables()["variables"][args.variable]
+    print(f"登録簿を更新: {args.variable}")
+    print(f"  値: {entry['values']}")
+    print(f"  結果: {entry['result']}")
+    print(f"  根拠: {' / '.join(entry['refs'])}")
 
 
 def cmd_link(args) -> None:
@@ -486,6 +572,12 @@ def main() -> None:
         choices=RECORD_SOURCES,
         help="仮説の根拠出处（log=対戦ログ/計測値, analysis=解析, code=コード, official=ルール）",
     )
+    p.add_argument(
+        "--variable",
+        required=True,
+        help="仮説の変数名（例: fireRangeKm）。analysis/tools/tested_variables.json に載っていれば登録を拒否する",
+    )
+    p.add_argument("--retest", default="", help="試験済みの変数を再試験する理由（指定時のみ登録を許可）")
     p.add_argument("--specialist", required=True)
     p.set_defaults(func=cmd_hypothesis)
 
@@ -537,6 +629,13 @@ def main() -> None:
     p.add_argument("--record", default="",
                    help="紐付ける記録 id（例: O-059）。省略時は最新")
     p.set_defaults(func=cmd_link)
+
+    p = sub.add_parser("tested-variable")
+    p.add_argument("--variable", required=True, help="試験したコード上の変数名（例: launchIntervalFrames）")
+    p.add_argument("--values", default="", help="試験した値（例: 0/30）")
+    p.add_argument("--result", default="", help="結果（例: 命中改善なし。0 を維持）")
+    p.add_argument("--refs", default="", help="根拠（仮説 id・結果ファイル名。カンマ区切り）")
+    p.set_defaults(func=cmd_tested_variable)
 
     p = sub.add_parser("deepen")
     p.add_argument("phrase", nargs="?", default="", help="深掘り対象の事実カードの phrase（--card-id とどちらか必須）")

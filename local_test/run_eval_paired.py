@@ -81,6 +81,7 @@ def run_fight(my_path: str, opp_path: str, seed: int, youth: bool, color: str) -
         "score": scores.get(color, 0.0),
         "our_alive": alives.get(color, 0.0),
         "enemy_alive": alives.get(enemy, 0.0),
+        "hit_rate": float(detail.get("hit_rate", 0.0) or 0.0),
         "result": "win" if winner == color else ("loss" if winner == enemy else "draw"),
         "error": bool(detail.get("error", False)),
     }
@@ -99,6 +100,7 @@ def summarize(label: str, rows: list[dict]) -> dict:
         "avg_score": round(sum(r["score"] for r in rows) / n, 3),
         "avg_our_alive": round(sum(r["our_alive"] for r in rows) / n, 2),
         "avg_enemy_alive": round(sum(r["enemy_alive"] for r in rows) / n, 2),
+        "avg_hit_rate": round(sum(r["hit_rate"] for r in rows) / n, 3),
     }
     return metrics
 
