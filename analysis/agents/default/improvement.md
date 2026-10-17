@@ -1594,3 +1594,30 @@
 - 検証: 1ゲーム: 発射時 off_nose 0.3-29.5°（全て≤30°、整列成功）だが hit_rate 0。ペア評価(seed1-3×両面): 0-3-3, avg_score 0.364, our_alive 1.33, enemy_alive 4.0, avg_hit_rate 0.12。命中は 0→0.12 に上昇したが生存(3.5→1.33)・敵生存数(3.67→4.0)・スコア(0.5→0.364)は悪化。予測 avg_score≥0.45 は外れ
 - 指標: {"avg_score": 0.364, "avg_our_alive": 1.33, "avg_enemy_alive": 4.0, "games": 6}
 - 次の一手: 無制限hold(0.278)/有界10f(0.41)/整列30°(0.364) の3変種すべてで『命中↑・生存↓・net負け』が再現。命中と生存は本設計では構造的に両立しないと確定。フレーム値・角度値の調整余地は薄い。方向転換を相談する
+
+## O-164 [observation/code] 2026-10-17T17:10:38
+- 種別: observation（実測に基づく事実）
+- 出所: code（自作コードの読み取り）
+- 方向性: ミサイル飛翔モデルの実測（シミュレータC++/scoringソース読解）とスコア指標の正しい解釈
+- 変更: コード変更なし。調査のみ
+- 検証: ソース読解: (1)弾の座標はログに無い(trajectory.pyは発射点→照準点の直線補間推定)。(2)ミサイル PlanarMissile: hitD=1000m(1km), tBurn=5.34s, thrust=30018N, maxLoadG=31, minV=150, 誘導=PropNav(G=15,10Hz)。(3)シーカー MissileSensorV2: Lref=10km, thetaFOR=60°, thetaFOV=15°。発射はLOAL可・offBoresightAngleLimit=180°・UTDC有効(毎フレーム発射機トラックを弾へ送信)。弾は10km以内でSELF、以遠GUIDED(発射機航跡)、喪失時MEMORY。(4)命中=敵Fighter(護衛対象含む)の1km以内で即撃墜。(5)スコア: hit_rateは勝者のみ(1-無効/発射)、勝者=0.6+0.3*hit_rate+time_bonus、TIMEUPは双方0.5。
+- 指標: {"avg_score": 0.364, "avg_our_alive": 1.33, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: 【指標誤認の確定】paired結果の hit_rate は勝者の命中率。引き分けは常に0.0、敗戦時は相手の命中率。N-140/141/142の『命中0→0.18改善』は全て誤り(相手が我々を撃墜した数)。v2は全引き分け・敵命中0。我々の弾は実際に敵戦闘機を撃墜できている(v2 enemy_alive最小2.0)が護衛対象機を撃墜できず全TIMEUP=0.5。唯一の勝ち筋は護衛対象機撃破
+
+## O-165 [observation/analysis] 2026-10-17T18:13:51
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: 護衛対象機同定への速度ゲート追加(escortMaxSpeedKmps=0.3)の効果測定
+- 変更: escort_hunter.py 観測enemyを5列→6列に拡張(6列目=目標速度km/s)。default.py に escortMaxSpeedKmps を追加し、護衛対象機候補の条件を『x>=110km かつ 速度<=0.3km/s』に強化。args: escortForwardXKm=110, escortFireMode=1, escortMaxSpeedKmps=0.3
+- 検証: 真値付き3試合(Red1/Red3/Blue1): 同定は成功し、護衛対象機への最接近が v2 の 42/20/56km から 10.5/5.7/44.6km に改善。ただし護衛対象機への発射は 0(全試合)。全発射 20-24 発はいずれも護衛対象機が 150-214km 離れている時(敵戦闘機への射撃)。護衛対象機が 50km 以内に入った初回フレーム(1049-1598)の残弾は全て機体で 0、到達後の発射は 0。結果 3試合とも TIMEUP 引き分け、護衛対象機撃墜 0。
+- 指標: {"avg_score": 0.364, "avg_our_alive": 1.33, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: ボトルネックは『弾の在庫』。接近に約15-25分かかり、序盤の敵戦闘機交戦で全弾を使うため。次の1変数は護衛対象機が射程内に入るまで発射を保留する(例 escortAmmoHold=1)。予測: 到達時残弾>0、護衛対象機<=50kmでの発射>0、撃墜成立(ELIMINATION)。リスク: 戦闘機に発射しないため敵戦闘機が生存し自機/自護衛対象機が撃墜され得る
+
+## O-166 [observation/log] 2026-10-17T18:35:50
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escortAmmoHold(護衛対象機射程内まで発射保留)の有効性確認
+- 変更: default.py に escortAmmoHold を追加。>0 のとき護衛対象機候補が fireRangeKm 以内に入らない限り発射しない。args: escortForwardXKm=110, escortFireMode=1, escortMaxSpeedKmps=0.3, escortAmmoHold=1
+- 検証: ペア評価(seeds1,2,3 x 両色=6戦, /workspace/paired/ahm.json): win 4 / draw 2 / loss 0, avg_score 0.608, avg_our_alive 3.17, avg_enemy_alive 4.33。Red側3戦全て ELIMINATION 勝利(0.64/0.68/0.66)、Blue側は seed3 勝利+seed1/2 引き分け。初めて baseline(0.500)と v2(0.500)を上回る。接近15-25分で弾が尽きるボトルネックが解消(護衛対象機射程内到達時の残弾0→6、護衛対象機<=50kmでの発射0→4/12発)し ELIMINATION 実現。
+- 指標: {"avg_score": 0.608, "avg_our_alive": 3.17, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: seeds を増やしたペア評価で0.608の頑健性確認。Blue側引き分け2戦の共通点調査(Blue seed1は our_alive 5/enemy 5 でほぼ交戦せず=護衛対象機へ到達できていない)。

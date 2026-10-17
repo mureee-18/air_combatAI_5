@@ -171,6 +171,20 @@
         "N-142",
         "fad30.json"
       ]
+    },
+    "escortMaxSpeedKmps": {
+      "values": "0,0.3",
+      "result": "同定precision 59-88%->89-99.7% (護衛対象機速度0.25 vs 高x戦闘機0.56 km/s)。ペア評価は引き分け継続でスコア変化なし(O-165)",
+      "refs": [
+        "O-165"
+      ]
+    },
+    "escortAmmoHold": {
+      "values": "0,1",
+      "result": "ペア評価 win4/draw2/loss0 avg_score0.608 (v2の0.500から改善)。護衛対象機射程内到達時残弾0->6、ELIMINATION実現(O-166)",
+      "refs": [
+        "O-166"
+      ]
     }
   }
 }

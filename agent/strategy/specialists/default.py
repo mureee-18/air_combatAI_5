@@ -42,6 +42,8 @@ class DefaultPolicy(StandalonePolicy):
         self.escortSeekDistKm = float(args.get("escortSeekDistKm", 0.0))
         self.escortForwardXKm = float(args.get("escortForwardXKm", 0.0))
         self.escortFireMode = int(args.get("escortFireMode", 0))
+        self.escortMaxSpeedKmps = float(args.get("escortMaxSpeedKmps", 0.0))
+        self.escortAmmoHold = int(args.get("escortAmmoHold", 0))
         self.beamHoldWhileArmed = int(args.get("beamHoldWhileArmed", 0))
         self.beamHoldFrames = int(args.get("beamHoldFrames", 0))
         self.fireAlignDeg = float(args.get("fireAlignDeg", 0.0))
@@ -65,17 +67,20 @@ class DefaultPolicy(StandalonePolicy):
         targetIndex = 0
 
         detected = list(np.where(enemy[:, 0] > 0.5)[0])
+        eligible = detected
+        if self.escortMaxSpeedKmps > 0.0 and detected:
+            eligible = [i for i in detected if float(enemy[i, 5]) <= self.escortMaxSpeedKmps]
         escort_candidate = None
-        if self.escortForwardXKm > 0.0 and detected:
+        if self.escortForwardXKm > 0.0 and eligible:
             fwd = [
                 (i, own[0] + enemy[i, 2] * np.cos(np.radians(enemy[i, 1])))
-                for i in detected
+                for i in eligible
             ]
             cand_i, cand_x = max(fwd, key=lambda t: t[1])
             if cand_x >= self.escortForwardXKm:
                 escort_candidate = cand_i
-        elif self.escortSeekDistKm > 0 and detected:
-            far = [i for i in detected if enemy[i, 2] >= self.escortSeekDistKm]
+        elif self.escortSeekDistKm > 0 and eligible:
+            far = [i for i in eligible if enemy[i, 2] >= self.escortSeekDistKm]
             if far:
                 escort_candidate = max(far, key=lambda i: enemy[i, 2])
 
@@ -140,6 +145,10 @@ class DefaultPolicy(StandalonePolicy):
             if self.escortFireMode > 0 and escort_candidate is not None:
                 if float(enemy[escort_candidate, 2]) <= self.fireRangeKm:
                     fire_target = escort_candidate
+            ammo_hold_ok = (
+                self.escortAmmoHold <= 0
+                or (escort_candidate is not None and fire_target == escort_candidate)
+            )
             align_ok = self.fireAlignDeg <= 0.0 or off_nose <= self.fireAlignDeg
             if (
                 not breaking
@@ -148,6 +157,7 @@ class DefaultPolicy(StandalonePolicy):
                 and track_ok
                 and interval_ok
                 and align_ok
+                and ammo_hold_ok
             ):
                 targetIndex = int(fire_target) + 1
                 self._lastFire[name] = tick
