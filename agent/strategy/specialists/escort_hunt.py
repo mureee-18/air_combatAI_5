@@ -16,6 +16,7 @@ import numpy as np
 from ASRCAISim1.policy import StandalonePolicy
 
 from ..agents.escort_hunter import EscortHunterAgent
+from ..agents.escort_id import racetrack_intercept
 
 
 def get_agent_class(args={}):
@@ -67,6 +68,18 @@ class EscortHuntPolicy(StandalonePolicy):
         self.evadeOffsetDeg = float(a.get("evadeOffsetDeg", 180.0))
         self.marginKm = float(a.get("marginKm", 25.0))
         self.marginAzDeg = float(a.get("marginAzDeg", 120.0))
+        # 早期撃墜のための追加パラメータ（既定値は従来の挙動）
+        self.interceptMode = str(a.get("interceptMode", "lead"))   # "lead" | "racetrack"
+        self.flankRoute = bool(a.get("flankRoute", True))          # True: 側面の経由点を回る（False: 直行）
+        self.routeMode = str(a.get("routeMode", "flank" if self.flankRoute else "direct"))  # flank | direct | edge
+        self.edgeYKm = float(a.get("edgeYKm", 118.0))             # edge: 戦域の端（|y|=edgeYKm）沿いに進む
+        self.edgeUntilXKm = float(a.get("edgeUntilXKm", 50.0))     # edge: この x を越えたら会合点へ直行
+        self.edgeSide = str(a.get("edgeSide", "slot"))             # slot: 左右に分ける / escort: 会合点の側
+        self.defenderMode = str(a.get("defenderMode", "engage"))   # engage | kite（一撃して距離を取り時間を稼ぐ）
+        self.kiteKm = float(a.get("kiteKm", 55.0))
+        self.attackerCruiseMps = float(a.get("attackerCruiseMps", 340.0))
+        aeo = a.get("attackerEvadeOffsetDeg", None)
+        self.attackerEvadeOffsetDeg = float(aeo) if aeo is not None else self.evadeOffsetDeg
         self.mem = {}
 
     # ------------------------------------------------------------------
@@ -95,7 +108,8 @@ class EscortHuntPolicy(StandalonePolicy):
                              "x": ox + enemy[i, 2] * math.cos(b), "y": oy + enemy[i, 2] * math.sin(b)})
         fighters = sorted([r for r in rows if not r["esc"]], key=lambda r: r["dist"])
 
-        if slot in self.attackerSlots:
+        isAttacker = slot in self.attackerSlots
+        if isAttacker:
             side = 1.0 if self.attackerSlots.index(slot) == 0 else -1.0
             az, spd, tgt = self._attacker(own, rows, fighters, escort, side, t, m)
         else:
@@ -105,7 +119,7 @@ class EscortHuntPolicy(StandalonePolicy):
         if threat[0] > 0.5:
             # 警報方位から evadeOffsetDeg ずらして最高速（180=真後ろ。滑空弾を失速させる）
             s = 1.0 if oy < 0.0 else -1.0
-            az = threat[1] + s * self.evadeOffsetDeg
+            az = threat[1] + s * (self.attackerEvadeOffsetDeg if isAttacker else self.evadeOffsetDeg)
             spd = numSpeed - 1
             tgt = 0
 
@@ -121,14 +135,30 @@ class EscortHuntPolicy(StandalonePolicy):
         if escort[0] > 0.5:
             ex, ey, vy = escort[1], escort[2], escort[3]
             dist = math.hypot(ex - ox, ey - oy)
-            lead = min(240.0, dist / 0.3)
-            ay = max(-104.0, min(104.0, ey + vy * lead / 1000.0))
-            if ox < ex - 60.0 and dist > 80.0:
+            if self.routeMode == "edge" and self.edgeSide == "escort":
+                if "edgeSide" not in m:
+                    _px, _py, _tau = racetrack_intercept(ox, oy, ex, ey, vy, self.attackerCruiseMps, ageS=escort[5])
+                    m["edgeSide"] = 1.0 if _py >= 0.0 else -1.0
+                side = m["edgeSide"]
+            if self.interceptMode == "racetrack":
+                # レーストラックに沿って予測し、最短で会合できる点へ直行
+                axp, ay, _tau = racetrack_intercept(ox, oy, ex, ey, vy, self.attackerCruiseMps, ageS=escort[5])
+            else:
+                lead = min(240.0, dist / 0.3)
+                axp, ay = ex, max(-104.0, min(104.0, ey + vy * lead / 1000.0))
+            if self.routeMode == "edge" and ox < self.edgeUntilXKm:
+                # 戦域の端に沿って敵戦闘機の主戦場（中央）を避けて進む
+                wy = side * self.edgeYKm
+                az = math.degrees(math.atan2(wy - oy, max(20.0, abs(wy - oy) * 0.5)))
+            elif self.routeMode == "flank" and ox < ex - 60.0 and dist > 80.0:
                 # 外側を回る: まず護衛対象機の側面（少し外側）へ
                 wy = max(-115.0, min(115.0, ay + side * 25.0))
                 az = math.degrees(math.atan2(wy - oy, (ex - 50.0) - ox))
             else:
-                az = math.degrees(math.atan2(ay - oy, ex - ox))
+                az = math.degrees(math.atan2(ay - oy, axp - ox))
+        elif self.routeMode == "edge":
+            wy = side * self.edgeYKm
+            az = math.degrees(math.atan2(wy - oy, max(20.0, abs(wy - oy) * 0.5)))
         else:
             az = math.degrees(math.atan2(side * self.flankYKm - oy, 20.0 - ox))
 
@@ -163,7 +193,13 @@ class EscortHuntPolicy(StandalonePolicy):
                 f = fighters[min(idx, len(fighters) - 1)]
             spd = 2
             d = f["dist"]
-            if leakers or d > self.crankKm:
+            if self.defenderMode == "kite" and not leakers:
+                # 一撃（fighterFireKm）したら、kiteKm 以内では背を向けて最高速で距離を取る（自陣側・戦域内）
+                if d <= self.kiteKm and t - m["lastLaunch"] < self.fighterShotIntervalS * 4 or d <= self.beamKm:
+                    az = f["brg"] + 180.0
+                else:
+                    az = f["brg"]
+            elif leakers or d > self.crankKm:
                 az = f["brg"]
             elif d > self.beamKm:
                 az = f["brg"] + side * self.crankDeg

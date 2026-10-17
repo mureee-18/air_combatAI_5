@@ -84,3 +84,21 @@ def test_radar_signature_preferred_and_fighters_rejected():
     assert est["src"] == 2 and est["x"] == 125.0 and est["y"] == -40.0
     pred = ident.predicted(10.0)
     assert abs(pred["y"] - (-37.5)) < 1e-6
+
+
+def test_racetrack_position_roundtrip_and_shape():
+    for s in (0.0, 50.0, 198.0, 205.0, 250.0, 410.0):
+        x, y = escort_id.racetrack_pos(s)
+        vy = 250.0 if x > 120.0 else -250.0
+        assert abs(escort_id.racetrack_s(x, y, vy) - s) < 1e-6
+        assert 115.0 - 1e-9 <= x <= 125.0 + 1e-9 and abs(y) <= 104.5 + 1e-9
+
+
+def test_racetrack_intercept_is_reachable_and_on_track():
+    px, py, tau = escort_id.racetrack_intercept(-100.0, 0.0, 125.0, 0.0, 250.0, 340.0)
+    assert 0.0 < tau < 1500.0
+    assert math.hypot(px + 100.0, py) <= 0.34 * tau + 1e-6
+    # 5秒刻みなので、5秒前の点にはまだ届かない
+    s0 = escort_id.racetrack_s(125.0, 0.0, 250.0)
+    qx, qy = escort_id.racetrack_pos(s0 + 0.25 * (tau - 5.0))
+    assert math.hypot(qx + 100.0, qy) > 0.34 * (tau - 5.0)

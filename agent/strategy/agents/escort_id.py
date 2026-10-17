@@ -127,3 +127,61 @@ class EscortIdentifier:
         y = e["y"] + e["vy"] * dt / 1000.0
         y = max(-104.5, min(104.5, y))
         return {"x": e["x"], "y": y, "vy": e["vy"], "age": dt, "src": e["src"]}
+
+
+# ----------------------------------------------------------------------
+# レーストラック上の位置予測（自陣営座標系 km）。
+# x=125 の辺を +y、上端で半径5kmの半円（中心 (120, +L)）、x=115 の辺を -y、下端で半円（中心 (120, -L)）。
+RT_LEG_HALF = 99.5   # 直線部分の半長 [km]（y の範囲 ±104.5 = L + 半径）
+RT_RADIUS = 5.0
+RT_CX = 120.0
+RT_SPEED_KMS = 0.25
+_LEG = 2.0 * RT_LEG_HALF
+_ARC = math.pi * RT_RADIUS
+RT_PERIMETER = 2.0 * _LEG + 2.0 * _ARC
+
+
+def racetrack_pos(s):
+    """周回距離 s [km]（x=125 の辺の y=-L を 0 とする）での位置。"""
+    s = s % RT_PERIMETER
+    L = RT_LEG_HALF
+    if s < _LEG:
+        return RT_CX + RT_RADIUS, -L + s
+    s -= _LEG
+    if s < _ARC:
+        a = s / RT_RADIUS
+        return RT_CX + RT_RADIUS * math.cos(a), L + RT_RADIUS * math.sin(a)
+    s -= _ARC
+    if s < _LEG:
+        return RT_CX - RT_RADIUS, L - s
+    s -= _LEG
+    a = math.pi + s / RT_RADIUS
+    return RT_CX + RT_RADIUS * math.cos(a), -L + RT_RADIUS * math.sin(a)
+
+
+def racetrack_s(x, y, vy):
+    """推定位置（と vy の符号）から周回距離 s を求める。"""
+    L = RT_LEG_HALF
+    if abs(y) <= L:
+        # 直線部分: 辺は進行方向で決まる（+y なら x=125、-y なら x=115）
+        return y + L if vy >= 0.0 else _LEG + _ARC + (L - y)
+    if y > L:
+        a = math.atan2(y - L, x - RT_CX) % (2.0 * math.pi)
+        return _LEG + min(math.pi, a) * RT_RADIUS
+    a = math.atan2(y + L, x - RT_CX) % (2.0 * math.pi)
+    a = max(math.pi, a)
+    return 2.0 * _LEG + _ARC + (a - math.pi) * RT_RADIUS
+
+
+def racetrack_intercept(ownX, ownY, escX, escY, escVy, speedMps, tMax=1500.0, dt=5.0, ageS=0.0):
+    """自機が speedMps で直行したとき最短で会合できるレーストラック上の点 (x, y, tau) を返す。"""
+    s0 = racetrack_s(escX, escY, escVy) + RT_SPEED_KMS * ageS
+    v = max(1.0, speedMps) / 1000.0
+    tau = 0.0
+    while tau <= tMax:
+        px, py = racetrack_pos(s0 + RT_SPEED_KMS * tau)
+        if math.hypot(px - ownX, py - ownY) <= v * tau:
+            return px, py, tau
+        tau += dt
+    px, py = racetrack_pos(s0 + RT_SPEED_KMS * tMax)
+    return px, py, tMax
