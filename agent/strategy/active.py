@@ -1,12 +1,13 @@
 import os
 
-from .specialists import baseline, default
+from .specialists import baseline, default, escort_hunt
 
 ACTIVE_SPECIALIST = "baseline"
 
 _SPECIALISTS = {
     "default": default,
     "baseline": baseline,
+    "escort_hunt": escort_hunt,  # ローカル評価用の実験（提出ゲート対象外）
 }
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
