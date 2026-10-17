@@ -69,11 +69,14 @@
       "reason": "指示数の定義に依存する指標（③）。trigger_orders_gap と同じ"
     },
     "metric:stranded_ammo": {
-      "cause": "撃墜時点で未発射弾が残る（撃墜まで約29フレーム）",
-      "variable": "maxSimulShot",
-      "variable_status": "closed",
-      "judge": "stranded_ammo",
-      "reason": "maxSimulShot は 2/4/8 で試験済み（N-021/N-028）。4 を維持"
+      "cause": "＝護衛用予備 escortReserveMsls(3) × 護衛対象機到達前に撃墜された機数（線形。実測 r2_4=6 / r4_4=12 / r5_4=15 ＝ 予備値×撃墜3機、rs1=9/rs2B=6/rs4=9）。旧原因（一斉射撃の撃ち残し）は解消済み",
+      "variable": "護衛戦闘機の先行排除（構造変更）",
+      "variable_name": "winpath-escort",
+      "variable_status": "direction",
+      "direction_id": "winpath-escort",
+      "judge": "stranded_ammo / avg_our_alive",
+      "prediction": "方向カード winpath-escort の 1 変数に分解して着手する（早期撃墜を減らせば予備が護衛対象機へ届く）。予備値そのものは 2/3/4/5 試験済みで 3 が最良",
+      "reason": ""
     },
     "metric:hit_rate": {
       "cause": "命中数カードと同じ原因（一斉射撃による重ね撃ち）",

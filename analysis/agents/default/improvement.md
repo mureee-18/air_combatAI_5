@@ -1634,8 +1634,17 @@
 ## O-168 [observation/analysis] 2026-10-17T21:36:08
 - 種別: observation（実測に基づく事実）
 - 出所: analysis（解析結果・ダッシュボード）
-- 方向性: escortReserveMsls(敵戦闘機へ反撃しつつ護衛対象機用にN発温存)を 2/3/4/5 で走査。reserve=3: paired seeds1-7両面 win9/draw2?loss0 avg_score 0.617 our_alive3.21 enemy_alive3.5。ahm(ammoHold,reserve=6相当)=win11/draw2/loss1 0.615/0.616 enemy_alive4.21。reserve=3 で Red4 負け->引き分け(敵戦闘機撃破で1機生存)。一方 Blue3/4/7 は ammoHold で勝ち→reserve で引き分け(護衛対象機撃破に全弾必要)。reserve=4/5 は Blue4 が負けに転落。Blue系の勝敗は reserve 値に対しカオス的に反転。
+- 方向性: escortReserveMsls(敵戦闘機へ反撃しつつ護衛対象機用にN発温存)を 2/3/4/5 で走査。reserve=3: paired seeds1-7両面 win9/draw5/loss0 avg_score 0.617 our_alive3.21 enemy_alive3.5。ahm(ammoHold,reserve=6相当)=win11/draw2/loss1 0.615/0.616 enemy_alive4.21。reserve=3 で Red4 負け->引き分け(敵戦闘機撃破で1機生存)。一方 Blue3/4/7 は ammoHold で勝ち→reserve で引き分け(護衛対象機撃破に全弾必要)。reserve=4/5 は Blue4 が負けに転落。Blue系の勝敗は reserve 値に対しカオス的に反転。
 - 変更: escortReserveMsls 追加(2/3/4/5 を走査)。escortAmmoHold=0 で通常反撃+予備。
 - 検証: gen_log 5ゲーム×4設定 + paired rsrm(seeds1-7両面): win9/draw5/loss0 avg0.617 (nbi 0.615, 差はノイズ範囲)
 - 指標: {"avg_score": 0.616, "avg_our_alive": 3.0, "avg_enemy_alive": 4.21, "games": 14}
 - 次の一手: reserve は概ね中立(0.617 vs 0.615)。利点は敗戦0・敵撃破増、欠点は Blue系勝ちの喪失。採用するなら reserve=3(検証済み)。より大きな利得には別レバー(護衛対象機への複数機同時攻撃や到達タイミング)が必要
+
+## O-169 [observation/analysis] 2026-10-17T23:25:46
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: 見送りカード metric:stranded_ammo の再分析（死蔵弾の正体＝護衛用予備×到達前撃墜数の同定と低減レバーの確定）
+- 変更: コード変更なし（再分析・事実更新のみ）。card_fill.json/custom_metrics.json/serve.py/HYPOTHESIS_POLICY.md/directions.json を更新し、旧原因 maxSimulShot を撤回。テスト変数登録簿に escortReserveMsls/escortNoBeam/escortIgnoreBreak を追加
+- 検証: 既存ログ再集計: stranded_ammo は護衛用予備×到達前撃墜数に完全一致（r2_4=6/r4_4=12/r5_4=15＝予備値×撃墜3機、rs1=9/rs2B=6/rs4=9。旧 ahm は 6/機）。escort_timing: 護衛対象機は全ログで first_escort=0（t=0 探知済み）。default.py:178 より発射は threat[0] が 0.5 未満のときのみ
+- 指標: {"avg_score": 0.616, "avg_our_alive": 3.0, "avg_enemy_alive": 4.21, "games": 14}
+- 次の一手: 0 への低減レバーは早期撃墜の削減のみ＝winpath-escort に集約。1 変数の数値ノブは無し。カードは direction 化して復活し、仮説（1変数）登録はしない

@@ -185,6 +185,30 @@
       "refs": [
         "O-166"
       ]
+    },
+    "escortReserveMsls": {
+      "values": "2/3/4/5",
+      "result": "3 が最良（win9/draw5/loss0, avg_score 0.617, our_alive 3.21, enemy_alive 3.5）。4/5 は Blue4 が負けに転落、2 は 3 と同等。3 を採用",
+      "refs": [
+        "O-168",
+        "rsrm.json"
+      ]
+    },
+    "escortNoBeam": {
+      "values": "0/1",
+      "result": "挙動は変化するが結果不変（nbi 0.615 ＝ ahm7 0.616 と同一＝中立）。1 を採用",
+      "refs": [
+        "O-167",
+        "nbi.json"
+      ]
+    },
+    "escortIgnoreBreak": {
+      "values": "0/1",
+      "result": "挙動は変化するが結果不変（nbi 0.615 ＝ 中立）。1 を採用",
+      "refs": [
+        "O-167",
+        "nbi.json"
+      ]
     }
   }
 }

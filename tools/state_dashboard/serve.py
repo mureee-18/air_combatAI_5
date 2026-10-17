@@ -1751,9 +1751,9 @@ def _metric_cards(
         for card in out:
             if card.get("id") == "metric:stranded_ammo":
                 card["hypothesis"] = (
-                    f"撃墜機が {stranded:g}発を持ち去った。死蔵を減らすには"
-                    f"生存を延ばす方向（N-036/037 の salvo・分離軸）。"
-                    f"発射制限による温存は逆効果（N-028 で棄却済み）。"
+                    f"撃墜機が {stranded:g}発を持ち去った（＝護衛用予備 escortReserveMsls 3 × "
+                    f"護衛対象機到達前の撃墜数）。予備は ELIMINATION の勝ち筋のため、"
+                    f"減らす設計は生存軸＝護衛戦闘機の先行排除（winpath-escort）で扱う。"
                 )
     adv = _scalar(traj.get("max_advance_x"))
     if adv is not None and adv < 0:
