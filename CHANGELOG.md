@@ -1,5 +1,55 @@
 # CHANGELOG
 
+## 2026-10-17
+
+### 護衛対象機の速度識別＋弾温存で ELIMINATION 勝利（default specialist）
+
+- `escort_hunter.py`: 敵観測を5列→6列に拡張（6列目＝目標速度 km/s、`np.linalg.norm(tracks[i].vel())/1000`）
+- `default.py`: `escortMaxSpeedKmps`（護衛候補を x≥110km かつ速度≤0.3km/s に限定）と `escortAmmoHold`（護衛対象機が射程内に入るまで発射を保留）を追加
+- `args.json`: escortForwardXKm=110, escortFireMode=1, escortMaxSpeedKmps=0.3, escortAmmoHold=1
+- ペア評価（seeds1-7×両面=14戦）: win11/draw2/loss1, avg_score 0.616, our_alive 3.0, enemy_alive 4.21 — baseline（0.500）を明確に上回る初の構成
+- 護衛対象機への最接近が改善し、到達時の残弾0→6・護衛対象機≤50km での発射0→4/12発となり ELIMINATION を実現
+
+### 発射整列ノブ・変数レジストリ・提出ゲート強化
+
+- `default.py`: beamHoldWhileArmed / beamHoldFrames / fireAlignDeg / launchIntervalFrames / escortForwardXKm / escortFireMode を追加（N-140/141/142 は命中↑・生存↓で net 負けのため既定0で不活性、v2 を維持）
+- 指標の誤認を訂正: ペア評価の hit_rate は**勝者のみ**（引き分けは常に0.0、敗戦時は相手の値）。N-140/141/142 の「命中0→改善」は相手が我々を撃墜した数だった（O-164）
+- `improvement_session.py`: `--variable` を必須化、`tested-variable` サブコマンドと `tested_variables.json` レジストリを追加、未登録変数の仮説に警告
+- `pre_submit_gate.py`: subprocess 出力を utf-8 デコード。uvx 失敗時はローカル ruff にフォールバック（uvx の PyPI DNS 失敗でゲートが不安定だった）
+- dashboard: pending / variable_name を単一ソース化、仮説ビルダーが `--variable` を出力。`run_eval_paired.py` に hit_rate を追加
+- tests: 141 通過
+
+### 敵戦闘機への反撃＋護衛対象機用ミサイル温存（損失削減）
+
+- `default.py`: `escortReserveMsls` を追加（敵戦闘機には通常反撃しつつ護衛対象機用に N 発を温存、護衛対象機が射程内なら予備も使用）。`escortNoBeam` / `escortIgnoreBreak`（護衛対象機が目標のときビーム・離脱判定を抑制）も追加
+- `args.json`: escortAmmoHold=0, escortNoBeam=1, escortIgnoreBreak=1, escortReserveMsls=3
+- ペア評価（seeds1-7×両面）: win9/draw5/loss0, avg_score 0.617, our_alive 3.21, enemy_alive 3.5
+- Red seed4 の全滅負け（0-5）が反撃により1機生存で引き分けに改善。一方 Blue3/4/7 は護衛対象機撃破に全弾を要するため勝ち→引き分け（avg_score はノイズ範囲でほぼ横ばい）
+- `escortReserveMsls` は 2/3/4/5 を走査し 3 を採用（4/5 は Blue4 が負けに転落）
+- 上記構成を SIGNATE へ提出
+
+## 2026-10-16
+
+### 護衛対象機への安全接近（escortSeekDistKm、default specialist）
+
+- `default.py`: `escortSeekDistKm=150` を追加（脅威なし・ビーム範囲外・離脱中でないときのみ遠方コンタクトへ旋回。射撃/ビーム/離脱は不変）
+- ELIMINATION 4変種（v1-v4: 0.315 / 0.500 / 0.474 / 0.500）を測定し、安全変種（v2）に復帰: 0.500 / 敗戦0 / our_alive 3.67
+- `HYPOTHESIS_POLICY.md`: 深掘り由来の仮説を要求し、変数変更なしの validate を禁止
+- improvement.md: O-098〜O-102
+
+### breakRangeKm スイープ（未検証仮説の一掃）
+
+- breakRangeKm 25/20/45 を検証: 45 は悪化（avg_score 0.456）、25/20 は 0.500 を維持し生存が微改善。35 を維持
+- improvement.md: O-103（N-054〜N-098 の軸を閉鎖）。残る未検証仮説なし（検証済みまたは重複）
+
+## 2026-10-15
+
+### dashboard: 事実カードの深掘りワークフロー（deepen）
+
+- 事実カードを命中指標付きで深掘りする `deepen` ワークフローを `improvement_session.py` に追加
+- `custom_metrics.json` に指標を追加し、`serve.py` / `index.html` を更新
+- improvement.md: O-095〜O-097（trackConfirmFrames の検証、avg_score 0.500 を維持）
+
 ## 2026-10-13
 
 ### ベースライン完全復帰・実験コード削除（default specialist）
