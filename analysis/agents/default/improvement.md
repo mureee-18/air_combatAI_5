@@ -1621,3 +1621,21 @@
 - 検証: ペア評価(seeds1,2,3 x 両色=6戦, /workspace/paired/ahm.json): win 4 / draw 2 / loss 0, avg_score 0.608, avg_our_alive 3.17, avg_enemy_alive 4.33。Red側3戦全て ELIMINATION 勝利(0.64/0.68/0.66)、Blue側は seed3 勝利+seed1/2 引き分け。初めて baseline(0.500)と v2(0.500)を上回る。接近15-25分で弾が尽きるボトルネックが解消(護衛対象機射程内到達時の残弾0→6、護衛対象機<=50kmでの発射0→4/12発)し ELIMINATION 実現。
 - 指標: {"avg_score": 0.608, "avg_our_alive": 3.17, "avg_enemy_alive": 4.33, "games": 6}
 - 次の一手: seeds を増やしたペア評価で0.608の頑健性確認。Blue側引き分け2戦の共通点調査(Blue seed1は our_alive 5/enemy 5 でほぼ交戦せず=護衛対象機へ到達できていない)。
+
+## O-167 [observation/analysis] 2026-10-17T20:28:58
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: escortNoBeam/escortIgnoreBreak は挙動を変える(50km以内滞在 179->569/606フレーム)が結果は不変(Blue1 draw, Red1 win, Blue2 draw, Red4 loss)。ペア評価 nbi: win11/draw2/loss1, avg_score 0.615 (ahm7 0.616 と同一=中立)。真因: 護衛対象機が逃走方向と自機の追尾方向が一致し相対閉鎖 340-250=90 m/s しかない。actions の目標指定を真値照合すると発射18発全て護衛対象機(RedE)を狙い整列(offNose 0-8度)しているが 36-49km で全外れ。対向幾何の Red1 は 40-47km の4発で撃破。
+- 変更: escortNoBeam=1, escortIgnoreBreak=1 を追加(接近維持・ビーム抑制)。効果は接近/射撃機会の増加のみで撃破に至らず
+- 検証: gen_log 4戦 + paired nbi (seeds1-7 両面14戦): avg_score 0.615, our_alive 3.0, enemy_alive 4.21 (ahm7 と同一)。chase_trace で相対閉鎖~90m/s を確認
+- 指標: {"avg_score": 0.616, "avg_our_alive": 3.0, "avg_enemy_alive": 4.21, "games": 14}
+- 次の一手: 追尾幾何 seed の引き分けは構造的(護衛対象機のパトロール位相が射撃窓に間に合わない)。noBeam/ignoreBreak は中立のため revert し 0.616 を確定。次は Red seed4 の全滅負け(our0/enemy5)の原因調査、または別の勝利経路の探索
+
+## O-168 [observation/analysis] 2026-10-17T21:36:08
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: escortReserveMsls(敵戦闘機へ反撃しつつ護衛対象機用にN発温存)を 2/3/4/5 で走査。reserve=3: paired seeds1-7両面 win9/draw2?loss0 avg_score 0.617 our_alive3.21 enemy_alive3.5。ahm(ammoHold,reserve=6相当)=win11/draw2/loss1 0.615/0.616 enemy_alive4.21。reserve=3 で Red4 負け->引き分け(敵戦闘機撃破で1機生存)。一方 Blue3/4/7 は ammoHold で勝ち→reserve で引き分け(護衛対象機撃破に全弾必要)。reserve=4/5 は Blue4 が負けに転落。Blue系の勝敗は reserve 値に対しカオス的に反転。
+- 変更: escortReserveMsls 追加(2/3/4/5 を走査)。escortAmmoHold=0 で通常反撃+予備。
+- 検証: gen_log 5ゲーム×4設定 + paired rsrm(seeds1-7両面): win9/draw5/loss0 avg0.617 (nbi 0.615, 差はノイズ範囲)
+- 指標: {"avg_score": 0.616, "avg_our_alive": 3.0, "avg_enemy_alive": 4.21, "games": 14}
+- 次の一手: reserve は概ね中立(0.617 vs 0.615)。利点は敗戦0・敵撃破増、欠点は Blue系勝ちの喪失。採用するなら reserve=3(検証済み)。より大きな利得には別レバー(護衛対象機への複数機同時攻撃や到達タイミング)が必要

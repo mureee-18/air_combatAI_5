@@ -44,6 +44,9 @@ class DefaultPolicy(StandalonePolicy):
         self.escortFireMode = int(args.get("escortFireMode", 0))
         self.escortMaxSpeedKmps = float(args.get("escortMaxSpeedKmps", 0.0))
         self.escortAmmoHold = int(args.get("escortAmmoHold", 0))
+        self.escortNoBeam = int(args.get("escortNoBeam", 0))
+        self.escortIgnoreBreak = int(args.get("escortIgnoreBreak", 0))
+        self.escortReserveMsls = int(args.get("escortReserveMsls", 0))
         self.beamHoldWhileArmed = int(args.get("beamHoldWhileArmed", 0))
         self.beamHoldFrames = int(args.get("beamHoldFrames", 0))
         self.fireAlignDeg = float(args.get("fireAlignDeg", 0.0))
@@ -125,7 +128,22 @@ class DefaultPolicy(StandalonePolicy):
                     beam_allowed = off_nose <= self.fireAlignDeg
             else:
                 self._beamHoldStart.pop(name, None)
+            if (
+                self.escortNoBeam > 0
+                and escort_candidate is not None
+                and best == escort_candidate
+                and self.beamRangeKm > 0.0
+                and bestDist <= self.fireRangeKm
+            ):
+                beam_allowed = False
             breaking = self.breakRangeKm > 0.0 and bestDist <= self.breakRangeKm
+            if (
+                self.escortIgnoreBreak > 0
+                and escort_candidate is not None
+                and best == escort_candidate
+                and bestDist <= self.fireRangeKm
+            ):
+                breaking = False
             if breaking:
                 desiredAz = enemy[best, 1] + 180.0
             elif self.beamRangeKm > 0.0 and bestDist <= self.beamRangeKm and beam_allowed:
@@ -149,6 +167,10 @@ class DefaultPolicy(StandalonePolicy):
                 self.escortAmmoHold <= 0
                 or (escort_candidate is not None and fire_target == escort_candidate)
             )
+            if self.escortReserveMsls > 0 and not (
+                escort_candidate is not None and fire_target == escort_candidate
+            ):
+                ammo_hold_ok = ammo_hold_ok and float(own[8]) > self.escortReserveMsls
             align_ok = self.fireAlignDeg <= 0.0 or off_nose <= self.fireAlignDeg
             if (
                 not breaking
