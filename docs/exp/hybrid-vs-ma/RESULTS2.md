@@ -17,3 +17,14 @@ V6 - H1 pool Δ +0.025 ± 0.013 | V5 - H1 +0.018 ± 0.012 | V6 - V5 +0.007 ± 0.
 Opponents: O_RUSH (4 aircraft straight at our escort w/ IRST ID; vs BM 0.623), O_GUARD (1 flanker + 3 defenders near own escort; vs BM 0.373), O_BMAGG (BenchMark kShoot0.3/nMslSimul2; vs BM 0.297, 2.4% hit rate = weak)
 Variants: V1 guard1, V2 guard2, V3 escortFireKm40, V4 guard1+fire40, V5 guard2 early-detect(deepX-20,flankX+10,|y|>50), V6 = V5+escortFireKm40
 Best: V6. zip: /workspace/research/submit_candidates/submit_V6.zip (built from 264c352, ruff OK, zip_check OK, validate.py youth 3 fights no error) — NOT submitted
+
+## V6 BenchMark-fix variants (2026-10-18 16:07 JST)
+W1 = V6 + guardHoldS 15 (release guard ~15s after intruder gone) | W2 = V6 + guardScale 1 (1 guard per intruder, 2 when 2+) | W3 = W1+W2
+```
+agent | BenchMark | MA | EH | O_RUSH | O_GUARD | O_BMAGG | pool avg (ΔEH±SE) | min
+V6 | 0.609 27/5/8 Δ+0.027 | 0.729 38/0/2 Δ-0.030 | 0.661 31/2/7 Δ+0.161* | 0.530 21/0/19 Δ+0.045 | 0.681 32/1/7 Δ+0.090 | 0.757 40/0/0 Δ-0.000 | 0.661 (Δ+0.049±0.017) | 0.530
+W1 | 0.610 27/5/8 Δ+0.028 | n=0 | n=0 | 0.530 21/0/19 Δ+0.046 | n=0 | n=0 | 
+W2 | 0.636 31/2/7 Δ+0.054 | n=0 | 0.637 30/1/9 Δ+0.137* | 0.491 18/0/22 Δ+0.007 | n=16 | n=0 | 
+W3 | 0.626 29/4/7 Δ+0.044 | n=0 | n=0 | 0.493 18/0/22 Δ+0.008 | n=0 | n=0 | 
+```
+Decision: none reached BM>=0.65; W2 BM +0.027±0.014 vs V6 (n.s.) but rusher 0.491 < 0.530 -> chose V6. FINAL zip = V6 (sha256 26bdbb82...80f5).
