@@ -177,6 +177,23 @@ def test_session_has_open_work():
     assert isinstance(session["open_work"].get("next_steps"), list)
 
 
+def test_pending_excludes_validated_and_recorded():
+    """検証タブの pending は validate か record で紐付いた仮説を除外する（唯一の正）."""
+    state = {
+        "hypotheses": [{"id": "N-1"}, {"id": "N-2"}, {"id": "N-3"}],
+        "cycles": [{"kind": "validate", "hypothesis": "N-1"}],
+        "records": [{"hypothesis": "N-2"}],
+    }
+    assert serve._pending_hypothesis_ids(state) == ["N-3"]
+
+
+def test_pending_key_in_session_payload():
+    session = serve.collect_session()
+    assert isinstance(session.get("pending"), list)
+    ids = {h["id"] for h in session["hypotheses"]}
+    assert set(session["pending"]) <= ids
+
+
 def test_collect_git_shape():
     git = serve.collect_git()
     assert set(git.keys()) == {"branch", "head", "remote", "upstream", "ahead_behind", "dirty", "recent", "review"}
@@ -327,8 +344,10 @@ def test_index_has_verify_tab_with_hypothesis_selector():
     # 検証タブにはカード（対象 specialist / 検証する仮説 / 現在地）を出さない
     assert "cards(" not in block
     assert "現在地" not in block
-    # 検証済みの仮説はセレクタから除外し、未検証の仮説だけ表示する
-    assert "hyps.filter(h => !verified.has(h.id))" in block
+    # 未検証かの判定は serve.py の pending（唯一の正）を使い、フロントで再計算しない
+    assert "new Set(s.pending" in block
+    assert "hyps.filter(h => pendIds.has(h.id))" in block
+    assert "verified" not in block
     assert "検証済み" in block  # 全件検証済みのときのメッセージ
     assert 'bindCopy(document.getElementById("verify"))' in block
     # 仮説が無いときはコマンドを描画しない（早期 return 後に1コマンドを描く）
@@ -407,7 +426,7 @@ def test_fact_cards_have_phrase_for_the_hypothesis_builder():
 
 def test_hypothesis_builder_has_inputs_and_one_copy_button():
     html = INDEX_PATH.read_text(encoding="utf-8")
-    for key in ("fact", "cause", "change", "metric", "judge", "source"):
+    for key in ("fact", "cause", "change", "variable", "metric", "judge", "source"):
         assert f'data-hy="{key}"' in html
     assert 'id="hypho-text"' in html
     assert 'id="hypho-copy"' in html
@@ -454,8 +473,8 @@ eval(js);
 
 const s = payload.session, d = payload;
 const hy = {};
-["fact","cause","change","metric","judge","source",
- "fact-text","cause-text","metric-text","judge-text"].forEach(n => { hy[n] = stubEl(); });
+["fact","cause","change","variable","metric","judge","source",
+ "fact-text","cause-text","variable-text","metric-text","judge-text"].forEach(n => { hy[n] = stubEl(); });
 const out = stubEl(), btn = stubEl();
 const box = {
   querySelector(sel) {
@@ -477,6 +496,7 @@ hy.fact.value = "constraints";
 hy.metric.value = "launch_count";
 hy.judge.value = "paired:" + def.name;
 hy.change.value = "maxSimulShot の上限を 4 から 6 に上げる";
+hy.variable.value = "maxSimulShot";
 bindHypothesisBuilder(root, s, d);
 hy.fact.fire("change");
 hy.metric.fire("change");
@@ -526,6 +546,7 @@ def test_hypothesis_builder_generates_command_in_browser_logic(tmp_path):
     assert cmd.startswith("# 仮説登録 — この行をAIに貼って登録依頼\n"
                           'python analysis/tools/improvement_session.py hypothesis "')
     assert f"--specialist {serve.collect_session()['target']}" in cmd
+    assert "--variable maxSimulShot" in cmd
     assert re.search(r"--source (log|analysis|code|official)$", cmd)
 
 
@@ -645,3 +666,56 @@ def test_wipe_games_picks_zero_alive_only():
     assert wipes[0]["seed"] == 3
     assert serve._wipe_games([]) == []
     assert serve._wipe_games(None) == []
+
+
+def test_tested_axes_parsed_from_policy_table():
+    # policy の「検証済みの変数軸」表から変数名を読めていること
+    tested = serve._tested_axes()
+    assert {"fireRangeKm", "maxSimulShot", "breakRangeKm",
+            "beamRangeKm", "targetMode", "evadeCrankDeg"} <= tested
+    # 表の見出し・区切り行を変数名として拾わない
+    assert "変数" not in tested
+    assert "" not in tested
+
+
+def test_axis_cards_render_untested_axis(monkeypatch):
+    # 閉鎖軸が無い（=全部未試験）状態で、軸カードが正しい形で出ること
+    monkeypatch.setattr(serve, "_tested_axes", lambda: set())
+    cards = serve._axis_cards()
+    assert cards, "未試験軸があるならカードを出す"
+    card = next(c for c in cards if c["id"] == "axis:marginKm")
+    assert card["kind"] == "observation"
+    assert card["source"] == "code"
+    assert "marginKm" in card["title"]
+    assert card["phrase"] and len(card["phrase"]) <= 120
+    assert card["hypothesis"]
+    assert card["evidence"] and all(row["value"] is not None for row in card["evidence"])
+
+
+def test_axis_cards_exclude_tested_axes():
+    # policy の表に載った軸は必ずカードから除外される（足せば自動で消える）
+    tested = serve._tested_axes()
+    cards = serve._axis_cards()
+    ids = {c["id"] for c in cards}
+    for card in cards:
+        var = card["id"].split(":", 1)[1]
+        assert var not in tested
+        assert card["kind"] == "observation"
+        assert card["source"] == "code"
+    assert "axis:fireRangeKm" not in ids
+
+
+def test_collect_directions_shape():
+    # 数値ノブが全滅しても材料が残るよう、設計の方向を 1 件以上返す
+    d = serve.collect_directions()
+    assert isinstance(d, dict)
+    items = d["items"]
+    assert items, "設計の方向が 1 件も無い"
+    for it in items:
+        assert it["id"]
+        assert it["title"]
+        assert it["summary"]
+        assert isinstance(it["why"], list) and it["why"]
+        assert isinstance(it["steps"], list) and it["steps"]
+        assert isinstance(it["records"], list)
+        assert isinstance(it["paths"], list)

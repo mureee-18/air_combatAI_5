@@ -10,3 +10,7 @@ submission/
 analysis/agents/*/session_state.json
 analysis/ops/
 *.zip
+local_test/simulator/
+local_test/src/
+baseline_paired_raw.txt
+paired_baseline_raw.txt

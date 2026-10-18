@@ -109,6 +109,8 @@
   .fact-head .title { font-size: 14px; font-weight: 600; color: var(--accent); }
   .badge { font-size: 11px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); color: var(--muted); }
   .badge.official { border-color: #3b4a6b; color: var(--accent); }
+  .badge.deep-pending { border-color: #8b6914; color: #e6b422; }
+  .badge.deep-done { border-color: #2d6a3e; color: #56d364; }
   .fact .summary { font-size: 13px; line-height: 1.7; margin: 6px 0; color: var(--fg); }
   .fact-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 12px; margin: 6px 0; }
   .fact-grid .k { color: var(--muted); font-size: 12px; }
@@ -575,6 +577,7 @@ function isParked(c) {
   const t = c.hypothesis || "";
   return PARKED_PATTERNS.some(p => t.indexOf(p) >= 0);
 }
+
 function renderFactGroups(list) {
   const un = [], pk = [], hd = [];
   list.forEach(c => {
@@ -599,16 +602,18 @@ function renderFactGroups(list) {
 function renderFact(card, extraCls) {
   const badgeKind = { observation: "観測", assumption: "前提", rule: "公式ルール" };
   const badgeSrc = { log: "ログ", code: "コード", official: "公式" };
-  // new fact card (no command, no items, has phrase) always shows MATERIAL button,
-  // and badge tags are hidden to avoid "seen/marked" confusion.
-  // extraCls (handled/parked) は付与せず、常に空表示にする。
   const handledTag = "";
+  const deepened = !!card.deepened;
+  const needDeepen = !!(card.phrase && !deepened && card.kind !== "assumption" && card.kind !== "rule");
   let h = `<div class="fact ${card.kind}">`;
   h += '<div class="fact-head">' +
        `<span class="title">${esc(card.title)}</span>` +
        `<span class="badge">${esc(badgeKind[card.kind] || card.kind)}</span>` +
        `<span class="badge${card.source === "official" ? " official" : ""}">` +
-       `${esc(badgeSrc[card.source] || card.source)}</span>${handledTag}</div>`;
+       `${esc(badgeSrc[card.source] || card.source)}</span>` +
+       (needDeepen ? '<span class="badge deep-pending">深掘り未了</span>' : '') +
+       (deepened ? '<span class="badge deep-done">深掘り済</span>' : '') +
+       `${handledTag}</div>`;
   if (card.summary) h += `<div class="summary clamp2">${esc(card.summary)}</div>`;
 
   if (card.evidence && card.evidence.length) {
@@ -651,6 +656,43 @@ function renderFact(card, extraCls) {
   if (card.hypothesis) {
     h += '<div class="hyp-box"><div class="k">ここから立てられる仮説例</div>' +
          `<div class="clamp2">${esc(card.hypothesis)}</div></div>`;
+  }
+  // 見送り（parked）カードの場合、「新しい分析に入る指示」をコピーするボタンを表示
+  const isParkedCard = card.hypothesis && ["新規仮説はない", "変数はない", "閉鎖", "棄却済み"].some(p => (card.hypothesis || "").indexOf(p) >= 0);
+  if (isParkedCard) {
+    const unparkCmd = `見送りカード「${card.title}」を復活。新しい視点で再分析して：(1) 棄却結果・経過を反映した事実の更新、(2) 軌跡・ログの再検証、(3) 未試験の軸または設計変更の仮説立案。--specialist ${state.data?.session?.target || "default"}`;
+    h += `<button class="copy unpark" data-cmd="${attr(unparkCmd)}">新しい分析に入る</button>`;
+  }
+  // 深掘り未了カードには専用の「深掘りする」ボタンを表示
+  if (needDeepen) {
+    const deepenCmd = `この事実カード「${card.title}」は深掘り未了。まず trajectory / battle_stats で射撃・接近・回避の分布を分析し、python analysis/tools/improvement_session.py deepen "" "<分析で分かったこと>" --card-id "${card.id}" --specialist ${state.data?.session?.target || "default"} で深掘りを記録する。`;
+    h += `<button class="copy deepen" data-cmd="${attr(deepenCmd)}">深掘りする</button>`;
+  }
+  // 事実カードの仮説用フィールド（card_fill.json 由来）を表示する。未記入の枠は出さない
+  if (card.cause) {
+    const st = card.variable_status || "none";
+    const stLabel = {open: "未試験の数値ノブ", direction: "方向カード（構造変更）", closed: "検証済みの軸（再試験禁止）", none: "仮説対象外"}[st] || st;
+    h += `<div class="hyp-box"><div class="k">原因・変数（${esc(stLabel)}）</div>` +
+         `<div class="clamp2">原因: ${esc(card.cause)}</div>` +
+         (card.variable ? `<div class="clamp2">変数: ${esc(card.variable)}</div>` : "") +
+         (card.reason ? `<div class="clamp2">理由: ${esc(card.reason)}</div>` : "") +
+         `</div>`;
+  }
+  // 仮説登録ボタン: 深掘り未了なら深掘りを先に促す。雛形（<原因> 等）は出さず、カードの値だけで組む
+  if (card.phrase) {
+    const target = state.data?.session?.target || "default";
+    const fillable = (card.variable_status === "open" || card.variable_status === "direction") && card.prediction;
+    let hypothesisCmd = null;
+    if (needDeepen) {
+      hypothesisCmd = `この事実カード「${card.title}」は深掘り未了。まず trajectory / battle_stats で射撃・接近・回避の分布を分析し、python analysis/tools/improvement_session.py deepen "" "<分析で分かったこと>" --card-id "${card.id}" --specialist ${target} で深掘りを記録してから、仮説を立てる。`;
+    } else if (fillable) {
+      const text = `${card.phrase} の結果、原因: ${card.cause}。変数: ${card.variable}。判定指標: ${card.judge}。予測: ${card.prediction}`;
+      const vname = card.variable_name || "<変数名>";
+      hypothesisCmd = `python analysis/tools/improvement_session.py hypothesis "${text}" --specialist ${target} --variable ${vname} --source ${card.source || "log"}`;
+    }
+    if (hypothesisCmd) {
+      h += `<button class="copy hypothesis" data-cmd="${attr(hypothesisCmd)}">仮説登録</button>`;
+    }
   }
   if (card.metric) h += `<div class="metric">判定指標: <b>${esc(card.metric)}</b></div>`;
   h += cmdRow(card.command, card.command_label, INTENT_FACT);
@@ -709,6 +751,9 @@ function renderHypothesisBuilder(s, d) {
        '<input data-hy="cause-text" placeholder="選択すると入る。1変数だけ書く"></div>';
   h += '<div class="hy-row"><label>変数</label>' +
        '<input data-hy="change" placeholder="1変数だけ書く（例: maxSimulShot の上限を 4 → 6）"></div>';
+  h += '<div class="hy-row"><label>変数名</label>' +
+       '<input data-hy="variable" placeholder="コード上の名前（例: maxSimulShot）。重複防止に使う">' +
+       '<span class="meta">事実カードを選ぶと自動で入る</span></div>';
   h += '<div class="hy-row"><label>挙動指標</label><select data-hy="metric">' +
        opt("", "（選ぶ）") +
        cm.map(m => opt(m.id, `${m.label}（${m.value === null ? "値なし" : m.value} → ${m.target === null ? "目標なし" : m.target}）`)).join("") +
@@ -788,8 +833,10 @@ function bindHypothesisBuilder(root, s, d) {
     const text = parts.join("、").replace(/、、/g, "、");
     const out = box.querySelector("#hypho-text");
     if (out) out.textContent = text;
+    const vname = (q("variable").value || "").trim() || "<変数名>";
     const line = INTENT_HYPOTHESIS +
       base + text + '" --specialist ' + (s.target || "default") +
+      " --variable " + vname +
       " --source " + q("source").value;
     box.querySelectorAll("button[data-cmd]").forEach(b => { b.dataset.cmd = line; });
   }
@@ -797,7 +844,10 @@ function bindHypothesisBuilder(root, s, d) {
   if (factEl) factEl.addEventListener("change", () => {
     const card = facts.find(c => c.id === factEl.value);
     q("fact-text").value = card ? card.phrase : "";
-    if (card) q("source").value = card.source || "log";
+    if (card) {
+      q("source").value = card.source || "log";
+      if (q("variable") && card.variable_name) q("variable").value = card.variable_name;
+    }
     rebuild();
   });
   const causeEl = q("cause");
@@ -811,11 +861,43 @@ function bindHypothesisBuilder(root, s, d) {
     const el = q(name);
     if (el) el.addEventListener("change", rebuild);
   });
-  ["fact-text", "cause-text", "change", "metric-text", "judge-text"].forEach(name => {
+  ["fact-text", "cause-text", "change", "variable", "metric-text", "judge-text"].forEach(name => {
     const el = q(name);
     if (el) el.addEventListener("input", rebuild);
   });
   rebuild();
+}
+
+function renderDirections(s) {
+  const dir = (s && s.directions) || {};
+  const items = dir.items || [];
+  if (!items.length) return "";
+  let h = "<h2>設計の方向（1変数では表せない材料）</h2>";
+  if (dir.note) h += `<p class="meta">${esc(dir.note)}</p>`;
+  items.forEach(it => {
+    h += '<div class="fact direction">';
+    h += '<div class="fact-head">' +
+         `<span class="title">${esc(it.title)}</span>` +
+         '<span class="badge">方向</span>' +
+         '<span class="badge">設計</span></div>';
+    if (it.summary) h += `<div class="summary">${esc(it.summary)}</div>`;
+    if (it.why && it.why.length) {
+      h += '<div class="k">なぜ直接接近が失敗するか（実測）</div><ul class="fact-list">';
+      it.why.forEach(x => { h += `<li><span class="text">${esc(x)}</span></li>`; });
+      h += "</ul>";
+    }
+    if (it.steps && it.steps.length) {
+      h += '<div class="k">候補の設計（1変数ずつに割ってから着手）</div><ul class="fact-list">';
+      it.steps.forEach(x => { h += `<li><span class="text">${esc(x)}</span></li>`; });
+      h += "</ul>";
+    }
+    if (it.metrics) h += `<div class="metric">判定指標: <b>${esc(it.metrics)}</b></div>`;
+    if (it.records && it.records.length) {
+      h += `<div class="meta">記録: ${it.records.map(esc).join(" / ")}</div>`;
+    }
+    h += "</div>";
+  });
+  return h;
 }
 
 function renderHypothesis(d) {
@@ -854,6 +936,8 @@ function renderHypothesis(d) {
     h += "<h2>前提（参照用・処理済み管理の対象外）</h2>";
     h += '<div class="facts">' + premises.map(c => renderFact(c, "")).join("") + "</div>";
   }
+
+  h += renderDirections(s);
 
   const ow = s.open_work || {};
   const unv = ow.unverified || [], nxt = ow.next_steps || [];
@@ -925,12 +1009,11 @@ function withHypothesis(cmd, id) {
 function renderVerify(d) {
   const s = d.session || {};
   const hyps = s.hypotheses || [];
-  const cycles = s.cycles || [];
   const steps = s.steps || [];
   const val = steps.find(x => x.key === "validate") || {};
-  const verified = new Set(cycles.filter(c => c.kind === "validate" && c.hypothesis)
-                                 .map(c => c.hypothesis));
-  const pend = hyps.filter(h => !verified.has(h.id));
+  // 未検証かどうかは serve.py の pending（validate/record 紐付けを除外）を唯一の正とする
+  const pendIds = new Set(s.pending || []);
+  const pend = hyps.filter(h => pendIds.has(h.id));
   if (!hyps.length) {
     document.getElementById("verify").innerHTML =
       '<div class="empty">検証する仮説がありません。<br>' +
@@ -1723,6 +1806,9 @@ function drawBattle() {
     { k: "終了理由", v: r.endReason || "—" },
     { k: "自陣スコア", v: r.own ? num(r.scores ? r.scores[r.own] : null, 3) : "—" },
     { k: "命中率", v: r.hit_rate === null || r.hit_rate === undefined ? "—" : num(r.hit_rate, 3) },
+    { k: "命中数", v: r.hit_count === null || r.hit_count === undefined ? "—" : num(r.hit_count, 0) },
+    { k: "初弾命中", v: r.first_shot_hit === null || r.first_shot_hit === undefined ? "—" : (r.first_shot_hit ? "命中" : "不命中") },
+    { k: "初発距離", v: r.first_shot_distance === null || r.first_shot_distance === undefined ? "—" : num(r.first_shot_distance, 1) + " km" },
     { k: "生存（自/敵）", v: r.numAlives ? `${r.numAlives.Red ?? "—"} / ${r.numAlives.Blue ?? "—"}` : "—" },
   ]);
   const rows = (frame.teams || []).map(t => [

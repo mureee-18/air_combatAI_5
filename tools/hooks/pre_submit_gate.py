@@ -37,7 +37,10 @@ REQUIRED_ENTRIES = ["__init__.py", "args.json", "config.json"]
 
 def _run(cmd: list[str]) -> str | None:
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        r = subprocess.run(
+            cmd, capture_output=True, text=True, check=False,
+            encoding="utf-8", errors="replace",
+        )
     except FileNotFoundError as e:
         return f"コマンドが見つかりません: {' '.join(cmd)} ({e})"
     if r.returncode != 0:
@@ -87,10 +90,16 @@ def main() -> int:
         print(f"提出物に必須ファイルがありません: {missing}")
         return 1
 
-    # CI では uvx ruff、ローカルでは ruff どちらも通るよう試行
+    # CI では uvx ruff、ローカルでは ruff。uvx が使えない/取得失敗ならローカル ruff へ。
     detail = _run(["uvx", "ruff", "check", "agent/"])
-    if detail is not None and "コマンドが見つかりません" in detail:
-        detail = _run(["ruff", "check", "agent/"])
+    if detail is not None:
+        fallback = _run(["ruff", "check", "agent/"])
+        if fallback is None:
+            detail = None
+        elif "コマンドが見つかりません" in fallback:
+            pass  # ruff も無い → uvx の失敗内容をそのまま報告
+        else:
+            detail = fallback
     if detail is not None:
         print("提出前チェック（fatal lint）に失敗しました:\n" + detail)
         return 1

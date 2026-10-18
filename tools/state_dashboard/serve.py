@@ -264,6 +264,17 @@ def _trajectory_values(traj: dict) -> dict:
     out["max_advance_x_km"] = _scalar(traj.get("max_advance_x"))
     out["escort_min_dist_km"] = _scalar(traj.get("escort_min_dist"))
     out["ammo_reserve"] = _scalar(traj.get("ammo_reserve"))
+    # 命中関連指標
+    hits = _scalar(traj.get("hits"))
+    misses = _scalar(traj.get("misses"))
+    launch_count = _scalar(traj.get("launch_count"))
+    out["hits"] = hits
+    out["misses"] = misses
+    out["launch_count"] = launch_count
+    out["hit_rate"] = (hits / launch_count) if (hits is not None and launch_count) else None
+    out["hit_count"] = hits
+    out["first_shot_hit"] = float(traj.get("first_shot_hit")) if traj.get("first_shot_hit") is not None else None
+    out["first_shot_distance"] = _scalar(traj.get("first_shot_distance"))
     return out
 
 
@@ -835,6 +846,7 @@ def collect_session(paired: dict | None = None) -> dict:
                     "hypotheses": state.get("hypotheses", []),
                     "cycles": state.get("cycles", []),
                     "records": state.get("records", []),
+                    "deepened_materials": state.get("deepened_materials", []),
                 }
             )
     submitted = (load_json(REPO_ROOT / "agent" / "args.json") or {}).get("specialist")
@@ -881,20 +893,52 @@ def collect_session(paired: dict | None = None) -> dict:
             recorded_materials.append(
                 {"phrase": phrase, "at": rec.get("at"), "record": rec.get("id")}
             )
+    fill_cards = (load_json(Path(__file__).with_name("card_fill.json")) or {}).get("cards", {})
+    for card in evidence:
+        fill = fill_cards.get(card.get("id", ""))
+        if fill:
+            card["cause"] = fill.get("cause", "")
+            card["variable"] = fill.get("variable", "")
+            card["variable_name"] = fill.get("variable_name", "")
+            card["variable_status"] = fill.get("variable_status", "none")
+            card["judge"] = fill.get("judge", "")
+            card["prediction"] = fill.get("prediction", "")
+            card["reason"] = fill.get("reason", "")
+            card["direction_id"] = fill.get("direction_id", "")
+            # 対象外・閉鎖の軸は『見送り』に分類させる（index.html の PARKED_PATTERNS で判定）
+            marker = {"none": "（変数はない）", "closed": "（閉鎖済みの軸）"}.get(card["variable_status"], "")
+            if marker and marker not in (card.get("hypothesis") or ""):
+                card["hypothesis"] = ((card.get("hypothesis") or "") + marker).strip()
+    deepened_materials = target_session.get("deepened_materials", [])
+    deepened_by_phrase = {d.get("phrase", ""): d for d in deepened_materials if d.get("phrase")}
+    deepened_by_id = {d.get("card_id", ""): d for d in deepened_materials if d.get("card_id")}
+    for card in evidence:
+        card_id = card.get("id", "")
+        phrase = card.get("phrase", "")
+        match = deepened_by_id.get(card_id) or deepened_by_phrase.get(phrase)
+        if match:
+            card["deepened"] = True
+            findings = match.get("findings", "")
+            if findings:
+                card["deepened_finding"] = findings
+                card["summary"] = findings
     return {
         "sessions": sessions,
         "target": target,
         "submitted": submitted,
         "recorded_materials": recorded_materials,
+        "deepened_materials": deepened_materials,
         "started": started,
         "steps": steps,
         "next": nxt,
         "hypotheses": target_session.get("hypotheses", []),
         "cycles": target_session.get("cycles", []),
+        "pending": _pending_hypothesis_ids(target_session),
         "open_work": _open_work(target, target_session),
         "paired": paired,
         "metric_sources": METRIC_SOURCES,
         "policy": collect_hypothesis_policy(),
+        "directions": collect_directions(),
         "evidence": evidence,
         "causes": collect_causes(
             target,
@@ -905,17 +949,44 @@ def collect_session(paired: dict | None = None) -> dict:
     }
 
 
-def _open_work(target: str, target_session: dict) -> dict:
-    """未着手の宿題（未検証の仮説＋記録の次の一手）。事実カードが枯れても次が見える."""
-    validated = {
+def _validated_hypothesis_ids(target_session: dict) -> set:
+    """処理済みの仮説 id（validate サイクルまたは record で紐付いたもの）。
+
+    「未検証の仮説」を判定する唯一の正。ダッシュボードの検証タブと宿題欄は
+    どちらもこの関数を通す（ロジックの二重管理を避ける）。
+    """
+    ids = {
         c.get("hypothesis")
         for c in target_session.get("cycles", [])
         if c.get("kind") == "validate" and c.get("hypothesis")
     }
+    # record で紐付いた仮説も処理済み（重複や既存結果への参照として記録されたもの）
+    ids |= {
+        r.get("hypothesis")
+        for r in target_session.get("records", [])
+        if r.get("hypothesis")
+    }
+    return ids
+
+
+def _pending_hypothesis_ids(target_session: dict) -> list:
+    """まだ検証が必要な仮説 id（登録順）。"""
+    validated = _validated_hypothesis_ids(target_session)
+    return [
+        h.get("id")
+        for h in target_session.get("hypotheses", [])
+        if h.get("id") not in validated
+    ]
+
+
+def _open_work(target: str, target_session: dict) -> dict:
+    """未着手の宿題（未検証の仮説＋記録の次の一手）。事実カードが枯れても次が見える."""
+    pending = _pending_hypothesis_ids(target_session)
+    pending_set = set(pending)
     unverified = [
         {"id": h.get("id"), "text": (h.get("text") or "")[:80]}
         for h in target_session.get("hypotheses", [])
-        if h.get("id") not in validated
+        if h.get("id") in pending_set
     ][-8:]
     md = REPO_ROOT / "analysis" / "agents" / target / "improvement.md"
     nexts: list[dict] = []
@@ -1170,6 +1241,135 @@ def _known_constraints() -> list[dict]:
     return out
 
 
+# ── 未試験の軸（閉鎖済み軸の補集合）────────────────────────────────────
+#
+# 仮説が触れてよい「ノブ」の全体から、HYPOTHESIS_POLICY.md の
+# 「検証済みの変数軸（再試験禁止）」表にある変数を引いた残りを事実カードにする。
+# 閉鎖済み軸の条件指標カードは仮説にならないため、生きている材料はここだけになる。
+# 軸を試験したら policy の表へ 1 行足せば、このカードは自動で消える。
+_AGENT_AXES = (
+    "fireRangeKm",
+    "maxSimulShot",
+    "breakRangeKm",
+    "beamRangeKm",
+    "targetMode",
+    "evadeCrankDeg",
+    "marginKm",
+)
+
+_AXIS_META = {
+    "marginKm": {
+        "label": "境界回避マージン",
+        "unit": "km",
+        "digits": 0,
+        "current": 25.0,
+        "propose": 40.0,
+        "text": "陣営境界へ寄る前に回避へ入る距離。増やすと境界への張り付きが減り、"
+                "被弾・全滅（wipe_count）が減る可能性がある。",
+        "judge": "avg_our_alive / avg_score",
+        "hypothesis": "境界回避マージン marginKm を 25 から 40 に増やすと、境界張り付きが"
+                      "減って被弾が減り、avg_our_alive が 2.67 から 3.0 に増え、"
+                      "avg_score が 0.5 から 0.55 になる",
+    },
+}
+
+
+def _tested_axes() -> set:
+    """HYPOTHESIS_POLICY.md の『検証済みの変数軸』表から試験済みの変数名を読む."""
+
+    doc = REPO_ROOT / "tools" / "state_dashboard" / "HYPOTHESIS_POLICY.md"
+    if not doc.exists():
+        return set()
+    text = doc.read_text(encoding="utf-8")
+    marker = "## 検証済みの変数軸（再試験禁止）"
+    if marker not in text:
+        return set()
+    section = text.split(marker, 1)[1].split("\n## ", 1)[0]
+    out = set()
+    for line in section.splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cell = line.split("|")[1].strip().strip("`")
+        if not cell or cell == "変数" or set(cell) <= {"-", ":", " "}:
+            continue
+        out.add(cell)
+    return out
+
+
+def _axis_cards() -> list[dict]:
+    """未試験の軸を事実カードにする（生きている仮説材料）."""
+
+    tested = _tested_axes()
+    args = load_json(REPO_ROOT / "agent" / "args.json") or {}
+    out = []
+    for var in _AGENT_AXES:
+        if var in tested:
+            continue
+        meta = _AXIS_META.get(var)
+        if meta is None:
+            continue
+        cur = meta["current"]
+        if _scalar(args.get(var)) is not None:
+            cur = _scalar(args.get(var))
+        unit = meta["unit"]
+        digits = int(meta["digits"])
+        out.append({
+            "id": f"axis:{var}",
+            "kind": "observation",
+            "source": "code",
+            "title": (
+                f"未試験の軸: {meta['label']} {var} = {cur:g}{unit}（1変数で試せる残り）"
+            ),
+            "summary": (
+                f"{meta['text']} 閉鎖済み軸（policy の表）の補集合として残った"
+                "1 変数のノブ。この軸を試験したら policy の表へ足すとカードが消える。"
+            ),
+            "evidence": [
+                {"label": var, "value": cur, "num": True, "digits": digits},
+                {"label": "提案値", "value": meta["propose"], "num": True, "digits": digits},
+            ],
+            "hypothesis": meta["hypothesis"],
+            "phrase": f"未試験の軸 {meta['label']}({var}) は {cur:g}{unit}（1変数で試せる残り）",
+            "metric": meta["judge"],
+            "from_tab": "コード",
+            "from_path": "agent/args.json, agent/strategy/specialists/default.py",
+            "command": "",
+            "command_label": "",
+        })
+    return out
+
+
+# ── 設計の方向（1変数では表せない材料）────────────────────────────────
+#
+# 数値ノブ（policy の表・未試験の軸）が全滅しても、勝ち筋のような構造変更は
+# まだ材料として残る。これは 1 変数の仮説にそのまま分解できないため、
+# 事実カードとは別枠の「方向カード」として仮説タブに出す。
+# 定義は tools/state_dashboard/directions.json（読み取り専用・手で整理する）。
+def collect_directions() -> dict:
+    """設計の方向（1変数では表せない材料）を directions.json から読む."""
+
+    path = REPO_ROOT / "tools" / "state_dashboard" / "directions.json"
+    data = load_json(path)
+    if not isinstance(data, dict):
+        return {"note": "", "items": []}
+    items = []
+    for it in data.get("items", []):
+        if not isinstance(it, dict) or not it.get("id"):
+            continue
+        items.append({
+            "id": it.get("id"),
+            "title": it.get("title", ""),
+            "summary": it.get("summary", ""),
+            "why": [str(x) for x in (it.get("why") or [])],
+            "steps": [str(x) for x in (it.get("steps") or [])],
+            "records": [str(x) for x in (it.get("records") or [])],
+            "metrics": it.get("metrics", ""),
+            "paths": [str(x) for x in (it.get("paths") or [])],
+        })
+    return {"note": data.get("note", ""), "items": items}
+
+
 def _trajectory_facts(log_rel: str) -> dict | None:
     """軌跡から「初探知/初発/被弾/包囲」の時系列を算出する."""
 
@@ -1183,11 +1383,31 @@ def _trajectory_facts(log_rel: str) -> dict | None:
 
     events = payload["events"]
     first_detect = next((i for i, f in enumerate(frames) if f["enemy"]), None)
-    first_launch = next((e["t"] for e in events if e["kind"] == "launch"), None)
+    launches = [e for e in events if e["kind"] == "launch"]
+    first_launch_t = launches[0]["t"] if launches else None
     locks = [e["t"] for e in events if e["kind"] == "lock"]
     first_lock = locks[0] if locks else None
     lost = [e["t"] for e in events if e["kind"] == "lost"]
-    launches = [e for e in events if e["kind"] == "launch"]
+
+    # 最初の発射の命中判定と距離を算出
+    first_shot_hit = None
+    first_shot_distance = None
+    if launches:
+        first_launch = launches[0]
+        first_slot = first_launch.get("slot")
+        first_dist = first_launch.get("dist")
+        # 対応する hit/miss イベントをフレームから探す
+        hit_event = None
+        for f in frames:
+            for e in f.get("events", []):
+                if e.get("kind") in ("hit", "miss") and e.get("slot") == first_slot:
+                    hit_event = e
+                    break
+            if hit_event:
+                break
+        if hit_event:
+            first_shot_hit = (hit_event.get("kind") == "hit")
+        first_shot_distance = first_dist
 
     warn_frames: dict[str, int] = {}
     min_dist: dict[str, float] = {}
@@ -1230,6 +1450,31 @@ def _trajectory_facts(log_rel: str) -> dict | None:
                 escort_min_dist = d if escort_min_dist is None else min(escort_min_dist, d)
 
     used = {e["slot"] for e in launches}
+    
+    # 命中/空振りカウント
+    hits = sum(1 for f in frames for e in f.get("events", []) if e.get("kind") == "hit")
+    misses = sum(1 for f in frames for e in f.get("events", []) if e.get("kind") == "miss")
+    
+    # 最初の発射の命中判定と距離を算出
+    first_shot_hit = None
+    first_shot_distance = None
+    if launches:
+        first_launch = launches[0]
+        first_slot = first_launch.get("slot")
+        first_dist = first_launch.get("dist")
+        # 対応する hit/miss イベントをフレームから探す
+        hit_event = None
+        for f in frames:
+            for e in f.get("events", []):
+                if e.get("kind") in ("hit", "miss") and e.get("slot") == first_slot:
+                    hit_event = e
+                    break
+            if hit_event:
+                break
+        if hit_event:
+            first_shot_hit = (hit_event.get("kind") == "hit")
+        first_shot_distance = first_dist
+    
     gap = _fire_gap_stats(frames)
     # 持続探知の開始: 8 連続フレームで敵がいる最初の位置。
     # 初発の1フレームゴースト（t=3 の1発探知など）を起点にすると空白が
@@ -1246,8 +1491,8 @@ def _trajectory_facts(log_rel: str) -> dict | None:
             run = 0
     lag = None
     base = first_persistent if first_persistent is not None else first_detect
-    if base is not None and first_launch is not None:
-        lag = first_launch - base
+    if base is not None and first_launch_t is not None:
+        lag = first_launch_t - base
     # 探知 duty 率: 敵を探知していたフレームの割合。UUID 追跡など履歴系の
     # 識別（O-054）の可否条件。低いと運動学的識別は不可。
     detect_duty = None
@@ -1256,8 +1501,8 @@ def _trajectory_facts(log_rel: str) -> dict | None:
     # 初発前の被弾警報フレーム数: lag の内訳（接近時間か脅威ゲート抑制か）の切り分け用。
     # 脅威下では射撃指示が出ない（threat gate）ため、警報が多い空白は抑制が主因。
     pre_launch_suppressed = 0
-    if first_launch is not None:
-        for f in frames[:first_launch]:
+    if first_launch_t is not None:
+        for f in frames[:first_launch_t]:
             if f.get("threat"):
                 pre_launch_suppressed += 1
     return {
@@ -1267,11 +1512,10 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "first_detect": first_detect,
         "first_persistent": first_persistent,
         "first_lock": first_lock,
-        "first_launch": first_launch,
+        "first_launch": first_launch_t,
         "lag": lag,
         "pre_launch_suppressed": pre_launch_suppressed,
         "detect_duty": detect_duty,
-        "launch_count": len(launches),
         "launched_slots": sorted(used),
         "ammo_start": ammo_start,
         "ammo_end": ammo_end,
@@ -1301,6 +1545,12 @@ def _trajectory_facts(log_rel: str) -> dict | None:
             "by_slot": gap["by_slot"],
         },
         "result": payload.get("result") or {},
+        # 命中関連指標
+        "hits": hits,
+        "misses": misses,
+        "launch_count": len(launches),
+        "first_shot_hit": float(first_shot_hit) if first_shot_hit is not None else None,
+        "first_shot_distance": first_shot_distance,
     }
 
 
@@ -1496,19 +1746,14 @@ def _metric_cards(
         for card in out:
             if card.get("id") in ("metric:first_launch_lag", "metric:pre_launch_threat"):
                 card["hypothesis"] = lag_branch
-    duty_branch = _duty_branch_hypothesis((traj.get("detect_duty")))
-    if duty_branch is not None:
-        for card in out:
-            if card.get("id") == "metric:detect_duty":
-                card["hypothesis"] = duty_branch
     stranded = _scalar(traj.get("stranded_ammo"))
     if stranded is not None and stranded > 0:
         for card in out:
             if card.get("id") == "metric:stranded_ammo":
                 card["hypothesis"] = (
-                    f"撃墜機が {stranded:g}発を持ち去った。死蔵を減らすには"
-                    f"生存を延ばす方向（N-036/037 の salvo・分離軸）。"
-                    f"発射制限による温存は逆効果（N-028 で棄却済み）。"
+                    f"撃墜機が {stranded:g}発を持ち去った（＝護衛用予備 escortReserveMsls 3 × "
+                    f"護衛対象機到達前の撃墜数）。予備は ELIMINATION の勝ち筋のため、"
+                    f"減らす設計は生存軸＝護衛戦闘機の先行排除（winpath-escort）で扱う。"
                 )
     adv = _scalar(traj.get("max_advance_x"))
     if adv is not None and adv < 0:
@@ -1603,32 +1848,6 @@ def _lag_branch_hypothesis(lag, suppressed) -> str | None:
     return (
         "初発前の警報は少なく、空白は接近時間（探知距離・シナリオ）要因。"
         "速度は既に最大のため手出しできる変数はない。別軸へ。"
-    )
-
-
-def _duty_branch_hypothesis(duty) -> str | None:
-    """探知duty率から履歴系識別の可否を自動判定する.
-
-    per-UUID duty ≦ 全体duty のため、全体 0.3 未満なら個別追跡は必ず疎で不可
-    （O-054: per-UUID 7%）。0.5 以上なら密な可能性があり軸の再検討対象。
-    中間は証拠不十分で監視継続。しきい値は目安。
-    """
-    if duty is None:
-        return None
-    d = float(duty)
-    if d < 0.3:
-        return (
-            "探知duty率が低く、UUID追跡など履歴系の識別は不可"
-            "（per-UUID duty は全体以下になるため）。"
-            "運動学的識別軸は閉鎖維持。別軸へ。"
-        )
-    if d >= 0.5:
-        return (
-            "探知duty率が高く、履歴系識別の検討が可能。"
-            "UUID追跡＋速度・旋回率分類の設計が次の候補（未試行）。"
-        )
-    return (
-        "探知duty率は中位で識別可否の証拠不十分。現状維持しつつ監視する。"
     )
 
 
@@ -1932,6 +2151,9 @@ def collect_evidence(target: str) -> list[dict]:
     stats_ok = stats if (stats and "error" not in stats) else None
     cards.extend(_metric_cards(facts, stats_ok, paired, specialist, newest))
     cards.extend(_trigger_cards(facts, stats_ok, paired, specialist))
+    # 3c) 未試験の軸（閉鎖済み軸の補集合）。閉鎖軸カードは仮説にならないため、
+    #     生きている仮説材料をここで必ず 1 枚以上出せるようにする。
+    cards.extend(_axis_cards())
 
     # 4) 前提（assumption）として登録すべき既知の制約
     constraints = _known_constraints()
