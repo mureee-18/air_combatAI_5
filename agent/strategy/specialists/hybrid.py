@@ -12,7 +12,6 @@ guardCount: 側面突破機（flanker）を検知したら、ma ディフェン�
 import copy
 import math
 
-from . import escort_hunt
 from .escort_hunt import EscortHuntPolicy, get_agent_class, get_model_config, _slot  # noqa: F401
 from .ma_default import DefaultPolicy
 
@@ -89,7 +88,8 @@ class HybridPolicy(EscortHuntPolicy):
         own = observation["own"]
         if self.defLeashXKm is not None and float(own[0]) > self.defLeashXKm and observation["threat"][0] < 0.5:
             numTurn = int(action_space["turn"].n)
-            az = math.degrees(math.atan2(self.defendY * (1 if own[1] >= 0 else -1) - float(own[1]), self.defendX - float(own[0])))
+            py = self.defendY * (1 if own[1] >= 0 else -1)
+            az = math.degrees(math.atan2(py - float(own[1]), self.defendX - float(own[0])))
             act = dict(act)
             act["turn"] = self._turnIndex(self._bounds(own, az), numTurn)
         return act
