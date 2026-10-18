@@ -5,6 +5,9 @@ defPolicy:
   "ma" : MA版 DefaultPolicy（前進して最寄りの敵戦闘機に反撃、護衛対象機用に N 発温存）
 maArgs: MA版ポリシーへ渡す引数（既定は MA 提出版の args.json 相当、速度フィルタのみ無効）
 defLeashXKm: ma ディフェンダーがこの x を越えたら自陣側へ戻る（None=制限なし）
+guardCount: 側面突破機（flanker）を検知したら、ma ディフェンダーのうち guardCount 機を
+  escort_hunt のディフェンダー（自陣哨戒・侵入機優先迎撃）に切り替える（0=無効）
+  flanker = 自陣側 x < flankXKm かつ |y| > flankYKm、または x < deepXKm の敵戦闘機。guardHoldS 秒保持。
 """
 import copy
 import math
@@ -38,6 +41,27 @@ class HybridPolicy(EscortHuntPolicy):
         self.maArgs = ma
         lx = a.get("defLeashXKm", None)
         self.defLeashXKm = float(lx) if lx is not None else None
+        self.guardCount = int(a.get("guardCount", 0))
+        self.flankXKm = float(a.get("flankXKm", -20.0))
+        self.flankYKmDet = float(a.get("flankYKmDet", 60.0))
+        self.deepXKm = float(a.get("deepXKm", -60.0))
+        self.guardHoldS = float(a.get("guardHoldS", 120.0))
+        self._guardUntil = {}
+        self._tick = {}
+
+    def _flankerSeen(self, observation):
+        own = observation["own"]
+        enemy = observation["enemy"]
+        ox, oy = float(own[0]), float(own[1])
+        for i in range(enemy.shape[0]):
+            if enemy[i, 0] < 0.5 or enemy[i, 4] > 0.5:
+                continue
+            b = math.radians(float(enemy[i, 1]))
+            x = ox + float(enemy[i, 2]) * math.cos(b)
+            y = oy + float(enemy[i, 2]) * math.sin(b)
+            if (x < self.flankXKm and abs(y) > self.flankYKmDet) or x < self.deepXKm:
+                return True
+        return False
 
     def _maStep(self, observation, reward, done, info, agentFullName, observation_space, action_space):
         p = self.ma.get(agentFullName)
@@ -50,6 +74,15 @@ class HybridPolicy(EscortHuntPolicy):
         slot = _slot(agentFullName)
         isAttacker = slot in self.attackerSlots
         mode = self.atkPolicy if isAttacker else self.defPolicy
+        if not isAttacker and mode == "ma" and self.guardCount > 0:
+            t = self._tick[agentFullName] = self._tick.get(agentFullName, 0) + 1
+            defs = sorted(s_ for s_ in (1, 2, 3, 4) if s_ not in self.attackerSlots)
+            guards = defs[::-1][: self.guardCount]   # 後ろのスロットから guard 役
+            if slot in guards:
+                if self._flankerSeen(observation):
+                    self._guardUntil[agentFullName] = t + self.guardHoldS
+                if t < self._guardUntil.get(agentFullName, -1):
+                    mode = "eh"
         if mode != "ma":
             return super().step(observation, reward, done, info, agentFullName, observation_space, action_space)
         act = self._maStep(observation, reward, done, info, agentFullName, observation_space, action_space)
