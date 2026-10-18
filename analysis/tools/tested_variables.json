@@ -50,11 +50,13 @@
       ]
     },
     "evadeCrankDeg": {
-      "values": "0/15/25",
-      "result": "15 で生存改善、25 は低下。15 を採用",
+      "values": "0/15/25/45",
+      "result": "45は回帰: 1戦 seed4 Red が引分け0.500→敗戦0.2455(ELIMINATION, our escort撃墜)。先頭機生存 405f→438f(予測600f未達)・threat曝露 120f→132f(予測90f未達)で両予測不一致。1戦ゲートで棄却しペア評価は不実施。旧 15採用の記録は default.py に読むコードが存在しない no-op だった",
       "refs": [
         "N-038",
-        "N-039"
+        "N-039",
+        "N-156",
+        "results_crank45_r4"
       ]
     },
     "marginKm": {
@@ -134,7 +136,7 @@
     },
     "escortForwardXKm": {
       "values": "0/110",
-      "result": "110 は護衛候補選択が検知の81%・最小接近40.6km だが avg_score 0.500 据置（hit_rate 0）。0 を維持",
+      "result": "110 は護衛候補選択が検知の81%・最小接近40.6km だが avg_score 0.500 据置（hit_rate 0）。当時0を維持、現行 args は 110",
       "refs": [
         "N-138",
         "ffx110.json"
@@ -142,7 +144,7 @@
     },
     "escortFireMode": {
       "values": "0/1",
-      "result": "1 は護衛候補への発射が射程内フレームの77%で成立するが avg_score 0.500 据置（hit_rate 0）。0 を維持",
+      "result": "1 は護衛候補への発射が射程内フレームの77%で成立するが avg_score 0.500 据置（hit_rate 0）。当時0を維持、現行 args は 1",
       "refs": [
         "N-139",
         "efm1.json"
@@ -208,6 +210,51 @@
       "refs": [
         "O-167",
         "nbi.json"
+      ]
+    },
+    "escortEngageFirstKm": {
+      "values": "0/60/80",
+      "result": "80は回帰（6戦0.58）。60は6戦で0.645だが14戦(seeds1-7両面)では0.618＝基準0.617と中立（勝ち2得2失）。挙動指標のみ微改善(our3.21→3.29, enemy3.5→3.36)。60は中立のため既定0へ戻した（現行 args は未設定＝0）",
+      "refs": [
+        "N-152",
+        "N-153",
+        "escEng60.json",
+        "escEng60_7.json"
+      ]
+    },
+    "escortFireRangeKm": {
+      "values": "0/70",
+      "result": "70は回帰: win9→7 avg_score0.617→0.589 enemy3.5→3.64 hit0.061→0.046。長距離の尾行射撃は外れ、戦闘機への射撃も奪われる",
+      "refs": [
+        "N-154",
+        "eFr70_7.json"
+      ]
+    },
+    "escortFireMinKm": {
+      "values": "0/30/27/35",
+      "result": "27は却下（12勝中11戦 -0.0003〜-0.0026、改善0、hit/alive は不変＝ELIMINATION が遅れるだけ）、35は採用（10戦改善・1戦微悪・3戦不変、avg 0.657→0.659、公式seeds1-5 0.638→0.639）。早撃ちほど ELIMINATION が早く score が上がる。43-49km帯は外れる（b3実績）ため上限は未踏。",
+      "refs": [
+        "N-155",
+        "fmin30_7.json",
+        "N-160",
+        "fm35_7.json",
+        "fm27_7.json"
+      ]
+    },
+    "escortReserveMaxKm": {
+      "values": "100",
+      "result": "100は棄却: 1戦seed4は draw据置(enemy4→3, min_rmsls 3→0/2と部分解放)だったが14戦ペア評価で 0.657→0.519・win12→1・draw13 と全戦的中した。予備弾を戦闘機に使うと護衛撃破(ELIMINATION)ができず勝ち機会が消える。0(既定)を維持",
+      "refs": [
+        "N-157",
+        "rmax100_7.json"
+      ]
+    },
+    "threatEvadeMaxFrames": {
+      "values": "30",
+      "result": "30は棄却: 1戦Red4 draw 0.500 据置（our_alive1/enemy4/hit0.000、ベースラインと同値）。挙動は確かに変化し（f240で西行き固定が解け、f300-350は東向きで距離159.8kmまで15km戻した）が、拘束条件は生存で自機は f405 に全滅、迎撃は f760 頃まで必要で届かない。既定0（無制限=現行）を維持",
+      "refs": [
+        "N-162",
+        "results_thr30_r4"
       ]
     }
   }

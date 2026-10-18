@@ -1648,3 +1648,98 @@
 - 検証: 既存ログ再集計: stranded_ammo は護衛用予備×到達前撃墜数に完全一致（r2_4=6/r4_4=12/r5_4=15＝予備値×撃墜3機、rs1=9/rs2B=6/rs4=9。旧 ahm は 6/機）。escort_timing: 護衛対象機は全ログで first_escort=0（t=0 探知済み）。default.py:178 より発射は threat[0] が 0.5 未満のときのみ
 - 指標: {"avg_score": 0.616, "avg_our_alive": 3.0, "avg_enemy_alive": 4.21, "games": 14}
 - 次の一手: 0 への低減レバーは早期撃墜の削減のみ＝winpath-escort に集約。1 変数の数値ノブは無し。カードは direction 化して復活し、仮説（1変数）登録はしない
+
+## O-170 [observation/log] 2026-10-18T12:50:33
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛戦闘機の先行排除（escortEngageFirstKm=80）はwinを1件失いavg_score悪化・棄却
+- 変更: default.py に escortEngageFirstKm を追加（最近傍敵が閾値以内の間は護衛対象機へ向かわず護衛戦闘機へ指向）。args.json escortEngageFirstKm=80
+- 検証: ペア評価 seed1,2,3×両面6戦: win3/draw3/loss0 avg_score0.58(基準win4/draw2 0.611) our_alive2.83(3.33) enemy_alive3.5(3.67) hit_rate0.049。Red s1 0.643→0.5・Red s3 0.663→0.5 が win→draw、Blue s3 0.5→0.659 が draw→win。予測 our_alive↑ に対し実測↓で不一致
+- 指標: {"avg_score": 0.58, "avg_our_alive": 2.83, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: escortEngageFirstKm を revert して基準0.611へ戻す。より緩い値60の再試行か別軸を検討
+
+## O-171 [observation/log] 2026-10-18T12:59:46
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛戦闘機の先行排除（escortEngageFirstKm=60）は全seedで改善し最良・採用
+- 変更: default.py の escortEngageFirstKm を60に設定（最近傍敵が60km以内の間は護衛対象機へ向かわず護衛戦闘機へ指向）。args.json escortEngageFirstKm=60
+- 検証: ペア評価 seed1,2,3×両面6戦: win5/draw1/loss0 avg_score0.645(基準0.611) our_alive4.0(3.33) enemy_alive3.0(3.67) hit_rate0.092(0.05)。Red s1/se2/se3 と Blue s1 が改善、Blue s1 は draw→win。予測(0.60-0.63)を上回る好結果で方向一致
+- 指標: {"avg_score": 0.645, "avg_our_alive": 4.0, "avg_enemy_alive": 3.0, "games": 6}
+- 次の一手: seeds1-7×両面で確認し、良ければCHANGELOG・提出物を更新。次は Blue s3 の残り1draw(4/4)対策または別軸
+
+## O-172 [observation/log] 2026-10-18T13:14:00
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escortEngageFirstKm=60 は seeds1-7×両面で score 中立（0.618 vs 0.617）。6戦の0.645は小標本ノイズ
+- 変更: 構成変更なし。escortEngageFirstKm=60 のまま seeds1-7 の14戦へ拡大して確認
+- 検証: 14戦 win9/draw5/loss0 avg_score0.618(基準0.617) our_alive3.29(3.21) enemy_alive3.36(3.5) hit0.071(0.061)。勝ち2件得(B1 0.5→0.693,B4 0.5→0.660)・2件失(B5 0.674→0.5,B6 0.698→0.5)で相殺
+- 指標: {"avg_score": 0.645, "avg_our_alive": 4.0, "avg_enemy_alive": 3.0, "games": 6}
+- 次の一手: 60採用は挙動指標が微改善で害なしだがscore加点は無し。残draw(Blue s3/s5/s6/s7)対策と、勝ちを失った B5/B6 の要因分析が必要
+
+## O-173 [observation/log] 2026-10-18T13:30:29
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escortEngageFirstKm=60 は「戦闘機の先行排除」を実現しない（hit_rate 0 で1機も撃墜できず、代わりに護衛対象機への到達が遅れる）
+- 変更: コード変更なし。Blue seed5/6（60で勝ちを失った2件）のログを生成し、護衛対象機の同定・距離・threat・射撃を計測
+- 検証: B5: 護衛同定948/1800フレーム、同定時の最小距離56.2km(fireRange50kmに届かず射撃0回)、最終83.8km・ammo=3.0、enemy_alive=5(撃墜0)・hit_rate 0。B6も同様(最小30-33km, ammo 3.0, hit_rate 0)。全agentのmin_rmsls=3.0で予備3発は解放されない
+- 指標: {"avg_score": 0.645, "avg_our_alive": 4.0, "avg_enemy_alive": 3.0, "games": 6}
+- 次の一手: 先行排除は護衛戦衛戦闘機を撃墜できない(hit_rate 0.05-0.09)ため不成立。勝ち筋は護衛対象機への到達のみ。escortEngageFirstKmのrevert か、接近軸を検討
+
+## O-174 [observation/log] 2026-10-18T13:47:48
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escortFireRangeKm=70 は長距離の尾行射撃が外れ、戦闘機への射撃も奪うため回帰
+- 変更: default.py に escortFireRangeKm を追加（護衛対象機を撃つときだけ射程を50→70kmに拡大、他機は50のまま）、args.json escortFireRangeKm=70
+- 検証: 14戦(seeds1-7×両面) win7/draw7/loss0 avg_score0.589(基準0.617) our_alive3.21(同) enemy_alive3.64(3.5) hit_rate0.046(0.061)。予測 enemy≤3.2/score0.64-0.68 に対し実測は逆方向。Blue s3 1ゲームでも hit0 で変化なし
+- 指標: {"avg_score": 0.589, "avg_our_alive": 3.21, "avg_enemy_alive": 3.64, "games": 14}
+- 次の一手: escortFireRangeKm を revert して0.617へ戻す。射程拡大は不可。残る引き分けは『護衛対象機に到達できない』構造問題で、到達経路・機動の軸を検討
+
+## N-002 [inference/log] 2026-10-18T14:17:53
+- 種別: inference（仮説・推論）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: winpath-escort（予備弾を護衛排除に使う）
+- 仮説: N-155
+- 変更: escortFireMinKm を新設し 30.0 を args.json に追加（default.py: fire gate に escort_range_ok を追加）。護衛対象機 dist>30km では予備弾を温存する。当初 fire_target 選択への gate は best==escort で no-op だったため、射撃判断そのものに gate を移した。
+- 検証: 仮説 N-155 の予測と実測: 1戦 B3 draw→win 一致（0.6735 ELIMINATION、enemy_alive 5→4）。14戦 avg_score 0.617→0.657（予測 0.65 以上、一致）、avg_our_alive 3.21→3.21（一致）、avg_enemy_alive 3.50→3.29（予測 3.2 以下、やや未達・方向は一致）、win 9→12 / draw 5→2 / loss 0。公式基準 seeds1-5×両面 10戦は 0.601→0.638。残る 2 引分けは seed4 の Red/Blue 双方（TIMEUP、our_alive=1, enemy_alive=4）。
+- 指標: {"avg_score": 0.657, "avg_our_alive": 3.21, "avg_enemy_alive": 3.29, "games": 14}
+- 次の一手: seed4 双方の引分け 2 回を最優先で解消する。B3 で判明した機構: 護衛に271フレーム射程内、1085-1096 で 49km 付近に 3 発全消滅 → 後に 0.1km まで接近したが残弾 0。
+
+## N-003 [inference/log] 2026-10-18T14:43:38
+- 種別: inference（仮説・推論）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: threat-回避の方向（crank）
+- 仮説: N-156
+- 変更: evadeCrankDeg を default.py に実装し 45° を threat 逃走方位に加算（y 座標で反転）。実験後、args.json を 0.0 に戻し実装も削除して 0.657 の状態へ完全に巻き戻した（git diff は escortFireMinKm のみ）。
+- 検証: 1戦ゲートで棄却: seed4 Red は draw(0.500)→loss(0.2455, ELIMINATION)。数値予測も2/2不一致（先頭機生存 405→438 は 600f 未達、threat 120→132 は 90f 超）。脇機2-4 は 235-239f で早期撃墜・threat 連続曝露のまま死亡。crank は後方逃走率を下げ被威胁時間を長くした可能性があり、14戦ペア評価は実施しない。
+- 指標: {"avg_score": 0.657, "avg_our_alive": 3.21, "avg_enemy_alive": 3.29, "games": 14}
+- 次の一手: 1変数ずつで機動は他軸へ。検証済みの脇不変量: 勝ち試合では先頭機が敵を 0-29km まで接近し接触80%・コース変更41/1000f、引分けでは 38km 未達・接触50%・5/1000f。escapeは180°直進を維持（crank不可）。
+
+## N-004 [inference/log] 2026-10-18T15:12:49
+- 種別: inference（仮説・推論）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: stranded_ammo の解放
+- 仮説: N-157
+- 変更: escortReserveMaxKm=100 を新設し、護衛を同定かつ100km以内でないとき予備弾条件を外す。1戦後、検証のため14戦ペア評価を実施。棄却後、args.json/default.py ともに完全に巻き戻し（git diff は escortFireMinKm のみ・9行）。
+- 検証: 仮説 N-157 は不的中: 予測 avg_score 0.657→0.66以上 / win12→13以上 → 実測 0.519 / win1（draw13）。1戦の予測は2/3中（score 0.5据置・enemy_alive 4→3 は一致、min_rmsls 1以下は a2-4 が2で未達）だが、1戦では検出不能な回帰をペア評価で検出。挙動指標は enemy_alive 3.29→3.57・our_alive 3.21→3.29・hit 0.084→0.015 とも悪化。
+- 指標: {"avg_score": 0.519, "avg_our_alive": 3.29, "avg_enemy_alive": 3.57, "games": 14}
+- 次の一手: 構造的結論: 勝利条件は護衛対象機の撃破(ELIMINATION)のみで、戦闘機撃破は成績に直接寄与しない（引き分けは全勝0.5固定）。予備弾=3 は勝ち導線そのもので、解放・削減系の変更は原則棄却とみる。残る引分けは seed4 の2件だが、405fで全滅する早期撃墜は未解決。
+
+## O-175 [observation/log] 2026-10-18T16:53:45
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: winpath-escort（護衛への接近・射撃タイミング軸）
+- 仮説: N-160
+- 変更: escortFireMinKm を30→35に変更（N-160）。値27は先行試験で却下して30へ戻した後、対称方向の35を採用。args.json のみ変更・deploy 済み。
+- 検証: 仮説N-160はほぼ的中: 1戦Blue5 0.6765→0.6808（予測≥0.67✓/ELIMINATION✓/our_alive 3✓）。14戦ペア fm35_7 = avg_score 0.659（予測≥0.660 は0.001未達✗）、win12/draw2/loss0✓、hit 0.084✓、our 3.21✓、enemy 3.29✓。戦別では 10戦改善・1戦微悪(Red3 -0.0009)・3戦不変、合計+0.019。公式seeds1-5×両面 0.638→0.639。前試験の27kmは 12勝中11戦が微悪化（改善0、hit/alive不変）＝ELIMINATION が遅れるだけで、早撃ちほど有利という一貫した方向性。
+- 指標: {"avg_score": 0.659, "avg_our_alive": 3.21, "avg_enemy_alive": 3.29, "games": 14}
+- 次の一手: 残る非勝利は seed4 の2引き分けのみ（護衛への最小到達154/168km）。これは速度上限から到達不能の可能性が高く、まず実測で構造的に確定させる（到達不能なら0.659が上限に近い）。上の次の値40は b3実績の43-49km外れ帯に近づくため、到達不能の確認後に判断する。
+
+## N-005 [inference/log] 2026-10-18T17:24:03
+- 種別: inference（仮説・推論）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: seed4 の threat 逃避固定を時間上限で解除
+- 仮説: N-162
+- 変更: 新変数 threatEvadeMaxFrames（既定0=現行）を追加し、threat回避の継続を連続30フレームに制限（fire gate / escort追尾 / threatオーバーライドの3箇所を同一の evading 判定に統一）。1戦で効果を確認後、予測未達のため args.json と default.py の変更を完全に巻き戻し（git diff は escortFireMinKm のみ・9行）。
+- 検証: 仮説N-162は不的中: Red4 予測（ELIMINATION/護衛最小≤35km/win≥0.65/enemy4→3）に対し実測は draw 0.500・our_alive1・enemy4・護衛最小159.8km。時間上限自体は機能した（f210→f240で西行固定が解除、f300-350に東向きで15km接近）が、自機が f405 で全滅するため迎撃（射程到達 ~f760）に届かない。挙動だけ変えて結果が変わらない典型例。
+- 指標: {"avg_score": 0.659, "avg_our_alive": 3.21, "avg_enemy_alive": 3.29, "games": 14}
+- 次の一手: seed4 の拘束条件は『護衛への到達』ではなく『生存』と確定（threat回避・武器配分・crank の3系統すべてで結果不変）。残る可能性は (a) 自機が敵戦闘機の正面を横切る幾何自体を変える（進路・初期展開）、(b) 4機の役割分離で1機を護衛に専念させる（escortChaserCount は否決済み）、(c) seed4 を打ち切って 0.659 を確定。

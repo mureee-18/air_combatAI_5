@@ -47,6 +47,7 @@ class DefaultPolicy(StandalonePolicy):
         self.escortNoBeam = int(args.get("escortNoBeam", 0))
         self.escortIgnoreBreak = int(args.get("escortIgnoreBreak", 0))
         self.escortReserveMsls = int(args.get("escortReserveMsls", 0))
+        self.escortFireMinKm = float(args.get("escortFireMinKm", 0.0))
         self.beamHoldWhileArmed = int(args.get("beamHoldWhileArmed", 0))
         self.beamHoldFrames = int(args.get("beamHoldFrames", 0))
         self.fireAlignDeg = float(args.get("fireAlignDeg", 0.0))
@@ -171,9 +172,16 @@ class DefaultPolicy(StandalonePolicy):
                 escort_candidate is not None and fire_target == escort_candidate
             ):
                 ammo_hold_ok = ammo_hold_ok and float(own[8]) > self.escortReserveMsls
+            escort_range_ok = (
+                self.escortFireMinKm <= 0.0
+                or escort_candidate is None
+                or fire_target != escort_candidate
+                or float(enemy[escort_candidate, 2]) <= self.escortFireMinKm
+            )
             align_ok = self.fireAlignDeg <= 0.0 or off_nose <= self.fireAlignDeg
             if (
                 not breaking
+                and escort_range_ok
                 and float(enemy[fire_target, 2]) <= self.fireRangeKm
                 and threat[0] < 0.5
                 and track_ok

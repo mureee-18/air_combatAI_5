@@ -15,6 +15,7 @@
     "escortNoBeam": 1,
     "escortIgnoreBreak": 1,
     "escortReserveMsls": 3,
+    "escortFireMinKm": 35.0,
     "beamHoldWhileArmed": 0,
     "beamHoldFrames": 0,
     "fireAlignDeg": 0,
