@@ -45,13 +45,19 @@ class HybridPolicy(EscortHuntPolicy):
         self.flankYKmDet = float(a.get("flankYKmDet", 60.0))
         self.deepXKm = float(a.get("deepXKm", -60.0))
         self.guardHoldS = float(a.get("guardHoldS", 120.0))
+        # guardScale=1: 侵入機数に応じて guard 機数を増やす（1機侵入→1機、2機以上→guardCount 機）
+        self.guardScale = int(a.get("guardScale", 0))
         self._guardUntil = {}
         self._tick = {}
 
     def _flankerSeen(self, observation):
+        return self._flankerCount(observation) > 0
+
+    def _flankerCount(self, observation):
         own = observation["own"]
         enemy = observation["enemy"]
         ox, oy = float(own[0]), float(own[1])
+        n = 0
         for i in range(enemy.shape[0]):
             if enemy[i, 0] < 0.5 or enemy[i, 4] > 0.5:
                 continue
@@ -59,8 +65,8 @@ class HybridPolicy(EscortHuntPolicy):
             x = ox + float(enemy[i, 2]) * math.cos(b)
             y = oy + float(enemy[i, 2]) * math.sin(b)
             if (x < self.flankXKm and abs(y) > self.flankYKmDet) or x < self.deepXKm:
-                return True
-        return False
+                n += 1
+        return n
 
     def _maStep(self, observation, reward, done, info, agentFullName, observation_space, action_space):
         p = self.ma.get(agentFullName)
@@ -76,9 +82,16 @@ class HybridPolicy(EscortHuntPolicy):
         if not isAttacker and mode == "ma" and self.guardCount > 0:
             t = self._tick[agentFullName] = self._tick.get(agentFullName, 0) + 1
             defs = sorted(s_ for s_ in (1, 2, 3, 4) if s_ not in self.attackerSlots)
-            guards = defs[::-1][: self.guardCount]   # 後ろのスロットから guard 役
+            nIntr = self._flankerCount(observation)
+            if self.guardScale > 0:
+                # 侵入機数は各機の観測で異なるため、直近の最大値を共有して使う
+                self._lastIntr = max(nIntr, getattr(self, "_lastIntr", 0)) if nIntr else nIntr
+                k = min(self.guardCount, max(1, self._lastIntr))
+            else:
+                k = self.guardCount
+            guards = defs[::-1][:k]   # 後ろのスロットから guard 役
             if slot in guards:
-                if self._flankerSeen(observation):
+                if nIntr > 0:
                     self._guardUntil[agentFullName] = t + self.guardHoldS
                 if t < self._guardUntil.get(agentFullName, -1):
                     mode = "eh"
