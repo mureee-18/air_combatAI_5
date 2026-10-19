@@ -278,6 +278,17 @@
         "flank15.json",
         "fm35_7.json"
       ]
+    },
+    "fireAlignOnlyDeg": {
+      "values": "0/20",
+      "result": "20 は Red4 はベース同一・Blue1 は win 0.708→draw 0.500 と悪化。不採用、0 に revert",
+      "refs": [
+        "N-170",
+        "results_base_b1",
+        "results_fao20_b1",
+        "results_base_r4",
+        "results_fao20_r4"
+      ]
     }
   }
 }
