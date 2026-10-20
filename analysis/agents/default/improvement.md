@@ -1800,3 +1800,12 @@
 - 検証: launch_analyzer: escort_target 発射を正しく抽出（escort_candidate True で判定）、off_nose < 6° の護衛射撃を確認。
 - 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: escort_launch_hit_rate（護衛対象機への発射単位命中率）を custom_metrics.json に追加し、trajectory の hit/miss 判定との整合性を確認した上で launch_analyzer ベースで集計する。引分けで hit_rate 0 となる全体定義から分離する方針を継続。
+
+## O-179 [observation/log] 2026-10-20T20:45:42
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: バーストサイズを1発に制限し初弾無駄撃ちを省き弾を節約する
+- 変更: maxSimulShot=1 を args.json に追加しペア評価(seeds1-3×両面=6戦)。実測 avg_score 0.674（defaultと同一・変化なし）、our_alive 3.33、enemy_alive 3.33、6勝0敗0分。予測 0.69 以上は外れたため不採用。revert し現行構成（escortFireMinKm=35.0）に戻す。
+- 検証: maxSimulShot は escort_hunter.py で飛翔中ミサイル数制限として使用中だが、1発に制限してもバースト初弾の外れは解消されずスコア・生存とも変化なし。バースト初弾命中0の改善は struct-firing-track 方向カードで別途検討。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: args.json から maxSimulShot を削除し現行構成で確定。バースト指標（burst_first_hit_rate 等）は launch_analyzer で継続観測。
