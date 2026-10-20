@@ -112,14 +112,25 @@
       "unit": "発"
     },
     {
-      "id": "hit_rate",
-      "label": "命中率",
+      "id": "escort_hit_rate",
+      "label": "護衛命中率（護衛対象機のみ）",
       "from": "trajectory",
       "source": "log",
       "direction": "higher",
-      "target": 0.35,
+      "target": 0.15,
       "digits": 2,
-      "note": "命中弾÷発射数。0%なら交戦不能。まずは 35% 到達を目指す。",
+      "note": "発射対象が護衛対象機（escort_candidate / RedE/BlueE）だった場合の命中率。全体命中率に引分け・戦闘機同士の無駄撃ちが混ざらないため、winpath-escort の改善に直結する。",
+      "unit": "率"
+    },
+    {
+      "id": "escort_launch_hit_rate",
+      "label": "護衛発射単位命中率（launch）",
+      "from": "log",
+      "source": "log",
+      "direction": "higher",
+      "target": 0.2,
+      "digits": 2,
+      "note": "launch_analyzer による護衛対象機への発射単位での命中率（trajectory の hit/miss 推定ベース）。機体撃墜ベースの hit_rate とは異なり、発射ごとの有効性を直接見る。",
       "unit": "率"
     },
     {
@@ -154,6 +165,39 @@
       "digits": 1,
       "note": "最初の発射時の距離。遠すぎると命中率が下がる。30km 以内を目指す。",
       "unit": "km"
+    },
+    {
+      "id": "burst_first_hit_rate",
+      "label": "バースト初弾命中率",
+      "from": "launch",
+      "source": "log",
+      "direction": "higher",
+      "target": 0.2,
+      "digits": 2,
+      "note": "launch_analyzer のバースト（一斉射撃）グループ内で最初に発射された弾の命中率。最初の弾が外れると後続も外れやすく、一斉射撃の無駄撃ちを示す。",
+      "unit": "率"
+    },
+    {
+      "id": "burst_avg_size",
+      "label": "平均バーストサイズ",
+      "from": "launch",
+      "source": "log",
+      "direction": "lower",
+      "target": null,
+      "digits": 1,
+      "note": "1バーストあたりの平均発射数。大きいほど同時多射（一斉射撃）になり、最初の弾の外れが複数弾に波及する。",
+      "unit": "発"
+    },
+    {
+      "id": "burst_first_avg_off_nose",
+      "label": "バースト初弾平均off-nose",
+      "from": "launch",
+      "source": "log",
+      "direction": "lower",
+      "target": 10.0,
+      "digits": 1,
+      "note": "バースト最初の弾の発射時の機首〜目標方位ずれ。大きいほど姿勢が安定しておらず命中しにくい。",
+      "unit": "度"
     }
   ]
 }

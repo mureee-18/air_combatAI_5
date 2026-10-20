@@ -1782,3 +1782,21 @@
 - 検証: 1ゲームゲート（seed4 Red / seed1 Blue）で不合格。Red4: 決定時の姿勢は全発射≤14度（基準1は充足）だが死亡遷移 (372,4→3),(380,3→2),(382,2→1) とタイムアップ draw 0.5 はベース完全一致で改善なし（基準2不合格）。Blue1: ベースの win 0.708(ELIMINATION,1184f) が draw 0.500(TIMEUP,1800f) に悪化（基準3不合格）。md5再現で両側同一条件を確認のうえ即 revert。
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 4.0, "games": 2}（fao20 ゲート2戦の実測 vs base: Red4 は 0.5/1/4 で同一、Blue1 は 0.708/5/3 → 0.500/5/4。ツールが前サイクル値を流用したため手修正）
 - 次の一手: 発射姿勢制限は Red4 ではベースと同一の結果、Blue1 では勝利→引き分けに悪化するため不採用。次は護衛機撃破経路（Blue1 の ELIMINATION が遅れる要因）を1変数で狙う別仮説へ
+
+## O-177 [observation/log] 2026-10-20T16:33:20
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: hit-rate
+- 変更: beamHoldWhileArmed を escort_candidate の場合のみ無効化（設計変更）。args+code変更（stash保存）。
+- 検証: ゲート（seed1 Blue / seed4 Red）で両方とも win→Red勝利（ELIMINATION）に転落（Blue1 0.7084→Red勝/0.2375相当、Red4 draw→Blue勝/0.2348相当）＝全滅方向に回帰。N-140（全体適用）と同じ傾向。Escort限定でも護衛対象機のビーム維持を外すと生存が崩れる。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 変更は即 revert・stash復元済。指標分離（escort_hit_rate 追加）は有用だが、hit_rate向上の直接的な1変数は現状見当たらない。0.659 構成確定を再提案。
+
+## O-178 [observation/analysis] 2026-10-20T17:00:04
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: hit-rate
+- 変更: launch_analyzer.py を実装（発射単位で escort 判定・off_nose・dist_at_launch・outcome を抽出）。base_b1/fm35_b5 の護衛対象機への発射は3発ずつで、off_nose < 6°・dist 32–35km だが trajectory 推定では miss 判定（HIT_RADIUS 10km では接近しても当該フレームの enemy クラスタと終点の合致が微妙）。発射単位分析基盤を作成したことで launch-based 指標（escort_launch_hit_rate）算出が可能になった。
+- 検証: launch_analyzer: escort_target 発射を正しく抽出（escort_candidate True で判定）、off_nose < 6° の護衛射撃を確認。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: escort_launch_hit_rate（護衛対象機への発射単位命中率）を custom_metrics.json に追加し、trajectory の hit/miss 判定との整合性を確認した上で launch_analyzer ベースで集計する。引分けで hit_rate 0 となる全体定義から分離する方針を継続。

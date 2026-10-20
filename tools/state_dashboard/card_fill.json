@@ -78,15 +78,6 @@
       "prediction": "方向カード winpath-escort の 1 変数に分解して着手する（早期撃墜を減らせば予備が護衛対象機へ届く）。予備値そのものは 2/3/4/5 試験済みで 3 が最良",
       "reason": ""
     },
-    "metric:hit_rate": {
-      "cause": "命中数カードと同じ原因（一斉射撃による重ね撃ち）",
-      "variable": "",
-      "variable_status": "none",
-      "direction_id": "",
-      "judge": "",
-      "prediction": "",
-      "reason": "命中数カード（N-133: launchIntervalFrames）に統合。同じ変数の仮説を別に立てない"
-    },
     "metric:hit_count": {
       "cause": "一斉射撃（4 フレーム間隔で 2〜3 発を同じ目標へ連続発射）で、1 発目の結果前に次を撃ち、24 発中命中 0",
       "variable": "発射間隔 launchIntervalFrames",
@@ -97,15 +88,6 @@
       "prediction": "",
       "reason": "launchIntervalFrames は 30 で試験済み（N-133/N-134/N-137）。一斉射撃は分割できたが hit_count 0 のまま。命中改善なし。残る材料は方向カード struct-firing-track"
     },
-    "metric:first_shot_hit": {
-      "cause": "命中数カードと同じ原因（一斉射撃による重ね撃ち）",
-      "variable": "",
-      "variable_status": "none",
-      "direction_id": "",
-      "judge": "",
-      "prediction": "",
-      "reason": "命中数カード（N-133: launchIntervalFrames）に統合。同じ変数の仮説を別に立てない"
-    },
     "metric:first_shot_distance": {
       "cause": "fireRangeKm=50 で、敵が 50km に入った 4 フレーム後に発射",
       "variable": "fireRangeKm",
@@ -113,19 +95,33 @@
       "judge": "first_shot_distance",
       "reason": "fireRangeKm は 30/38/40/50 で試験済み（N-017/N-022/N-118/N-124）。距離軸は閉鎖。代替は struct-firing-track"
     },
-    "trigger_ammo_dry": {
-      "cause": "深追い（x=128km）の時点で残弾が 0 になっている",
-      "variable": "",
-      "variable_status": "none",
-      "judge": "最大進出 x と最終残弾",
-      "reason": "進出の結果であり変数ではない。温存（N-028）は棄却済み。命中は hit_rate カードで扱う"
+    "metric:burst_first_hit_rate": {
+      "cause": "バースト（一斉射撃）の最初の弾が当たっていない（base_b1: 最初のバースト12発中 head は off_nose 31.75° / dist 46.25km / miss、バースト初弾命中率 0/4=0.0）。1発目の外れが後続を無駄にする",
+      "variable": "バースト初弾の発射条件（off-nose ゲート / 発射距離 / 発射タイミング）",
+      "variable_name": "winpath-escort",
+      "variable_status": "direction",
+      "direction_id": "struct-firing-track",
+      "judge": "burst_first_hit_rate / burst_first_avg_off_nose / burst_first_avg_dist",
+      "prediction": "バースト初弾の off_nose を 10° 以内・距離を 30km 以内に抑えれば burst_first_hit_rate は 0.0 から上昇する。方向カード struct-firing-track の 1 変数に分解して着手",
+      "reason": ""
     },
-    "trigger_orders_gap": {
-      "cause": "残弾0以降も指示が続き、指示と発射の差が出る",
-      "variable": "",
+    "metric:burst_avg_size": {
+      "cause": "バースト最大サイズ 12 発（t190–202）。同時多射により最初の弾の外れが複数弾に波及する",
+      "variable": "バーストサイズ（同時発射数）",
+      "variable_name": "",
       "variable_status": "none",
-      "judge": "fire_orders と launch の差",
-      "reason": "指標の定義差（③）。採点には効かない"
+      "judge": "burst_avg_size / max_burst_size",
+      "prediction": "",
+      "reason": "バーストサイズを制御する既存変数は未実装。新規変数追加が必要。現状は観測指標のみ"
+    },
+    "metric:burst_first_avg_off_nose": {
+      "cause": "バースト初弾の平均 off_nose 10.3°。最初のバースト head は 31.75° と大きく、姿勢不安定が命中0の一因",
+      "variable": "バースト初弾の off_nose 上限",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "burst_first_avg_off_nose",
+      "prediction": "",
+      "reason": "off_nose ゲートは fireAlignDeg/fireAlignOnlyDeg で試験済みで不採用（N-142/N-170）。新規の制限変数なし"
     },
     "constraints": {
       "cause": "既知の制約（前提）",
