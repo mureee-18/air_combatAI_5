@@ -1809,3 +1809,12 @@
 - 検証: maxSimulShot は escort_hunter.py で飛翔中ミサイル数制限として使用中だが、1発に制限してもバースト初弾の外れは解消されずスコア・生存とも変化なし。バースト初弾命中0の改善は struct-firing-track 方向カードで別途検討。
 - 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: args.json から maxSimulShot を削除し現行構成で確定。バースト指標（burst_first_hit_rate 等）は launch_analyzer で継続観測。
+
+## O-180 [observation/log] 2026-10-20T22:55:20
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: バースト1発目のみに off_nose ゲートを適用し、姿勢安定まで発射を遅らせる（burstHeadAlignDeg=15）
+- 変更: default.py にバースト検知（BURST_GAP_FRAMES=3）とバースト1発目のみ burstHeadAlignDeg ゲートを追加。args.json に burstHeadAlignDeg=15 を追加。1戦ゲートで Red 側 TIMEUP 引き分け（scores 0.5/0.5、alive Blue3/Red1、hit_rate 0.0）。現行構成（avg_score 0.674 / our 3.33 / enemy 3.33 / 6勝0敗0分）から明確な回帰。予測 0.69 以上は大幅に外れ、不採用。即座に revert し現行構成を確定。
+- 検証: バースト1発目のみの off_nose ゲートは、初弾発射を遅らせ ELIMINATION 勝ちを TIMEUP 引き分けに変え、自軍生存を 3.33→1.0 に低下させた。fireAlignDeg/fireAlignOnlyDeg と同様に、姿勢制限は生存を悪化させる。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行構成（escortFireMinKm=35.0）で安定運用継続。バースト初弾命中0の改善は、姿勢制限以外のアプローチ（例：バーストサイズ制御、発射タイミングの別軸）が必要。launch_analyzer で継続観測。
