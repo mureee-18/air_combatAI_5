@@ -114,6 +114,15 @@
       "prediction": "",
       "reason": "バーストサイズを制御する既存変数は未実装。新規変数追加が必要。現状は観測指標のみ"
     },
+    "metric:burst_behavior": {
+      "cause": "4機が t190–202 で12発一斉射撃（バーストサイズ12）。バースト初弾 head は off_nose 31.75° / dist 46.25km / miss。バースト4組中、初弾命中 0/4=0.0。4機がほぼ同時に同じ目標へ発射し、1発目の結果を待たずに後続を撃つ",
+      "variable": "バースト行動（一斉射撃の有無・バーストサイズ・初弾タイミング）",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "burst_avg_size / max_burst_size / burst_first_hit_rate",
+      "prediction": "",
+      "reason": "4機のバースト一斉射撃が初弾命中0の直接原因。バーストサイズ制御は launchIntervalFrames で試験済みだが命中0のまま。struct-firing-track 方向カードで別途検討。現状は観測指標のみ"
+    },
     "metric:burst_first_avg_off_nose": {
       "cause": "バースト初弾の平均 off_nose 10.3°。最初のバースト head は 31.75° と大きく、姿勢不安定が命中0の一因",
       "variable": "バースト初弾の off_nose 上限",
@@ -122,6 +131,14 @@
       "judge": "burst_first_avg_off_nose",
       "prediction": "",
       "reason": "off_nose ゲートは fireAlignDeg/fireAlignOnlyDeg で試験済みで不採用（N-142/N-170）。新規の制限変数なし"
+    },
+    "metric:current_config_stable": {
+      "cause": "escortFireMinKm=35.0 はペア評価で 6戦 avg_score 0.674 / our 3.33 / enemy 3.33 / 6勝0敗0分。変数走査（escortFireMinKm 27/35/40、seekDist 100/150、maxSimulShot 1 等）でスコア悪化または変化なしが確定",
+      "variable": "",
+      "variable_status": "none",
+      "judge": "avg_score / avg_our_alive / avg_enemy_alive",
+      "prediction": "",
+      "reason": "現行構成で安定運用。新規変数・方向カードが出た際に再検討。現状維持が best"
     },
     "constraints": {
       "cause": "既知の制約（前提）",
