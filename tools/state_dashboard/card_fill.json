@@ -149,6 +149,33 @@
       "prediction": "",
       "reason": "directionカード struct-spread-with-cover と関連。1変数ずつに分解して検証（例：機体1のみ攻撃専用、他3機は発射禁止）"
     },
+    "metric:movement_evasion": {
+      "cause": "threat回避・beam/breakの切り替えタイミング、回避機動の挙動。脅威検知時にどの方向へ回避するか、beam/breakをいつ使うかが生存を左右する",
+      "variable": "回避機動・脅威回避タイミング",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "avg_our_alive / avg_enemy_alive / avg_score",
+      "prediction": "",
+      "reason": "射撃とは別の動き（機動）軸。既存変数（evadeCrankDeg など）では十分に制御できていない。新変数が必要"
+    },
+    "metric:target_selection": {
+      "cause": "射撃対象の決め方（最近傍・護衛候補優先・最も脅威・row集中など）。どの敵を優先して撃つかが命中率と撃墜数を左右する",
+      "variable": "射撃対象選定ルール",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "burst_first_hit_rate / hit_count / avg_enemy_alive / avg_score",
+      "prediction": "",
+      "reason": "射撃対象の決め方軸。既存変数（targetSpread など）では十分に制御できていない。新変数が必要"
+    },
+    "metric:escort_approach": {
+      "cause": "護衛対象機への接近動きと距離管理。護衛対象機まで到達できず撃墜できないのが現状の課題。到達経路と接近タイミングが勝敗を左右する",
+      "variable": "護衛対象機への接近動き",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "escort_min_dist_km / avg_enemy_alive / avg_score",
+      "prediction": "",
+      "reason": "護衛対象機への接近軸。既存変数（escortSeekDistKm など）では十分に制御できていない。新変数が必要"
+    },
     "constraints": {
       "cause": "既知の制約（前提）",
       "variable": "",
