@@ -1818,3 +1818,30 @@
 - 検証: バースト1発目のみの off_nose ゲートは、初弾発射を遅らせ ELIMINATION 勝ちを TIMEUP 引き分けに変え、自軍生存を 3.33→1.0 に低下させた。fireAlignDeg/fireAlignOnlyDeg と同様に、姿勢制限は生存を悪化させる。
 - 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 現行構成（escortFireMinKm=35.0）で安定運用継続。バースト初弾命中0の改善は、姿勢制限以外のアプローチ（例：バーストサイズ制御、発射タイミングの別軸）が必要。launch_analyzer で継続観測。
+
+## O-181 [observation/log] 2026-10-21T17:15:27
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: threat回避・beam/breakの切り替えタイミングを機体ごとに最適化（横回避 threat[1]+90度）
+- 変更: default.py に evade_beam_break_timing パラメータ追加。args.json に evade_beam_break_timing=1。1戦ゲートで Red側全滅（alive Blue4/Red0、スコア Red0.2375/Blue0.7625、ELIMINATION）。予測 our_alive 3.33→4.0以上 は大幅に外れ、不採用。即座に revert し現行構成（escortFireMinKm=35.0）を確定。
+- 検証: 横回避（脅威から90度ずらし）が自滅を招き、全滅。脅威回避のための横移動は接近経路を崩し、境界や敵陣に直進する結果になる。ビーム（180度直進）の方が生存に寄与する。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行構成（escortFireMinKm=35.0）で安定運用継続。movement_evasion 軸は別アプローチが必要（beam/breakの切り替えではなく、接近経路そのものの見直しなど）。launch_analyzer で継続観測。
+
+## O-182 [observation/log] 2026-10-21T17:43:45
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: threat回避・beam/breakの切り替えタイミング（横回避）の別値試験
+- 変更: evade_beam_break_timing=2（脅威から45度ずらし）を args.json/default.py に追加し1戦ゲート。Red側全滅（alive Blue4/Red0、スコア Red0.2318/Blue0.7682、ELIMINATION）。前回の90度ずらしと同様に横回避が自滅を招く。予測 our_alive 3.33→4.0以上 は大幅に外れ、不採用。即座に revert し現行構成（escortFireMinKm=35.0）を確定。
+- 検証: 横回避（45度・90度の両方）が全滅。脅威回避のための横移動は接近経路を崩し、境界や敵陣に直進する結果になる。ビーム（180度直進）の方が生存に寄与する。evade_beam_break_timing 軸は不採用。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行構成（escortFireMinKm=35.0）で安定運用継続。movement_evasion 軸は別アプローチが必要（回避方向ではなく、接近経路そのものの見直し、または脅威検知しきい値の変更など）。launch_analyzer で継続観測。
+
+## O-183 [observation/log] 2026-10-21T19:02:25
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛対象機への接近距離を 50km 以内に制限して発射条件を満たす（escort_approach_dist=50.0）
+- 変更: args.json に escort_approach_dist=50.0 を追加。default.py に escort_range_ok に距離条件を追加。1戦ゲートで Red側 TIMEUP 引き分け（scores 0.5/0.5、alive Blue4/Red1、hit_rate 0.0）。予測 avg_score 0.69 以上 は大幅に外れ、不採用。即座に revert し現行構成（escortFireMinKm=35.0）を確定。
+- 検証: 護衛対象機への発射を 50km 以内に制限すると発射機会が減り、TIMEUP 引き分け。接近距離制限は発射機会を削りすぎる。予測 は大幅に外れ、不採用。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行構成（escortFireMinKm=35.0）で安定運用継続。escort_approach_dist 軸は不採用。次は metric:target_selection（射撃対象選定）から検討。
