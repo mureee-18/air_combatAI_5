@@ -26,7 +26,7 @@
     "metric:min_dist_km": {
       "cause": "最初の接触（f216）で3機が 33〜35km まで詰まり、breakRangeKm=35 の境界で回避に切り替わる",
       "variable": "breakRangeKm",
-      "variable_status": "closed",
+      "variable_status": "none",
       "judge": "min_dist_km",
       "reason": "breakRangeKm は 0/20/25/35/45 で試験済み（N-130 ほか）。35 を維持"
     },
@@ -82,36 +82,35 @@
       "cause": "一斉射撃（4 フレーム間隔で 2〜3 発を同じ目標へ連続発射）で、1 発目の結果前に次を撃ち、24 発中命中 0",
       "variable": "発射間隔 launchIntervalFrames",
       "variable_name": "launchIntervalFrames",
-      "variable_status": "closed",
-      "direction_id": "",
+      "variable_status": "none",
       "judge": "hit_count / avg_score / avg_our_alive",
       "prediction": "",
-      "reason": "launchIntervalFrames は 30 で試験済み（N-133/N-134/N-137）。一斉射撃は分割できたが hit_count 0 のまま。命中改善なし。残る材料は方向カード struct-firing-track"
+      "reason": "directions.json struct-firing-track に一本化。launchIntervalFrames は 30 で試験済み（N-133/N-134/N-137）。一斉射撃は分割できたが hit_count 0 のまま。命中改善なし。残る材料は方向カード struct-firing-track"
     },
     "metric:first_shot_distance": {
       "cause": "fireRangeKm=50 で、敵が 50km に入った 4 フレーム後に発射",
       "variable": "fireRangeKm",
-      "variable_status": "closed",
+      "variable_status": "none",
       "judge": "first_shot_distance",
-      "reason": "fireRangeKm は 30/38/40/50 で試験済み（N-017/N-022/N-118/N-124）。距離軸は閉鎖。代替は方向カード struct-firing-track"
+      "reason": "directions.json struct-firing-track に一本化。fireRangeKm は 30/38/40/50 で試験済み（N-017/N-022/N-118/N-124）。距離軸は閉鎖。代替は方向カード struct-firing-track"
     },
     "metric:posture_gate_exhausted": {
       "cause": "fireAlignDeg=30（N-142）、fireAlignOnlyDeg=20（N-170）、beamHoldWhileArmed=1（N-140/escort限定）、burstHeadAlignDeg=15（バースト1発目のみ）の4変数すべてが不採用。姿勢制限は全て自軍生存・スコアを悪化させる",
       "variable": "発射姿勢ゲート（fireAlign/fireAlignOnly/beamHold/burstHeadAlign）",
       "variable_name": "",
-      "variable_status": "closed",
+      "variable_status": "none",
       "judge": "avg_score / avg_our_alive / burst_first_hit_rate",
       "prediction": "",
-      "reason": "姿勢制限系は全変数試験済みで生存悪化または変化なし。バースト初弾命中率向上のための姿勢制限は原則閉鎖。別軸（バーストサイズ・発射タイミング・追跡安定度）が必要"
+      "reason": "directions.json struct-firing-track に一本化。姿勢制限系は全変数試験済みで生存悪化または変化なし。別軸（バーストサイズ・発射タイミング・追跡安定度）が必要"
     },
     "metric:burst_size_control_closed": {
       "cause": "maxSimulShot=2/4/8 試験済み、maxSimulShot=1 もペア評価 avg_score 0.674 で変化なし（不採用）。バーストサイズ制御だけでは初弾命中率が上がらない",
       "variable": "バーストサイズ（maxSimulShot）",
       "variable_name": "maxSimulShot",
-      "variable_status": "closed",
+      "variable_status": "none",
       "judge": "burst_avg_size / avg_score / burst_first_hit_rate",
       "prediction": "",
-      "reason": "バーストサイズ制御は maxSimulShot で試験済み。1発に制限しても命中0のまま。バーストサイズ軸は閉鎖"
+      "reason": "directions.json struct-firing-track に一本化。バーストサイズ制御は maxSimulShot で試験済み。1発に制限しても命中0のまま。バーストサイズ軸は閉鎖"
     },
     "metric:next_burst_improvement": {
       "cause": "バースト初弾命中率 0/4=0.0 の改善には、姿勢制限とバーストサイズ制御が全て閉鎖済み。残る軸は（a）追跡安定度ベース発射（struct-firing-track：同じ目標を連続Nフレーム追跡できた時だけ発射）、（b）4機の役割分担（struct-spread-with-cover：攻撃機と回避機に分離）、（c）バースト初弾のみ別ルール（未実装）",
@@ -153,9 +152,9 @@
       "cause": "threat回避・beam/breakの切り替えタイミング、回避機動の挙動。脅威検知時にどの方向へ回避するか、beam/breakをいつ使うかが生存を左右する",
       "variable": "回避機動・脅威回避タイミング",
       "variable_name": "",
-      "variable_status": "none",
+      "variable_status": "open",
       "judge": "avg_our_alive / avg_enemy_alive / avg_score",
-      "prediction": "",
+      "prediction": "threat回避・beam/breakの切り替えタイミングを機体ごとに最適化すれば、自軍生存 3.33 → 4.0 以上を見込む。回避機動の新変数で検証する。",
       "reason": "射撃とは別の動き（機動）軸。既存変数（evadeCrankDeg など）では十分に制御できていない。新変数が必要"
     },
     "metric:target_selection": {
@@ -171,9 +170,9 @@
       "cause": "護衛対象機への接近動きと距離管理。護衛対象機まで到達できず撃墜できないのが現状の課題。到達経路と接近タイミングが勝敗を左右する",
       "variable": "護衛対象機への接近動き",
       "variable_name": "",
-      "variable_status": "none",
+      "variable_status": "open",
       "judge": "escort_min_dist_km / avg_enemy_alive / avg_score",
-      "prediction": "",
+      "prediction": "護衛対象機への接近距離を 50km 以内に制限して発射条件を満たせば、バースト初弾命中率 0/4=0.0 から上昇し、avg_score 0.69 以上を見込む。接近動きの新変数で検証する。",
       "reason": "護衛対象機への接近軸。既存変数（escortSeekDistKm など）では十分に制御できていない。新変数が必要"
     },
     "constraints": {
