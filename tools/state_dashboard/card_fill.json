@@ -122,6 +122,33 @@
       "prediction": "",
       "reason": "既存変数では改善できなかった。launch_analyzer でバースト行動を継続観測し、新変数・方向カードが出た際に1変数ずつ検証"
     },
+    "metric:burst_timing_stagger": {
+      "cause": "4機がほぼ同時刻に同じ目標へ発射（バースト）。射撃タイミングを機体ごとにずらし、同時に同じ目標を撃たないことで、バースト初弾の無駄撃ちを減らす",
+      "variable": "射撃タイミングのずらし（バースト解消）",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "burst_first_hit_rate / burst_avg_size / avg_score / avg_our_alive",
+      "prediction": "",
+      "reason": "新変数が必要（未実装）。既存変数では射撃タイミングのずらしが制御できない。launch_analyzer でバーストの時刻分布を確認した上で、1変数ずつ検証"
+    },
+    "metric:burst_target_stagger": {
+      "cause": "同時刻に同じ行（row）の目標を撃つのを避け、射撃対象を分散させることで、バーストによる重ね撃ちを減らす",
+      "variable": "射撃対象の分散（バースト解消）",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "burst_first_hit_rate / burst_avg_size / avg_score / avg_our_alive",
+      "prediction": "",
+      "reason": "新変数が必要（未実装）。既存変数では射撃対象の分散が制御できない。launch_analyzer でバーストの対象行分布を確認した上で、1変数ずつ検証"
+    },
+    "metric:burst_role_split": {
+      "cause": "4機を攻撃機1機＋回避機3機などに役割分担し、攻撃機のみ発射・回避機は発射せず beam/break を優先することで、バーストを防ぎ生存と命中を両立する",
+      "variable": "4機の役割分担（攻撃機／回避機）",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "avg_our_alive / avg_score / burst_first_hit_rate",
+      "prediction": "",
+      "reason": "directionカード struct-spread-with-cover と関連。1変数ずつに分解して検証（例：機体1のみ攻撃専用、他3機は発射禁止）"
+    },
     "constraints": {
       "cause": "既知の制約（前提）",
       "variable": "",
