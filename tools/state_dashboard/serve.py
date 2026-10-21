@@ -966,14 +966,6 @@ def _validated_hypothesis_ids(target_session: dict) -> set:
         for r in target_session.get("records", [])
         if r.get("hypothesis")
     }
-    # validate サイクルの数だけ、hypotheses リストから先頭のものを検証済みとする。
-    # hypothesis フィールドが空の validate サイクルでも、対応する仮説は既に検証済みとみなす。
-    validate_count = sum(1 for c in target_session.get("cycles", []) if c.get("kind") == "validate")
-    hypotheses = target_session.get("hypotheses", [])
-    for i in range(min(validate_count, len(hypotheses))):
-        h_id = hypotheses[i].get("id")
-        if h_id:
-            ids.add(h_id)
     return ids
 
 
