@@ -2210,6 +2210,37 @@ def collect_evidence(target: str) -> list[dict]:
             "command_label": "",
         })
 
+    # card_fill.json に定義されているが動的 evidence に含まれていないカードを追加
+    existing_ids = {c.get("id") for c in cards}
+    fill_cards = (load_json(Path(__file__).with_name("card_fill.json")) or {}).get("cards", {})
+    for card_id, fill in fill_cards.items():
+        if card_id in existing_ids:
+            continue
+        title = (fill.get("cause") or "")[:60] or card_id.replace("metric:", "").replace("_", " ").title()
+        cards.append({
+            "id": card_id,
+            "kind": "observation",
+            "source": "log",
+            "title": title,
+            "summary": fill.get("cause", ""),
+            "cause": fill.get("cause", ""),
+            "evidence": [],
+            "hypothesis": fill.get("prediction", ""),
+            "prediction": fill.get("prediction", ""),
+            "phrase": fill.get("cause", ""),
+            "metric": fill.get("judge", ""),
+            "from_tab": "事実カード",
+            "from_path": "",
+            "command": "",
+            "command_label": "",
+            "variable": fill.get("variable", ""),
+            "variable_name": fill.get("variable_name", ""),
+            "variable_status": fill.get("variable_status", "none"),
+            "judge": fill.get("judge", ""),
+            "reason": fill.get("reason", ""),
+            "direction_id": fill.get("direction_id", ""),
+        })
+
     return cards
 
 

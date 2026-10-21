@@ -95,6 +95,33 @@
       "judge": "first_shot_distance",
       "reason": "fireRangeKm は 30/38/40/50 で試験済み（N-017/N-022/N-118/N-124）。距離軸は閉鎖。代替は方向カード struct-firing-track"
     },
+    "metric:posture_gate_exhausted": {
+      "cause": "fireAlignDeg=30（N-142）、fireAlignOnlyDeg=20（N-170）、beamHoldWhileArmed=1（N-140/escort限定）、burstHeadAlignDeg=15（バースト1発目のみ）の4変数すべてが不採用。姿勢制限は全て自軍生存・スコアを悪化させる",
+      "variable": "発射姿勢ゲート（fireAlign/fireAlignOnly/beamHold/burstHeadAlign）",
+      "variable_name": "",
+      "variable_status": "closed",
+      "judge": "avg_score / avg_our_alive / burst_first_hit_rate",
+      "prediction": "",
+      "reason": "姿勢制限系は全変数試験済みで生存悪化または変化なし。バースト初弾命中率向上のための姿勢制限は原則閉鎖。別軸（バーストサイズ・発射タイミング・追跡安定度）が必要"
+    },
+    "metric:burst_size_control_closed": {
+      "cause": "maxSimulShot=2/4/8 試験済み、maxSimulShot=1 もペア評価 avg_score 0.674 で変化なし（不採用）。バーストサイズ制御だけでは初弾命中率が上がらない",
+      "variable": "バーストサイズ（maxSimulShot）",
+      "variable_name": "maxSimulShot",
+      "variable_status": "closed",
+      "judge": "burst_avg_size / avg_score / burst_first_hit_rate",
+      "prediction": "",
+      "reason": "バーストサイズ制御は maxSimulShot で試験済み。1発に制限しても命中0のまま。バーストサイズ軸は閉鎖"
+    },
+    "metric:next_burst_improvement": {
+      "cause": "バースト初弾命中率 0/4=0.0 の改善には、姿勢制限とバーストサイズ制御が全て閉鎖済み。残る軸は（a）追跡安定度ベース発射（struct-firing-track：同じ目標を連続Nフレーム追跡できた時だけ発射）、（b）4機の役割分担（struct-spread-with-cover：攻撃機と回避機に分離）、（c）バースト初弾のみ別ルール（未実装）",
+      "variable": "バースト初弾命中改善の新変数",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "burst_first_hit_rate / avg_score / avg_our_alive",
+      "prediction": "",
+      "reason": "既存変数では改善できなかった。launch_analyzer でバースト行動を継続観測し、新変数・方向カードが出た際に1変数ずつ検証"
+    },
     "constraints": {
       "cause": "既知の制約（前提）",
       "variable": "",
