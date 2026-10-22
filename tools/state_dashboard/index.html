@@ -1058,10 +1058,10 @@ function renderVerify(d) {
     `docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --label ${label} --out /workspace/paired/${label}.json"`,
     `④ seed固定ペア評価（label=${label}）`);
   h += cmdRow(
-    `python analysis/tools/improvement_session.py validate --specialist ${tgt} --paired workspace/paired/${label}.json`,
+    `python analysis/tools/improvement_session.py validate --specialist ${tgt} --paired workspace/paired/${label}.json --hypothesis ${sel}`,
     "⑤ 仮説IDと紐付け消化（validate。これで pending から消える）");
   h += cmdRow(
-    `python analysis/tools/improvement_session.py record --specialist ${tgt} --kind result --source paired --direction "<方向>" --changes "<①で実装した内容>" --verification "<ペア評価の判定>" --next-steps "<次>"`,
+    `python analysis/tools/improvement_session.py record --specialist ${tgt} --kind result --source paired --hypothesis ${sel} --direction "<方向>" --changes "<①で実装した内容>" --verification "<ペア評価の判定>" --next-steps "<次>"`,
     "⑥ record で記録（<> を埋めて実行）。採用なら revert せず、不採用なら ① の変更を revert");
   document.getElementById("verify").innerHTML = h;
   const pick = document.getElementById("verify-hyp");
