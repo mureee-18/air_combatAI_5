@@ -150,9 +150,34 @@ tools/
   ペア評価では same seed 群 + Red/Blue 両面で比較するのが基本。
   再現性は「`match_config["seed"]` + グローバル RNG の seed」の両方を揃えて初めて得られる
   （初期配置と護衛対象機の周回方向が `np.random` を直接使うため）。実測: seed 7 を2回実行して完全一致。
-- 変更前の流れ: `hypothesis` で数値予測を記録 → 1戦で挙動確認 → ペア評価で指標比較 → `record` で記録。
+- 変更前の流れ: `hypothesis` で数値予測を記録 → **実装** → 1戦で挙動確認 → ペア評価で指標比較 → `record` で記録。
 - 実績（同一 seed 1,2,3 × 両面 = 6戦）
   - `baseline`: win1 / draw4 / loss1、avg_score 0.500、avg_our_alive 2.50、avg_enemy_alive 2.50 … **提出中**
   - `default`（自作）: win0 / draw0 / loss6、avg_score 0.233、avg_our_alive 0.00、avg_enemy_alive 4.17
 - 自作 Agent が負ける主因: `/sensor/track` に spec が無く護衛対象機を識別できないこと、
   MWS の探知距離が短く回避が間に合わないこと。詳細は BATTLELOG_FORMAT.md の「既知の制約」。
+
+## ダッシュボードからの2指示（原則・CRITICAL）
+
+ユーザーはダッシュボードから **2種類だけ** の指示を出す。AIはこれ以外を要求したり「実装するか？」と尋ねたりしない。
+
+1. **事実カード → 仮説登録**（`card_fill.json` の open/direction カードの「仮説登録」ボタンが生成する `improvement_session.py hypothesis ...`）
+   - この段階は**登録のみ**。実装しない。pending に仮説が積まれるだけ。
+2. **仮説 → 検証**（検証タブで仮説を選ぶと生成される一連コマンド）
+   - **実装はこの指示に含める**。順序:
+     ①`args.json`/`default.py` に対象変数を**1変数だけ実装** →
+     ②`build_submission.py --deploy` →
+     ③1戦ゲート（`validate.py --num-validation 1`。悪化なら即 revert）→
+     ④seed固定ペア評価（`run_eval_paired.py --label <変数label>`）→
+     ⑤`improvement_session.py validate --paired ...` で仮説IDと紐付け消化 →
+     ⑥`record` で記録。
+
+### 実装の归属＝検証側（確定ルール）
+
+- 検証は「変数を実装した後」の挙動を測る工程なので、実装・デプロイ・revert は検証フローの一部。
+- 現行構成の `default.json` を validate しても pending は消化されない（仮説IDが紐付かないため）。
+  pending を消すには「実装 → その label でペア評価 → validate」まで行う。
+- 「実装するか？」「どちらのカードから？」といった選択の質問い返しは禁止。
+  事実カード・仮説の選択はユーザーがダッシュボードで行う。AIは受けた指示を実行して結果を報告するのみ。
+- 複数カードの仮説登録を繰り返して pending が累加するループを避けるため、
+  検証指示が来たら必ず上記①〜⑥まで完走して pending を消化する。
