@@ -1009,8 +1009,6 @@ function withHypothesis(cmd, id) {
 function renderVerify(d) {
   const s = d.session || {};
   const hyps = s.hypotheses || [];
-  const steps = s.steps || [];
-  const val = steps.find(x => x.key === "validate") || {};
   // 未検証かどうかは serve.py の pending（validate/record 紐付けを除外）を唯一の正とする
   const pendIds = new Set(s.pending || []);
   const pend = hyps.filter(h => pendIds.has(h.id));
@@ -1044,11 +1042,27 @@ function renderVerify(d) {
   }
   h += `<h2>この仮説（${esc(sel)}）の検証コマンド</h2>`;
   h += '<p class="meta">コピーして Terminal で実行（このタブは読み取り専用）。判定は ' +
-       '<b>avg_score / avg_our_alive / avg_enemy_alive</b>。</p>';
-  const runPair = val.command || "";
-  const recPair = val.hyp_arg === "command2" ? withHypothesis(val.command2, sel) : (val.command2 || "");
-  h += cmdRow([runPair, recPair].filter(Boolean).join(" ; "),
-              "ペア評価を実行して結果を記録する（1コマンド）");
+       '<b>avg_score / avg_our_alive / avg_enemy_alive</b>。実装はこの検証フローの一部。</p>';
+  const tgt = s.target || "default";
+  const varName = (cur && cur.variable) || "";
+  const label = (varName || "hyp").replace(/[^A-Za-z0-9_]/g, "_");
+  h += '<p class="meta">① 実装: <code>agent/args.json</code> / ' +
+       '<code>agent/strategy/specialists/default.py</code> に ' +
+       `<b>${esc(varName || "対象変数")}</b> を 1変数だけ実装（他は据置）。` +
+       '悪化時に原因を切り分けられるよう同時変更しない。</p>';
+  h += cmdRow("python scripts/build_submission.py --deploy", "② ビルド＆デプロイ");
+  h += cmdRow(
+    'docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --num-validation 1 --visualize 0"',
+    "③ 1戦ゲート（悪化なら即 revert・以降の実行を中止）");
+  h += cmdRow(
+    `docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --label ${label} --out /workspace/paired/${label}.json"`,
+    `④ seed固定ペア評価（label=${label}）`);
+  h += cmdRow(
+    `python analysis/tools/improvement_session.py validate --specialist ${tgt} --paired workspace/paired/${label}.json`,
+    "⑤ 仮説IDと紐付け消化（validate。これで pending から消える）");
+  h += cmdRow(
+    `python analysis/tools/improvement_session.py record --specialist ${tgt} --kind result --source paired --direction "<方向>" --changes "<①で実装した内容>" --verification "<ペア評価の判定>" --next-steps "<次>"`,
+    "⑥ record で記録（<> を埋めて実行）。採用なら revert せず、不採用なら ① の変更を revert");
   document.getElementById("verify").innerHTML = h;
   const pick = document.getElementById("verify-hyp");
   if (pick) {
