@@ -151,7 +151,7 @@
     "metric:movement_evasion": {
       "cause": "threat回避・beam/breakの切り替えタイミング、回避機動の挙動。脅威検知時にどの方向へ回避するか、beam/breakをいつ使うかが生存を左右する",
       "variable": "回避機動・脅威回避タイミング",
-      "variable_name": "",
+      "variable_name": "evade_beam_break_timing",
       "variable_status": "open",
       "judge": "avg_our_alive / avg_enemy_alive / avg_score",
       "prediction": "threat回避・beam/breakの切り替えタイミングを機体ごとに最適化すれば、自軍生存 3.33 → 4.0 以上を見込む。回避機動の新変数で検証する。",
@@ -160,7 +160,7 @@
     "metric:target_selection": {
       "cause": "射撃対象の決め方（最近傍・護衛候補優先・最も脅威・row集中など）。どの敵を優先して撃つかが命中率と撃墜数を左右する",
       "variable": "射撃対象選定ルール",
-      "variable_name": "",
+      "variable_name": "target_selection_rule",
       "variable_status": "open",
       "judge": "burst_first_hit_rate / hit_count / avg_enemy_alive / avg_score",
       "prediction": "射撃対象を最近傍から護衛候補（前方x最大、速度<=0.3km/s）優先に変更すれば、バースト初弾命中率 0/4=0.0 から上昇し、avg_score 0.674 → 0.69 以上を見込む。対象選定を護衛候補優先に変更し、1変数で検証する。",
@@ -169,7 +169,7 @@
     "metric:escort_approach": {
       "cause": "護衛対象機への接近動きと距離管理。護衛対象機まで到達できず撃墜できないのが現状の課題。到達経路と接近タイミングが勝敗を左右する",
       "variable": "護衛対象機への接近動き",
-      "variable_name": "",
+      "variable_name": "escort_approach_dist",
       "variable_status": "open",
       "judge": "escort_min_dist_km / avg_enemy_alive / avg_score",
       "prediction": "護衛対象機への接近距離を 50km 以内に制限して発射条件を満たせば、バースト初弾命中率 0/4=0.0 から上昇し、avg_score 0.69 以上を見込む。接近動きの新変数で検証する。",
