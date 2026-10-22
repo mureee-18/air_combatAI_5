@@ -114,6 +114,25 @@ def test_hypothesis_ids_are_unique(session):
     assert ids == ["N-001", "N-002", "N-003"]
 
 
+def test_hypothesis_rejects_already_tested_variable(session):
+    """登録簿（tested_variables.json）に載る変数は仮説にできない（重複防止）."""
+    with pytest.raises(SystemExit):
+        session.cmd_hypothesis(make_args(source="log", variable="fireRangeKm"))
+    assert session.load_state("baseline").get("hypotheses", []) == []
+
+
+def test_hypothesis_allows_retest_with_reason(session):
+    session.cmd_hypothesis(make_args(source="log", variable="fireRangeKm", retest="未試験の値 35 を試す"))
+    hyp = session.load_state("baseline")["hypotheses"][-1]
+    assert hyp["variable"] == "fireRangeKm"
+
+
+def test_hypothesis_allows_untested_variable(session):
+    session.cmd_hypothesis(make_args(source="log", variable="brandNewKnob"))
+    hyp = session.load_state("baseline")["hypotheses"][-1]
+    assert hyp["variable"] == "brandNewKnob"
+
+
 def test_verify_records_linked_hypothesis(session, monkeypatch):
     monkeypatch.setattr(session, "run_games", lambda games: [])
     monkeypatch.setattr(session, "summarize", lambda label, results: {"avg_score": 0.1})
@@ -174,3 +193,52 @@ def test_todo_lists_unverified_hypothesis_and_next_steps(session, capsys):
     assert hyps[1]["id"] in out
     assert hyps[0]["id"] not in out
     assert "次はX" in out
+
+
+@pytest.fixture()
+def registry(session, tmp_path, monkeypatch):
+    """登録簿を一時ファイルに差し替える（実ファイルを汚さない）."""
+    path = tmp_path / "tested_variables.json"
+    path.write_text('{"version": 1, "variables": {}}', encoding="utf-8")
+    monkeypatch.setattr(session, "TESTED_VARIABLES_PATH", path)
+    return session
+
+
+def test_add_tested_variable_merges_values_and_refs(registry):
+    registry.add_tested_variable("newKnob", "0/30", "改善なし", ["N-001"])
+    registry.add_tested_variable("newKnob", "60", "悪化", ["N-002"])
+    entry = registry.load_tested_variables()["variables"]["newKnob"]
+    assert entry["values"] == "0/30/60"
+    assert entry["refs"] == ["N-001", "N-002"]
+    assert entry["result"] == "悪化"
+
+
+def test_tested_variable_blocks_hypothesis(registry, capsys):
+    registry.add_tested_variable("newKnob", "0/30", "改善なし", ["N-001"])
+    with pytest.raises(SystemExit):
+        registry.check_variable_untested("newKnob", "")
+
+
+def test_warn_untracked_variable_prompts_add_command(registry, capsys):
+    state = {"hypotheses": [{"id": "N-001", "variable": "forgottenKnob"}], "records": []}
+    registry.warn_untracked_variable(state, "N-001")
+    out = capsys.readouterr().out
+    assert "forgottenKnob" in out
+    assert "tested-variable" in out
+
+
+def test_warn_untracked_variable_silent_when_tracked(registry, capsys):
+    registry.add_tested_variable("knownKnob", "1", "済み", ["N-001"])
+    state = {"hypotheses": [{"id": "N-001", "variable": "knownKnob"}], "records": []}
+    registry.warn_untracked_variable(state, "N-001")
+    assert capsys.readouterr().out == ""
+
+
+def test_record_warns_when_variable_not_in_registry(registry, capsys):
+    registry.cmd_start(make_args())
+    registry.cmd_hypothesis(make_args(text="仮説A", source="log", variable="forgottenKnob"))
+    capsys.readouterr()
+    registry.cmd_record(make_args(kind="observation", source="log", hypothesis="N-001"))
+    out = capsys.readouterr().out
+    assert "forgottenKnob" in out
+    assert "登録簿" in out

@@ -9,7 +9,7 @@
       "from": "trajectory",
       "source": "log",
       "direction": "lower",
-      "target": 60,
+      "target": 30,
       "digits": 0,
       "note": "敵を最初に探知してから最初の発射までの時間。長いほど攻撃機会を逃している。"
     },
@@ -20,7 +20,7 @@
       "from": "trajectory",
       "source": "log",
       "direction": "higher",
-      "target": 12,
+      "target": 30,
       "digits": 0,
       "note": "1戦あたりの誘導弾消費量。0 ならまったく発射できていない。"
     },
@@ -31,9 +31,9 @@
       "from": "trajectory",
       "source": "log",
       "direction": "lower",
-      "target": 25,
+      "target": 5,
       "digits": 1,
-      "note": "敵を最も近接したときの距離。近ければ近いほど射撃が楽になる。"
+      "note": "敵を最も近接したときの距離（参考値）。接近距離は引き分けで採点に影響せず、近接を深める変数（fireRange/break/beam）は全て棄却済み、接近軸は N-029 で閉鎖。目標は置かない。"
     },
     {
       "id": "fire_orders",
@@ -42,9 +42,9 @@
       "from": "logstats",
       "source": "log",
       "direction": "higher",
-      "target": null,
+      "target": 5000,
       "digits": 0,
-      "note": "全機の合計。目標値は置かず参考値として読む。発射数との差が発射できなかった回数の証拠になる。"
+      "note": "1戦あたりの射撃指示総数。trigger 条件の抑制度合いを見る。"
     },
     {
       "id": "max_advance_x_km",
@@ -52,7 +52,7 @@
       "from": "trajectory",
       "source": "log",
       "direction": "higher",
-      "target": 120.0,
+      "target": 150,
       "digits": 0,
       "note": "自軍が敵陣方向へ最も深く進んだ x（陣営座標）。護衛対象機の周回帯 x≈115-130 に届いたかを見る。残弾が無いと届いても勝てない。",
       "unit": "km"
@@ -101,16 +101,6 @@
       "unit": "戦"
     },
     {
-      "id": "detect_duty",
-      "label": "探知duty率",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "higher",
-      "digits": 2,
-      "note": "全フレーム中敵を探知していた割合。低いとUUID追跡など履歴系の識別は不可（O-054）。高いゲームでは運動学的識別軸が開く目安。目標値は置かない。",
-      "unit": "率"
-    },
-    {
       "id": "stranded_ammo",
       "label": "死蔵弾数",
       "from": "trajectory",
@@ -118,8 +108,52 @@
       "direction": "lower",
       "target": 0.0,
       "digits": 0,
-      "note": "撃墜機が持ち去った残弾。集中死（N-036）で弾が失効する経路の目安。0なら非表示。減らすには生存延長のみ（温存はN-028で棄却済み）。",
+      "note": "撃墜機が持ち去った残弾。実測は『護衛用予備 escortReserveMsls × 護衛対象機到達前の撃墜数』に一致（r2_4=6/r4_4=12/r5_4=15）。予備は ELIMINATION の勝ち筋（2〜5走査で3が最良）なので0は設計上未達。減らす材料は生存延長＝護衛戦闘機の先行排除（winpath-escort）。0なら非表示。",
       "unit": "発"
+    },
+    {
+      "id": "hit_rate",
+      "label": "命中率",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "higher",
+      "target": 0.35,
+      "digits": 2,
+      "note": "命中弾÷発射数。0%なら交戦不能。まずは 35% 到達を目指す。",
+      "unit": "率"
+    },
+    {
+      "id": "hit_count",
+      "label": "命中数",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "higher",
+      "target": 10,
+      "digits": 0,
+      "note": "命中した弾の総数。0 なら全弾外れ。まずは 10 発以上を目指す。",
+      "unit": "発"
+    },
+    {
+      "id": "first_shot_hit",
+      "label": "初弾命中",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "higher",
+      "target": null,
+      "digits": 0,
+      "note": "最初の発射が命中したか（1=命中, 0=外れ）。初動の精度を見る。",
+      "unit": "回"
+    },
+    {
+      "id": "first_shot_distance",
+      "label": "初発距離",
+      "from": "trajectory",
+      "source": "log",
+      "direction": "lower",
+      "target": 30.0,
+      "digits": 1,
+      "note": "最初の発射時の距離。遠すぎると命中率が下がる。30km 以内を目指す。",
+      "unit": "km"
     }
   ]
 }

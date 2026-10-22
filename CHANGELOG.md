@@ -1,5 +1,95 @@
 # CHANGELOG
 
+## 2026-10-17
+
+### 護衛対象機の速度識別＋弾温存で ELIMINATION 勝利（default specialist）
+
+- `escort_hunter.py`: 敵観測を5列→6列に拡張（6列目＝目標速度 km/s、`np.linalg.norm(tracks[i].vel())/1000`）
+- `default.py`: `escortMaxSpeedKmps`（護衛候補を x≥110km かつ速度≤0.3km/s に限定）と `escortAmmoHold`（護衛対象機が射程内に入るまで発射を保留）を追加
+- `args.json`: escortForwardXKm=110, escortFireMode=1, escortMaxSpeedKmps=0.3, escortAmmoHold=1
+- ペア評価（seeds1-7×両面=14戦）: win11/draw2/loss1, avg_score 0.616, our_alive 3.0, enemy_alive 4.21 — baseline（0.500）を明確に上回る初の構成
+- 護衛対象機への最接近が改善し、到達時の残弾0→6・護衛対象機≤50km での発射0→4/12発となり ELIMINATION を実現
+
+### 発射整列ノブ・変数レジストリ・提出ゲート強化
+
+- `default.py`: beamHoldWhileArmed / beamHoldFrames / fireAlignDeg / launchIntervalFrames / escortForwardXKm / escortFireMode を追加（N-140/141/142 は命中↑・生存↓で net 負けのため既定0で不活性、v2 を維持）
+- 指標の誤認を訂正: ペア評価の hit_rate は**勝者のみ**（引き分けは常に0.0、敗戦時は相手の値）。N-140/141/142 の「命中0→改善」は相手が我々を撃墜した数だった（O-164）
+- `improvement_session.py`: `--variable` を必須化、`tested-variable` サブコマンドと `tested_variables.json` レジストリを追加、未登録変数の仮説に警告
+- `pre_submit_gate.py`: subprocess 出力を utf-8 デコード。uvx 失敗時はローカル ruff にフォールバック（uvx の PyPI DNS 失敗でゲートが不安定だった）
+- dashboard: pending / variable_name を単一ソース化、仮説ビルダーが `--variable` を出力。`run_eval_paired.py` に hit_rate を追加
+- tests: 141 通過
+
+### 敵戦闘機への反撃＋護衛対象機用ミサイル温存（損失削減）
+
+- `default.py`: `escortReserveMsls` を追加（敵戦闘機には通常反撃しつつ護衛対象機用に N 発を温存、護衛対象機が射程内なら予備も使用）。`escortNoBeam` / `escortIgnoreBreak`（護衛対象機が目標のときビーム・離脱判定を抑制）も追加
+- `args.json`: escortAmmoHold=0, escortNoBeam=1, escortIgnoreBreak=1, escortReserveMsls=3
+- ペア評価（seeds1-7×両面）: win9/draw5/loss0, avg_score 0.617, our_alive 3.21, enemy_alive 3.5
+- Red seed4 の全滅負け（0-5）が反撃により1機生存で引き分けに改善。一方 Blue3/4/7 は護衛対象機撃破に全弾を要するため勝ち→引き分け（avg_score はノイズ範囲でほぼ横ばい）
+- `escortReserveMsls` は 2/3/4/5 を走査し 3 を採用（4/5 は Blue4 が負けに転落）
+- 上記構成を SIGNATE へ提出
+
+## 2026-10-16
+
+### 護衛対象機への安全接近（escortSeekDistKm、default specialist）
+
+- `default.py`: `escortSeekDistKm=150` を追加（脅威なし・ビーム範囲外・離脱中でないときのみ遠方コンタクトへ旋回。射撃/ビーム/離脱は不変）
+- ELIMINATION 4変種（v1-v4: 0.315 / 0.500 / 0.474 / 0.500）を測定し、安全変種（v2）に復帰: 0.500 / 敗戦0 / our_alive 3.67
+- `HYPOTHESIS_POLICY.md`: 深掘り由来の仮説を要求し、変数変更なしの validate を禁止
+- improvement.md: O-098〜O-102
+
+### breakRangeKm スイープ（未検証仮説の一掃）
+
+- breakRangeKm 25/20/45 を検証: 45 は悪化（avg_score 0.456）、25/20 は 0.500 を維持し生存が微改善。35 を維持
+- improvement.md: O-103（N-054〜N-098 の軸を閉鎖）。残る未検証仮説なし（検証済みまたは重複）
+
+## 2026-10-15
+
+### dashboard: 事実カードの深掘りワークフロー（deepen）
+
+- 事実カードを命中指標付きで深掘りする `deepen` ワークフローを `improvement_session.py` に追加
+- `custom_metrics.json` に指標を追加し、`serve.py` / `index.html` を更新
+- improvement.md: O-095〜O-097（trackConfirmFrames の検証、avg_score 0.500 を維持）
+
+## 2026-10-13
+
+### ベースライン完全復帰・実験コード削除（default specialist）
+
+- 実験コード（護衛対象機識別・hit-and-run・30°ビーム・最遠距離狙い等）を全削除し、純粋なベースライン実装に復帰
+- `agent/args.json`: fireRangeKm=50, breakRangeKm=35, marginKm=25 に復帰（実験パラメータ `beamRangeKm` `escortDetectRangeKm` `escortClearRatio` `hitAndRunFrames` 等を削除）
+- `default.py`: 80°ビーム@45km・最近接優先・最大速度・evadeCrankDeg 削除の純粋ベースライン実装に復帰
+- ペア評価（seeds 1-3 × 両面 = 6戦）: 0勝6分0敗 / avg_score 0.500 / avg_our_alive 3.0 / avg_enemy_alive 3.17 でベースライン確認
+- 全実験変種（fireRange 60/80, beamRange 30/40, hit-and-run, 護衛機切替閾値, 最遠距離狙い等）を試し、0.500 を超える改善はなし
+
+### PR #4 マージ・dashboard 更新
+
+- PR #4 本文修正・ヘッダー SHA 更新（bda530b）し、マージ可能状態に
+- dashboard: 未試験軸カード自動生成・設計の方向カード追加等
+
+## 2026-10-12
+
+### 改善サイクル（default specialist、提出物は fr50+break35 のまま）
+
+- 護衛対象機軸（N-047/N-048）・守勢軸（N-049/N-049b/N-050）を検証し全敗、棄却・巻き戻し（O-084〜O-087）
+- 探知duty率から非探知時の方位を直近の敵方位保持に変える形態（N-051）は交戦を減らし
+  avg_enemy_alive 3.33→3.67 と悪化・avg_score 0.500 不変で棄却（O-088）
+- ペア評価の基準値 0-6-0 / 0.500 / our 2.67 / enemy 3.33 を維持
+
+### dashboard（仮説タブ・指標整理）
+
+- MWS の被弾警報フレーム数（threat_frames）カードを除去。仕様側センサ約10km固定で
+  agent 側の 1 変数では短縮できない（O-083）
+- 探知duty率カードと可否の自動分岐を除去。識別可否の条件指標であり単独では改善軸に使わない（O-089）
+- 最短交戦距離（min_dist_km）の目標25を解除（参考値化）。接近は引き分けで採点に無関係・
+  接近軸は N-029 で閉鎖済み（O-090）
+
+### 開発基盤（CI・ペア評価ハーネス・gitignore）
+
+- ペア評価データの無い環境で `test_session_evidence_paired_card_reflects_metrics` が失敗していたのを、
+  件数不足時に `pytest.skip` するガードで修正
+- `run_eval_paired.py` の workspace パス解決を `/workspace` 優先にし、コンテナで PYTHONPATH 不要に
+- `.gitignore` に `local_test/simulator/`, `local_test/src/`, `baseline_paired_raw.txt`,
+  `paired_baseline_raw.txt` を追記
+
 ## 2026-10-11
 
 ### 改善サイクル（default specialist、提出物は fr50+break35 のまま）
