@@ -289,6 +289,28 @@
         "results_base_r4",
         "results_fao20_r4"
       ]
+    },
+    "evade_beam_break_timing": {
+      "values": "1/2",
+      "result": "1=脅威から90度横回避、2=45度横回避、どちらもRed側全滅(alive0/ELIMINATION)。横回避軸は閉鎖",
+      "refs": [
+        "O-181",
+        "O-182"
+      ]
+    },
+    "escort_approach_dist": {
+      "values": "50",
+      "result": "護衛対象機50km以内のみ発射許可でRed TIMEUP引き分け(alive1)、発射機会を削りすぎ。不採用",
+      "refs": [
+        "O-183"
+      ]
+    },
+    "burst_head_align_deg": {
+      "values": "15",
+      "result": "バースト初弾のみのoff_noseゲート。Red TIMEUP引き分け(alive1)・hit_rate0。姿勢制限同系で不採用",
+      "refs": [
+        "O-180"
+      ]
     }
   }
 }

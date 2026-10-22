@@ -970,13 +970,32 @@ def _validated_hypothesis_ids(target_session: dict) -> set:
 
 
 def _pending_hypothesis_ids(target_session: dict) -> list:
-    """まだ検証が必要な仮説 id（登録順）。"""
+    """まだ検証が必要な仮説 id（登録順）。
+
+    既試軸ノイズ整理: tested_variables.json に載る変数、または directions.json の
+    方向カードID を variable に持つ仮説は「実装1変数の未試」ではないため pending から外す。
+    """
     validated = _validated_hypothesis_ids(target_session)
-    return [
-        h.get("id")
+    tv = (load_json(REPO_ROOT / "analysis" / "tools" / "tested_variables.json") or {}).get("variables", {})
+    dir_ids = {it.get("id") for it in collect_directions().get("items", [])}
+
+    def _is_tried_noise(h):
+        v = (h.get("variable") or "").strip()
+        return bool(v) and (v in tv or v in dir_ids)
+
+    pending = [
+        h
         for h in target_session.get("hypotheses", [])
-        if h.get("id") not in validated
+        if h.get("id") not in validated and not _is_tried_noise(h)
     ]
+    # 同一変数の再登録重複は最新1件のみ pending に残す（検証対象の曖昧さを防ぐ）
+    out: list = []
+    for h in pending:
+        v = (h.get("variable") or "").strip()
+        if v:
+            out = [x for x in out if (x.get("variable") or "").strip() != v]
+        out.append(h)
+    return [h.get("id") for h in out]
 
 
 def _open_work(target: str, target_session: dict) -> dict:
