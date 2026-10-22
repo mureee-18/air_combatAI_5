@@ -58,7 +58,7 @@ class EscortHunterAgent(SingleAssetAgent):
     def makeObs(self):
         parent = self.parent
         own = np.zeros([10], dtype=np.float32)
-        enemy = np.zeros([self.maxEnemyNum, 5], dtype=np.float32)
+        enemy = np.zeros([self.maxEnemyNum, 6], dtype=np.float32)
         threat = np.zeros([2], dtype=np.float32)
         self.lastTrackInfo = []
 
@@ -98,6 +98,7 @@ class EscortHunterAgent(SingleAssetAgent):
             enemy[row, 2] = float(np.linalg.norm(rel[:2])) / 1000.0
             enemy[row, 3] = -tPos[2] / 1000.0
             enemy[row, 4] = 1.0 if self._isEscorted(rawTracks[i]) else 0.0
+            enemy[row, 5] = float(np.linalg.norm(np.asarray(tracks[i].vel(), dtype=np.float64))) / 1000.0
 
         if parent.observables.contains_p("/sensor/mws/track"):
             for mObs in parent.observables.at_p("/sensor/mws/track"):
@@ -157,7 +158,7 @@ class EscortHunterAgent(SingleAssetAgent):
         high = np.finfo(np.float32).max
         space = {
             "own": spaces.Box(low, high, shape=[10], dtype=np.float32),
-            "enemy": spaces.Box(low, high, shape=[self.maxEnemyNum, 5], dtype=np.float32),
+            "enemy": spaces.Box(low, high, shape=[self.maxEnemyNum, 6], dtype=np.float32),
             "threat": spaces.Box(low, high, shape=[2], dtype=np.float32),
         }
         if self.useIrstEscortId:
