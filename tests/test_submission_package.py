@@ -57,3 +57,42 @@ def test_build_with_hybrid_v6_preset_overrides_args_only_in_zip():
         assert (REPO_ROOT / "agent" / "args.json").read_text(encoding="utf-8") == original_args
     finally:
         subprocess.run([sys.executable, str(SCRIPT)], cwd=str(REPO_ROOT), check=True, capture_output=True)
+
+
+def _zip_entries(path):
+    with zipfile.ZipFile(path) as z:
+        return {name: z.read(name) for name in z.namelist()}
+
+
+def test_build_with_out_leaves_submission_untouched(tmp_path):
+    subprocess.run([sys.executable, str(SCRIPT)], cwd=str(REPO_ROOT), check=True, capture_output=True)
+    before = ZIP_PATH.read_bytes()
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--preset", "hybrid_v6", "--out", str(tmp_path)],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"built: {tmp_path / 'submit.zip'}" in result.stdout
+    assert (tmp_path / "MyAgent" / "args.json").exists()
+    assert ZIP_PATH.read_bytes() == before
+
+
+def test_preset_name_matches_args_path(tmp_path):
+    by_name, by_path = tmp_path / "name", tmp_path / "path"
+    for out, flags in ((by_name, ["--preset", "hybrid_v6"]), (by_path, ["--args", "agent/presets/hybrid_v6.json"])):
+        cmd = [sys.executable, str(SCRIPT), *flags, "--out", str(out)]
+        subprocess.run(cmd, cwd=str(REPO_ROOT), check=True, capture_output=True)
+    assert _zip_entries(by_name / "submit.zip") == _zip_entries(by_path / "submit.zip")
+
+
+def test_unknown_preset_names_the_missing_file(tmp_path):
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--preset", "does_not_exist", "--out", str(tmp_path)],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "agent/presets/does_not_exist.json" in result.stderr
