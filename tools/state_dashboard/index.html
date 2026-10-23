@@ -172,6 +172,7 @@
   <section class="tab" id="tab-env"><h2>環境</h2><div id="env"></div></section>
   <section class="tab" id="tab-sub"><h2>提出</h2><div id="sub"></div></section>
   <section class="tab" id="tab-agents"><h2>エージェント（提出パッケージの中身）</h2><div id="agents"></div></section>
+  <section class="tab" id="tab-decision"><h2>観測・判断・行動（機体別）</h2><div id="decision"></div></section>
   <section class="tab" id="tab-eval"><h2>評価（seed固定ペア評価）</h2><div id="eval"></div></section>
   <section class="tab" id="tab-logs"><h2>ログ</h2><div id="logs"></div></section>
   <section class="tab" id="tab-hyp"><h2>仮説登録</h2><div id="hyp"></div></section>
@@ -195,7 +196,7 @@
 
 <script>
 const TABS = [
-  ["env", "環境"], ["sub", "提出"], ["agents", "エージェント"], ["eval", "評価"], ["logs", "ログ"],
+  ["env", "環境"], ["sub", "提出"], ["agents", "エージェント"], ["decision", "観測・判断・行動"], ["eval", "評価"], ["logs", "ログ"],
   ["hyp", "仮説登録"], ["session", "改善サイクル"], ["verify", "検証"], ["git", "git"], ["cmd", "コマンド"], ["rules", "ルール"],
   ["traj", "自機視点"], ["battle", "戦場俯瞰"],
 ];
@@ -428,8 +429,126 @@ function renderAgents(d) {
     `<button data-cmd="${attr(argsJson)}">コピー</button></div>`;
   h += "<pre>" + esc(argsJson) + "</pre>";
 
+  const cfg = a.config || {};
+  h += "<h2>config.json（提出の modelConfig）</h2>";
+  h += '<p class="meta">specialist が使う modelConfig。turnTable / speedTable は行動（turn/speed の index）の値。</p>';
+  (cfg.sections || []).forEach(sec => {
+    h += `<h3>${esc(sec.name)}</h3>`;
+    if (sec.rows && sec.rows.length) {
+      h += table([{label:"項目"},{label:"値"}], sec.rows.map(r => [esc(r.key), esc(r.value)]));
+    }
+    Object.keys(sec.tables || {}).forEach(k => {
+      const vals = sec.tables[k] || [];
+      h += `<div class="meta">${esc(k)} (${vals.length}):</div>`;
+      h += `<pre>${esc(vals.map(v => String(v)).join(", "))}</pre>`;
+    });
+  });
+  if (cfg.raw) {
+    h += `<div class="cmd"><span class="title">config.json をコピー</span>` +
+      `<span class="muted" style="flex:1">下の JSON 項と同一</span>` +
+      `<button data-cmd="${attr(cfg.raw)}">コピー</button></div>`;
+    h += "<pre>" + esc(cfg.raw) + "</pre>";
+  }
+
   document.getElementById("agents").innerHTML = h;
   bindCopy(document.getElementById("agents"));
+}
+
+function renderDecision(d) {
+  const box = document.getElementById("decision");
+  const st = state.decision || (state.decision = { log: "", frame: 0, data: null, logs: null, busy: false });
+
+  if (!st.logs) {
+    fetch("/api/replays").then(r => r.json()).then(j => {
+      st.logs = (j.entries || []).map(e => e.log);
+      if (!st.log && st.logs.length) st.log = st.logs[0];
+      renderDecision(d);
+    }).catch(() => { box.innerHTML = '<div class="empty">ログ一覧を取得できません。</div>'; });
+    if (!st.data) box.innerHTML = '<div class="empty">ログを読み込んでいます…</div>';
+    return;
+  }
+  if (!st.logs.length) {
+    box.innerHTML = '<div class="empty">再生できるログがありません。</div>';
+    return;
+  }
+
+  const loadFrame = () => {
+    if (!st.log) return;
+    st.busy = true;
+    const q = "?log=" + encodeURIComponent(st.log) + "&frame=" + st.frame;
+    fetch("/api/decision" + q).then(r => r.json()).then(j => {
+      st.data = j;
+      st.busy = false;
+      renderDecision(d);
+    }).catch(() => { st.busy = false; box.innerHTML = '<div class="empty">フレームを取得できません。</div>'; });
+  };
+  if (!st.data) { loadFrame(); box.innerHTML = '<div class="empty">フレームを読み込んでいます…</div>'; return; }
+
+  const data = st.data;
+  const total = data.frames || 0;
+  let h = '<div class="verify-pick"><label for="dec-log">ログ</label><select id="dec-log">' +
+    st.logs.map(l => `<option value="${attr(l)}"${l === st.log ? " selected" : ""}>${esc(l)}</option>`).join("") +
+    '</select></div>';
+  h += '<div class="verify-pick"><label for="dec-frame">フレーム</label>' +
+    `<input type="number" id="dec-frame" min="0" max="${Math.max(0, total - 1)}" value="${data.frame}" style="width:8em">` +
+    ` <span class="meta">/ ${Math.max(0, total - 1)}（ptime ${esc(String(data.ptime))}）</span>` +
+    ' <button class="copy" data-cmd="__dec_prev__">◀ 1つ前</button>' +
+    ' <button class="copy" data-cmd="__dec_next__">1つ次 ▶</button></div>';
+  h += '<p class="meta">観測＝ログが持つ値／判断＝観測と行動から導出した標的の選び方と撃てたか／行動＝turn・speed・target（config.json の表で値に翻訳）。</p>';
+
+  (data.aircraft || []).forEach(ac => {
+    const o = ac.observation || {};
+    const dec = ac.decision || {};
+    const act = ac.action || {};
+    const own = o.own || {};
+    h += '<div class="fact">';
+    h += `<div class="fact-head"><span class="title">機体 ${esc(ac.slot)}</span>` +
+      '<span class="badge">観測 / 判断 / 行動</span></div>';
+    h += '<div class="fact-grid">';
+    // 観測
+    h += '<div><div class="k">観測: 自機</div><div class="v">';
+    h += `x ${esc(String(own.x))} / y ${esc(String(own.y))} / 高度 ${esc(String(own.alt))} km<br>`;
+    h += `速度 ${esc(String(own.speed))} m/s / 姿勢 ${esc(String(own.heading))}°<br>`;
+    h += `残弾 ${esc(String(own.ammo))} / 燃料 ${esc(String(own.fuel))}<br>`;
+    h += `マージン side ${esc(String(own.marginSide))} / front ${esc(String(own.marginFront))} / back ${esc(String(own.marginBack))}</div></div>`;
+    const t = o.threat || {};
+    h += '<div><div class="k">観測: 脅威</div><div class="v">' +
+      (t.flag ? `あり（方位 ${esc(String(t.bearing))}°）` : 'なし') + '</div></div>';
+    h += '<div><div class="k">観測: 敵</div><div class="v">' +
+      (o.enemies || []).map(e =>
+        `#${e.row} ${e.det ? `${esc(String(e.dist))}km/${esc(String(e.bearing))}°/速${esc(String(e.speed))}` : '未探知'}${e.escort ? ' [護衛]' : ''}`
+      ).join('<br>') + '</div></div>';
+    // 判断
+    h += '<div><div class="k">判断: 標的</div><div class="v">' +
+      (dec.target_row ? `#${dec.target_row}（${esc(String(dec.target && dec.target.dist))}km）` : 'なし') + '</div></div>';
+    h += '<div><div class="k">判断: 照準</div><div class="v">' +
+      (dec.aim ? `x ${esc(String(dec.aim.x))} / y ${esc(String(dec.aim.y))}` : 'なし') +
+      (dec.off_nose !== null && dec.off_nose !== undefined ? `<br>機首とのずれ ${esc(String(dec.off_nose))}°` : '') +
+      '</div></div>';
+    h += '<div><div class="k">判断: 撃てるか</div><div class="v">' +
+      (dec.can_fire ? '発射可' : '発射不可') +
+      `<br>残弾 ${esc(String(dec.ammo))} / 脅威 ${esc(String(dec.threat))}` +
+      (dec.break_zone ? '<br>break 域内(35km)' : '') + '</div></div>';
+    // 行動
+    h += '<div><div class="k">行動: 機首</div><div class="v">turn ' + esc(String(act.turn_index)) +
+      (act.turn_deg !== null && act.turn_deg !== undefined ? ` = ${esc(String(act.turn_deg))}°` : '') + '</div></div>';
+    h += '<div><div class="k">行動: 速度</div><div class="v">speed ' + esc(String(act.speed_index)) +
+      (act.speed_ms !== null && act.speed_ms !== undefined ? ` = ${esc(String(act.speed_ms))} m/s` : '') + '</div></div>';
+    h += '<div><div class="k">行動: 標的</div><div class="v">target ' + esc(String(act.target_row || 0)) + '</div></div>';
+    h += '</div></div>';
+  });
+
+  box.innerHTML = h;
+  const logSel = document.getElementById("dec-log");
+  if (logSel) logSel.addEventListener("change", () => { st.log = logSel.value; st.data = null; renderDecision(d); });
+  const fr = document.getElementById("dec-frame");
+  if (fr) fr.addEventListener("change", () => { st.frame = parseInt(fr.value, 10) || 0; st.data = null; renderDecision(d); });
+  box.querySelectorAll("[data-cmd]").forEach(b => {
+    const c = b.dataset.cmd;
+    if (c === "__dec_prev__") b.addEventListener("click", () => { st.frame = Math.max(0, st.frame - 1); st.data = null; renderDecision(d); });
+    else if (c === "__dec_next__") b.addEventListener("click", () => { st.frame = st.frame + 1; st.data = null; renderDecision(d); });
+  });
+  bindCopy(box);
 }
 
 function renderEval(d) {
@@ -2348,7 +2467,7 @@ async function load(force) {
     if (stampEl.classList) stampEl.classList.toggle("warn", !!stale);
     // Compute evidence diffs before rendering
     markEvidenceDiffs(data);
-    renderEnv(data); renderSub(data); renderAgents(data); renderEval(data); renderLogs(data);
+    renderEnv(data); renderSub(data); renderAgents(data); renderDecision(data); renderEval(data); renderLogs(data);
     renderHypothesis(data); renderSession(data); renderVerify(data); renderGit(data); renderCmd(data); renderRules(data);
   } catch (err) {
     document.getElementById("stamp").textContent = "読み込み失敗: " + err;

@@ -771,7 +771,47 @@ def collect_agents() -> dict:
         "presets": presets,
         "ideas": ideas,
         "args": args,
+        "config": collect_agent_config(),
     }
+
+
+def _decision_module():
+    """tools/battle_analyzer/decision_trace.py を import する."""
+    sys.path.insert(0, str(TRAJECTORY_DIR))
+    try:
+        import decision_trace
+        importlib.reload(decision_trace)
+    finally:
+        sys.path.pop(0)
+    return decision_trace
+
+
+def decision_frame(log_rel: str, frame_idx: int) -> dict:
+    """1フレームを機体ごとに 観測/判断/行動 に分けて返す."""
+    module = _decision_module()
+    candidate = (REPO_ROOT / log_rel).resolve()
+    if not candidate.is_file() or not candidate.name.startswith("log_"):
+        raise ValueError("log_*.json のみ指定できます")
+    config = load_json(REPO_ROOT / "agent" / "config.json") or {}
+    return module.build_frame(candidate, frame_idx, config)
+
+
+def collect_agent_config() -> dict:
+    """agent/config.json（提出の modelConfig）の中身."""
+    config = load_json(REPO_ROOT / "agent" / "config.json") or {}
+    sections = []
+    for name, body in config.items():
+        if not isinstance(body, dict):
+            continue
+        rows = []
+        tables = {}
+        for key, value in body.items():
+            if isinstance(value, list):
+                tables[key] = value
+            else:
+                rows.append({"key": key, "value": json.dumps(value, ensure_ascii=False)})
+        sections.append({"name": name, "rows": rows, "tables": tables})
+    return {"sections": sections, "raw": json.dumps(config, ensure_ascii=False, indent=2)}
 
 
 def collect_paired() -> dict:
@@ -2764,6 +2804,25 @@ class Handler(BaseHTTPRequestHandler):
             payload = get_summary(force=force)
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             self._send(200, body, "application/json; charset=utf-8")
+            return
+        if route == "/api/decision":
+            params = parse_qs(urlparse(self.path).query)
+            log_rel = (params.get("log") or [""])[0]
+            try:
+                frame = int((params.get("frame") or ["0"])[0])
+            except ValueError:
+                frame = 0
+            try:
+                payload = decision_frame(log_rel, frame)
+                status = 200
+            except ValueError as exc:
+                payload = {"error": str(exc)}
+                status = 400
+            except Exception as exc:  # noqa: BLE001
+                payload = {"error": str(exc)}
+                status = 500
+            body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            self._send(status, body, "application/json; charset=utf-8")
             return
         if route == "/api/replays":
             try:

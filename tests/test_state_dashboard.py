@@ -22,12 +22,20 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SERVE_PATH = REPO_ROOT / "tools" / "state_dashboard" / "serve.py"
 INDEX_PATH = REPO_ROOT / "tools" / "state_dashboard" / "index.html"
 
-TABS = ["環境", "提出", "評価", "ログ", "仮説登録", "改善サイクル", "git", "コマンド",
-        "コンペルール", "自機視点", "戦場俯瞰"]
+TABS = ["環境", "提出", "エージェント", "観測・判断・行動", "評価", "ログ", "仮説登録",
+        "改善サイクル", "git", "コマンド", "コンペルール", "自機視点", "戦場俯瞰"]
 
 
 def load_serve():
     spec = importlib.util.spec_from_file_location("state_dashboard_serve", SERVE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _decision_module():
+    path = REPO_ROOT / "tools" / "battle_analyzer" / "decision_trace.py"
+    spec = importlib.util.spec_from_file_location("decision_trace", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -344,6 +352,43 @@ def test_index_has_agents_tab_showing_package_contents():
     assert "提出パッケージのファイル（agent/）" in block
     # 描画パイプラインから呼ばれる
     assert "renderAgents(data)" in html
+
+
+def test_index_has_decision_tab_splitting_observation_decision_action():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    assert 'id="tab-decision"' in html
+    assert '<div id="decision"></div>' in html
+    assert '["decision", "観測・判断・行動"]' in html
+    start = html.index("function renderDecision")
+    end = html.index("function renderEval")
+    block = html[start:end]
+    # 機体ごとに 観測 / 判断 / 行動 を別の箱で出す
+    assert "観測" in block and "判断" in block and "行動" in block
+    assert "observation" in block and "decision" in block and "action" in block
+    # ログ選択とフレーム移動
+    assert "/api/decision" in block
+    assert "/api/replays" in block
+    assert "assert" not in block  # JS にPythonのassertは入れない
+    assert "renderDecision(data)" in html
+
+
+def test_decision_trace_splits_observation_decision_action():
+    trace = _decision_module()
+    logs = sorted(REPO_ROOT.glob("workspace/results*/**/log_*.json"))
+    if not logs:
+        pytest.skip("実ログが無い環境ではスキップ")
+    cfg = json.loads((REPO_ROOT / "agent" / "config.json").read_text(encoding="utf-8"))
+    out = trace.build_frame(logs[0], 0, cfg)
+    assert out["frames"] >= 1
+    assert out["aircraft"], "機体の情報が無い"
+    ac = out["aircraft"][0]
+    # 観測: 自機・敵・脅威
+    assert set(ac["observation"]) == {"own", "enemies", "threat"}
+    assert "ammo" in ac["observation"]["own"]
+    # 判断: 標的・照準・撃てるか
+    assert set(ac["decision"]) >= {"target_row", "target", "aim", "off_nose", "can_fire"}
+    # 行動: turn / speed / target
+    assert set(ac["action"]) == {"turn_index", "turn_deg", "speed_index", "speed_ms", "target_row"}
 
 
 def test_index_has_verify_tab_with_hypothesis_selector():
