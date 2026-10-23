@@ -976,16 +976,23 @@ def _pending_hypothesis_ids(target_session: dict) -> list:
     方向カードID を variable に持つ仮説は「実装1変数の未試」ではないため pending から外す。
     """
     validated = _validated_hypothesis_ids(target_session)
+    hyps = target_session.get("hypotheses", [])
+    # 検証済み仮説と同じ変数を持つ仮説もまとめて外す（検証単位は「変数」＝旧重複を消す）
+    validated_vars = {
+        (h.get("variable") or "").strip()
+        for h in hyps
+        if h.get("id") in validated and (h.get("variable") or "").strip()
+    }
     tv = (load_json(REPO_ROOT / "analysis" / "tools" / "tested_variables.json") or {}).get("variables", {})
     dir_ids = {it.get("id") for it in collect_directions().get("items", [])}
 
     def _is_tried_noise(h):
         v = (h.get("variable") or "").strip()
-        return bool(v) and (v in tv or v in dir_ids)
+        return bool(v) and (v in tv or v in dir_ids or v in validated_vars)
 
     pending = [
         h
-        for h in target_session.get("hypotheses", [])
+        for h in hyps
         if h.get("id") not in validated and not _is_tried_noise(h)
     ]
     # 同一変数の再登録重複は最新1件のみ pending に残す（検証対象の曖昧さを防ぐ）
