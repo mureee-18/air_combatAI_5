@@ -105,6 +105,15 @@ python scripts/eval_pool.py --preset hosyan_rushguard --opponents pool --seeds 1
 python scripts/check_core_compat.py --base origin/master --workers 8
 ```
 
+## スタックした PR のマージ
+
+PR を積み重ねる（各 PR の base が1つ前の PR のブランチ）ときは、下から順に1本ずつ master に入れます。
+そのまま次の PR のマージボタンを押すと、master ではなく1つ前の PR のブランチに入ります。
+
+1. 一番下の PR（base が master）を「Create a merge commit」でマージします。squash と rebase は使いません。
+2. 次の PR の base を master に付け替えます。`gh pr edit <次の番号> --base master`
+3. 差分がその PR の分だけになり、CI が通ったのを確かめてからマージします。2 に戻って上まで繰り返します。
+
 ## CHANGELOG
 
 `changelog.d/` に1件1ファイルで断片を足します。`python scripts/changelog.py` が CHANGELOG.md の先頭に書き出します。

@@ -78,3 +78,5 @@ python3 tools/hooks/pre_submit_gate.py
 ```
 
 PR には、アイデア、プリセット、評価の run を1つにまとめます。master へのマージはユーザーが決めます。
+PR を積み重ねたときは、下から1本ずつマージし、次の PR の base を `gh pr edit <番号> --base master` で
+master に付け替えてからマージします。手順は `docs/PARALLEL_DEV.md` の「スタックした PR のマージ」にあります。
