@@ -351,9 +351,15 @@ def test_index_has_agents_tab_showing_package_contents():
     assert "プリセット" in block
     assert "args.json" in block
     assert "d.agents" in block
+    # 提出 zip の中身を出す（実体が「提出パッケージ」）
+    assert "提出 zip の中身" in html
+    assert "s.zip_files" in html
+    assert "提出物のルートファイル" in html
+    # agent/ ソースの見出しは実態に合わせる（zip 10 ファイル、main.py は入らない）
+    assert "agent/ 配下のソース" in html
+    assert "提出パッケージのファイル（agent/）" not in html
     # ファイル一覧はディレクトリ構造のツリーで見やすくする
     assert "agentTreeHtml" in block
-    assert "提出パッケージのファイル（agent/）" in block
     # 描画パイプラインから呼ばれる
     assert "renderAgents(data)" in html
 

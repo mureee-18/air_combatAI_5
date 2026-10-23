@@ -613,10 +613,12 @@ def collect_submission() -> dict:
     zip_path = REPO_ROOT / "submission" / "submit.zip"
 
     entries = {}
+    zip_files = []
     if zip_path.exists():
         try:
             with zipfile.ZipFile(zip_path) as zf:
                 names = {Path(n).as_posix() for n in zf.namelist()}
+                zip_files = sorted(n for n in names if not n.endswith("/"))
             for required in REQUIRED_ZIP_ENTRIES:
                 entries[required] = required in names
         except zipfile.BadZipFile:
@@ -630,6 +632,7 @@ def collect_submission() -> dict:
         "args": args,
         "zip": file_info(zip_path),
         "zip_entries": entries,
+        "zip_files": zip_files,
         "gate_ok": gate_code == 0,
         "gate_code": gate_code,
         "gate_output": (gate or "ゲートを実行できませんでした").splitlines()[-12:],

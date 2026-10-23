@@ -317,6 +317,13 @@ function renderSub(d) {
   h += "<h2>提出物のルートファイル</h2>";
   h += table([{label:"ファイル"},{label:"有無"}],
     Object.keys(s.zip_entries).map(k => [esc(k), s.zip_entries[k] ? '<span class="ok">あり</span>' : '<span class="bad">なし</span>']));
+  h += "<h2>提出 zip の中身</h2>";
+  if ((s.zip_files || []).length) {
+    h += `<p class="meta">${s.zip_files.length} ファイル（実際に提出されるもの）</p>`;
+    h += "<pre>" + esc((s.zip_files || []).join("\n")) + "</pre>";
+  } else {
+    h += '<p class="meta">zip が無い、または空です。python scripts/build_submission.py でビルドしてください。</p>';
+  }
   h += "<h2>提出前ゲート（tools/hooks/pre_submit_gate.py）</h2>";
   h += "<p class=\"meta\">ゲートは <code>" + esc(s.confirm_env) + "=1</code> なしの実行を BLOCK 扱いします（意図した設計）。</p>";
   h += `<div class="cmd"><span class="title">ゲート出力をコピー</span>` +
@@ -416,10 +423,10 @@ function renderAgents(d) {
       (a.ideas || []).map(id => [esc(id.name), esc((id.files || []).join(", "))]));
   }
 
-  h += "<h2>提出パッケージのファイル（agent/）</h2>";
+  h += "<h2>agent/ 配下のソース（提出 zip は 10 ファイル）</h2>";
   const fileCount = (a.files || []).length;
   const totalLines = (a.files || []).reduce((s, f) => s + (f.lines || 0), 0);
-  h += `<p class="meta">${fileCount} ファイル / 合計 ${totalLines} 行（ディレクトリごとにまとめたツリー）</p>`;
+  h += `<p class="meta">${fileCount} ファイル / 合計 ${totalLines} 行（ディレクトリごとにまとめたツリー）。提出 zip にはこのうち 10 ファイルが入り、main.py は入らない。</p>`;
   h += "<pre>" + agentTreeHtml(a.files) + "</pre>";
 
   const argsJson = JSON.stringify(a.args || {}, null, 2);
