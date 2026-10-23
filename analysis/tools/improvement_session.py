@@ -299,11 +299,31 @@ def warn_untracked_variable(state: dict, hypothesis_id: str) -> None:
     )
 
 
+def _card_fill_open_direction_vars() -> set:
+    """card_fill.json の open/direction カードが検証入口として立てる変数名。"""
+    path = REPO_ROOT / "tools" / "state_dashboard" / "card_fill.json"
+    try:
+        with open(path, encoding="utf-8") as f:
+            cards = (json.load(f) or {}).get("cards", {})
+    except (OSError, ValueError):
+        return set()
+    return {
+        (c.get("variable_name") or "").strip()
+        for c in cards.values()
+        if c.get("variable_status") in ("open", "direction") and (c.get("variable_name") or "").strip()
+    }
+
+
 def check_variable_untested(variable: str, retest: str) -> None:
-    """登録簿に載っている変数は仮説にできない（重複・再試験の防止）。"""
+    """登録簿に載っている変数は仮説にできない（重複・再試験の防止）。
+    card_fill の open/direction カードが検証入口として立てた変数は再試験許可する
+    （pending側も同じ変数を保護している）。"""
     data = load_tested_variables()
     entry = data.get("variables", {}).get(variable)
     if entry is None:
+        return
+    if variable in _card_fill_open_direction_vars():
+        print(f"※ 事実カード(open/direction)の変数 {variable} は検証入口なので再試験許可します")
         return
     if retest.strip():
         print(f"※ 試験済みの変数 {variable} を再試験します（理由: {retest}）")
