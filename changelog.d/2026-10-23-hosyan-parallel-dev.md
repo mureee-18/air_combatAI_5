@@ -5,3 +5,4 @@
 - 評価結果を `results/runs/` に集め、`scripts/eval_pool.py` が相手プール（`opponents/`）と並列で対戦する
 - `scripts/results_report.py` が集計表を作る。新しいアイデアの手順は `docs/PARALLEL_DEV.md`
 - `agent/args.json` は昇格ルール（`scripts/check_promotion.py`）を通ったときだけ変える
+- Claude 以外のエージェント向けの入口 `AGENTS.md` と、フォルダの分け方をまとめた `docs/REPO_LAYOUT.md` を追加

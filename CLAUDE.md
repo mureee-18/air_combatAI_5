@@ -39,6 +39,8 @@ x86 CPU・Linux 上で初期行動判断モデル（BenchMark）と対戦させ�
    merge base と1行も変わらないことを確かめる。新しいアイデアは `ideas/<作者>_<名前>/` に足し、
    手順は `docs/PARALLEL_DEV.md` に従う。
 
+Claude 以外のエージェントの入口は `AGENTS.md`、フォルダの分け方と誰がどこを変えてよいかは `docs/REPO_LAYOUT.md` にある。
+
 ## Environment
 
 | 役割 | 内容 |
@@ -123,6 +125,8 @@ python analysis/tools/improvement_session.py record --specialist default \
 ```
 
 ## Architecture
+
+リポジトリ全体のフォルダの分け方は `docs/REPO_LAYOUT.md` を見る。ここでは `agent/` の中だけを示す。
 
 ```
 agent/
