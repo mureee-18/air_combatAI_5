@@ -338,12 +338,31 @@ def check_variable_untested(variable: str, retest: str) -> None:
     raise SystemExit(2)
 
 
+def _pending_variables(state: dict) -> set:
+    """未検証（pending）の仮説が持つ変数名。同一変数の再登録を止める判定に使う。"""
+    validated = {
+        c.get("hypothesis")
+        for c in state.get("cycles", [])
+        if c.get("kind") == "validate" and c.get("hypothesis")
+    }
+    validated |= {r.get("hypothesis") for r in state.get("records", []) if r.get("hypothesis")}
+    return {
+        (h.get("variable") or "").strip()
+        for h in state.get("hypotheses", [])
+        if h.get("id") not in validated and (h.get("variable") or "").strip()
+    }
+
+
 def cmd_hypothesis(args) -> None:
     validate_record("inference", args.source)
     variable = getattr(args, "variable", "") or ""
     retest = getattr(args, "retest", "") or ""
     check_variable_untested(variable, retest)
     state = load_state(args.specialist)
+    if variable and variable in _pending_variables(state):
+        print(f"登録拒否: 変数 {variable} の仮説が未検証で残っています。")
+        print("  同一変数の再登録は累積の温床になるので、既存の仮説を検証して消化してください。")
+        raise SystemExit(2)
     text = normalize_text(args.text)
     state.setdefault("hypotheses", []).append({
         "id": next_hypothesis_id(state),

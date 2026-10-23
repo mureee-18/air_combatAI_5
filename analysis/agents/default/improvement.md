@@ -1845,3 +1845,13 @@
 - 検証: 護衛対象機への発射を 50km 以内に制限すると発射機会が減り、TIMEUP 引き分け。接近距離制限は発射機会を削りすぎる。予測 は大幅に外れ、不採用。
 - 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 現行構成（escortFireMinKm=35.0）で安定運用継続。escort_approach_dist 軸は不採用。次は metric:target_selection（射撃対象選定）から検討。
+
+## O-184 [observation/log] 2026-10-23T18:07:14
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛対象機への接近距離ゲートを 40km に設定（escort_approach_dist=40、35-40km帯で護衛向け発射を許可）
+- 仮説: N-190
+- 変更: args.json に escort_approach_dist=40.0 を追加し、default.py の escort_range_ok に距離ゲートを追加（他変数は据置）。build_submission --deploy 済み。
+- 検証: 1戦ゲート不合格：Red側全滅（alive Blue4/Red0、スコア Red0.2375/Blue0.7625、ELIMINATION、hit_rate 0.208）。予測 avg_score 0.69 以上 は外れ。35-40km帯の無駄撃ちで弾切れし護衛対象機へ届かなかった。O-183（50kmでTIMEUP引き分け）と同じ方向の失敗。ペア評価はスキップし即revert、現行構成（escortFireMinKm=35.0）へ復帰。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 護衛対象機への射撃距離ゲート軸は 27/35/40/50 と全値試験済みのため閉鎖。escortFireMinKm と同義で枯渇している。次は別軸（射撃対象選定 target_selection_rule、回避タイミング evade_beam_break_timing）へ。

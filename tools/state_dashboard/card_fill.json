@@ -170,10 +170,10 @@
       "cause": "護衛対象機への接近動きと距離管理。護衛対象機まで到達できず撃墜できないのが現状の課題。到達経路と接近タイミングが勝敗を左右する",
       "variable": "護衛対象機への接近動き",
       "variable_name": "escort_approach_dist",
-      "variable_status": "open",
+      "variable_status": "closed",
       "judge": "escort_min_dist_km / avg_enemy_alive / avg_score",
-      "prediction": "護衛対象機への接近距離を 50km 以内に制限して発射条件を満たせば、バースト初弾命中率 0/4=0.0 から上昇し、avg_score 0.69 以上を見込む。接近動きの新変数で検証する。",
-      "reason": "護衛対象機への接近軸。既存変数（escortSeekDistKm など）では十分に制御できていない。新変数が必要"
+      "prediction": "",
+      "reason": "護衛対象機への射撃距離ゲート軸は 27/35/40/50 と全値試験済みで不採用（40は全滅・O-184、50はTIMEUP引き分け・O-183、27/35/40は escortFireMinKm 側）。escortFireMinKm と同義で枯渇。別軸（射撃対象選定・回避タイミング）へ"
     },
     "constraints": {
       "cause": "既知の制約（前提）",

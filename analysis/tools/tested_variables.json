@@ -299,10 +299,11 @@
       ]
     },
     "escort_approach_dist": {
-      "values": "50",
-      "result": "護衛対象機50km以内のみ発射許可でRed TIMEUP引き分け(alive1)、発射機会を削りすぎ。不採用",
+      "values": "40/50",
+      "result": "40=護衛対象機へ40km以内で射撃許可→35-40km帯の無駄撃ちで弾切れ、Red全滅(O-184)。50=TIMEUP引き分け(O-183)。いずれも不採用。escortFireMinKm(27/35/40/50)と同義の軸で枯渇",
       "refs": [
-        "O-183"
+        "O-183",
+        "O-184"
       ]
     },
     "burst_head_align_deg": {
