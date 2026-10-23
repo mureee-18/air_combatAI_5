@@ -9,6 +9,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import urllib.error
 import urllib.parse
@@ -34,11 +35,14 @@ def load_serve():
 
 
 def _decision_module():
-    path = REPO_ROOT / "tools" / "battle_analyzer" / "decision_trace.py"
-    spec = importlib.util.spec_from_file_location("decision_trace", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    path = REPO_ROOT / "tools" / "battle_analyzer"
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
+    import decision_trace
+    importlib.reload(decision_trace)
+    for name in ("observation", "decision", "action"):
+        importlib.reload(getattr(decision_trace, name))
+    return decision_trace
 
 
 serve = load_serve()
@@ -359,17 +363,51 @@ def test_index_has_decision_tab_splitting_observation_decision_action():
     assert 'id="tab-decision"' in html
     assert '<div id="decision"></div>' in html
     assert '["decision", "観測・判断・行動"]' in html
-    start = html.index("function renderDecision")
-    end = html.index("function renderEval")
-    block = html[start:end]
-    # 機体ごとに 観測 / 判断 / 行動 を別の箱で出す
-    assert "観測" in block and "判断" in block and "行動" in block
-    assert "observation" in block and "decision" in block and "action" in block
+    # 観測・判断・行動 の描画は独立した関数（1つの関数に埋め込まない）
+    for fn in ("renderObservationHtml", "renderDecisionHtml", "renderActionHtml", "renderAircraft"):
+        assert f"function {fn}(" in html, f"{fn} が独立していない"
+
+    def fn_block(name):
+        s = html.index(f"function {name}(")
+        e = html.index("\nfunction ", s + 10)
+        return html[s:e]
+
+    # 観測の中 Villain 入れない: 観測だけ应是ログの値
+    assert "can_fire" not in fn_block("renderObservationHtml")
+    assert "off_nose" not in fn_block("renderObservationHtml")
+    # 行動の中は判定しない
+    assert "can_fire" not in fn_block("renderActionHtml")
+    assert "off_nose" not in fn_block("renderActionHtml")
+    # 判断だけが撃てるかの判定を持つ
+    assert "can_fire" in fn_block("renderDecisionHtml")
+    # renderDecision は機体ごとの描画を renderAircraft に委譲する
+    rdec = fn_block("renderDecision")
+    assert "renderAircraft(ac)" in rdec
+    for label in ("観測: 自機", "判断: 標的", "行動: 機首"):
+        assert label not in rdec, f"{label} の描画が renderDecision に残っている"
     # ログ選択とフレーム移動
-    assert "/api/decision" in block
-    assert "/api/replays" in block
-    assert "assert" not in block  # JS にPythonのassertは入れない
+    assert "/api/decision" in rdec
+    assert "/api/replays" in rdec
     assert "renderDecision(data)" in html
+
+
+def test_decision_trace_is_split_into_separate_modules():
+    pkg = REPO_ROOT / "tools" / "battle_analyzer" / "decision_trace"
+    # 観測・判断・行動 はそれぞれ別ファイル
+    assert pkg.is_dir(), "decision_trace はディレクトリ（パッケージ）であるべき"
+    for name in ("observation.py", "decision.py", "action.py", "__init__.py"):
+        assert (pkg / name).exists(), f"{name} が無い"
+    # 旧 singularity ファイルは残さない
+    assert not (pkg.parent / "decision_trace.py").exists(), "単一ファイル版が残っている"
+    # 各モジュールは自分の責務だけを持つ
+    obs = (pkg / "observation.py").read_text(encoding="utf-8")
+    dec = (pkg / "decision.py").read_text(encoding="utf-8")
+    act = (pkg / "action.py").read_text(encoding="utf-8")
+    assert "def read_own" in obs and "def read_enemies" in obs and "def read_threat" in obs
+    assert "def read_turn" in act and "def read_speed" in act and "def read_target" in act
+    assert "can_fire" in dec and "off_nose" in dec
+    # 行動の判定（撃てるか）は判断側、観測は派生しない
+    assert "can_fire" not in obs
 
 
 def test_decision_trace_splits_observation_decision_action():
@@ -382,13 +420,16 @@ def test_decision_trace_splits_observation_decision_action():
     assert out["frames"] >= 1
     assert out["aircraft"], "機体の情報が無い"
     ac = out["aircraft"][0]
-    # 観測: 自機・敵・脅威
+    # 観測: 自機・敵・脅威（ログが持つ値）
     assert set(ac["observation"]) == {"own", "enemies", "threat"}
     assert "ammo" in ac["observation"]["own"]
-    # 判断: 標的・照準・撃てるか
-    assert set(ac["decision"]) >= {"target_row", "target", "aim", "off_nose", "can_fire"}
-    # 行動: turn / speed / target
-    assert set(ac["action"]) == {"turn_index", "turn_deg", "speed_index", "speed_ms", "target_row"}
+    # 判断: 標的・照準・機首ずれ・撃てるか
+    assert set(ac["decision"]) >= {"target", "aim", "off_nose", "can_fire"}
+    # 行動: turn / speed / target を項目ごとに
+    assert set(ac["action"]) == {"turn", "speed", "target"}
+    assert set(ac["action"]["turn"]) == {"index", "value", "unit", "table"}
+    assert ac["action"]["turn"]["table"] == "turnTable"
+    assert ac["action"]["speed"]["table"] == "speedTable"
 
 
 def test_index_has_verify_tab_with_hypothesis_selector():

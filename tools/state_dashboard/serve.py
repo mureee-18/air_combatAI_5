@@ -776,11 +776,15 @@ def collect_agents() -> dict:
 
 
 def _decision_module():
-    """tools/battle_analyzer/decision_trace.py を import する."""
+    """tools/battle_analyzer/decision_trace パッケージを import する."""
     sys.path.insert(0, str(TRAJECTORY_DIR))
     try:
         import decision_trace
         importlib.reload(decision_trace)
+        for name in ("observation", "decision", "action"):
+            sub = getattr(decision_trace, name, None)
+            if sub is not None:
+                importlib.reload(sub)
     finally:
         sys.path.pop(0)
     return decision_trace
