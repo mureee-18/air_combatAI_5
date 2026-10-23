@@ -15,7 +15,7 @@ FORMAT_MD = REPO_ROOT / "tools" / "battle_analyzer" / "BATTLELOG_FORMAT.md"
 
 OWN_LEN = 10
 ENEMY_ROWS = 5
-ENEMY_COLS = 5
+ENEMY_COLS = 6  # det / bearing / dist / alt / escort_flag / speed（escort_hunter.py の makeObs と一致）
 THREAT_LEN = 2
 ACTION_KEYS = {"turn", "speed", "target"}
 

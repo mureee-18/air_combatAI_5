@@ -2252,18 +2252,21 @@ def collect_evidence(target: str) -> list[dict]:
     for card_id, fill in fill_cards.items():
         if card_id in existing_ids:
             continue
-        title = (fill.get("cause") or "")[:60] or card_id.replace("metric:", "").replace("_", " ").title()
+        cause = str(fill.get("cause") or "")
+        # phrase は仮説ビルダー用に 120 字以内。長い場合は card_fill.json の phrase を優先する
+        phrase = str(fill.get("phrase") or cause)[:120]
+        title = cause[:60] or card_id.replace("metric:", "").replace("_", " ").title()
         cards.append({
             "id": card_id,
             "kind": "observation",
             "source": "log",
             "title": title,
-            "summary": fill.get("cause", ""),
-            "cause": fill.get("cause", ""),
-            "evidence": [],
+            "summary": cause,
+            "cause": cause,
+            "evidence": [{"label": "原因", "value": cause, "num": False}],
             "hypothesis": fill.get("prediction", ""),
             "prediction": fill.get("prediction", ""),
-            "phrase": fill.get("cause", ""),
+            "phrase": phrase,
             "metric": fill.get("judge", ""),
             "from_tab": "事実カード",
             "from_path": "",

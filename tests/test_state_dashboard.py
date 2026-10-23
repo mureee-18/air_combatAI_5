@@ -335,12 +335,28 @@ def test_index_has_verify_tab_with_hypothesis_selector():
     end = html.index("const GIT_INSTRUCTIONS")
     block = html[start:end]
     assert 'id="verify-hyp"' in block
-    assert "withHypothesis(val.command2" in block
+    # 選択した仮説 id を --hypothesis として各コマンドに差し込む
+    assert "--hypothesis ${sel}" in block
     assert "--hypothesis" in html
-    # 1〜3 に分割せず、ペア評価+記録を1コマンドに集約する
-    assert "cmdRow([runPair, recPair]" in block
-    assert 'join(" ; ")' in block
-    assert "steps.forEach" not in block
+    # 検証フローは 6 行（①実装 ②デプロイ ③ゲート ④ペア評価 ⑤validate ⑥record）。
+    # すべてコピーボタン付き(cmdRow)で、①にも実装依頼のコピーボタンを置く
+    steps = (
+        "① 実装",
+        "② ビルド＆デプロイ",
+        "③ 1戦ゲート",
+        "④ seed固定ペア評価",
+        "⑤ 仮説IDと紐付け消化",
+        "⑥ record",
+    )
+    for step in steps:
+        assert step in block, f"検証タブに {step} が無い"
+    assert block.count("cmdRow(") >= 6, "各ステップにコピーボタン（cmdRow）が無い"
+    assert 'INTENT_IMPL' in block, "①実装行にコピーボタンの指示（INTENT_IMPL）が無い"
+    assert "python scripts/build_submission.py --deploy" in block
+    assert "validate.py --youth 1 --num-validation 1" in block
+    assert "run_eval_paired.py" in block
+    assert "improvement_session.py validate" in block
+    assert "improvement_session.py record" in block
     # 検証タブにはカード（対象 specialist / 検証する仮説 / 現在地）を出さない
     assert "cards(" not in block
     assert "現在地" not in block
@@ -350,8 +366,6 @@ def test_index_has_verify_tab_with_hypothesis_selector():
     assert "verified" not in block
     assert "検証済み" in block  # 全件検証済みのときのメッセージ
     assert 'bindCopy(document.getElementById("verify"))' in block
-    # 仮説が無いときはコマンドを描画しない（早期 return 後に1コマンドを描く）
-    assert block.index("cmdRow([runPair, recPair]") > block.index("return;")
 
 
 def test_index_hypothesis_tab_hides_registered_fact_cards():

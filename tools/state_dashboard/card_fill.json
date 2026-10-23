@@ -80,6 +80,7 @@
     },
     "metric:hit_count": {
       "cause": "一斉射撃（4 フレーム間隔で 2〜3 発を同じ目標へ連続発射）で、1 発目の結果前に次を撃ち、24 発中命中 0。再検証で外れ量の正体を特定：照準点は『発射時の標的位置』固定。護衛対象機（速度0.24km/s）への3発は飛行時間22秒のあいだ護衛対象機が5.0〜5.6km動く＝照準点の古さ。護衛対象機はアセット半径5kmの巡回体（mission config radius 5000m）なので5.02〜5.60kmの外れは毎回ほぼ半径外。弾は10km以遠では発射時航跡で誘導される（O-164）ため先読みは効かない",
+      "phrase": "命中0の正体：照準点は発射時の位置固定で22秒後に5.0〜5.6kmずれ、護衛アセット半径5kmを毎回わずかに外す",
       "variable": "発射距離 launchIntervalFrames",
       "variable_name": "launchIntervalFrames",
       "variable_status": "none",
@@ -89,6 +90,7 @@
     },
     "metric:escort_miss_radius": {
       "cause": "護衛対象機への発射が毎回『護衛アセット半径5kmの JUST外側』に着弾している。外れ量＝護衛対象機速度0.24km/s × 飛行時間(d/1.5)。実測: 34.2km発射→外れ5.48km、33.5km→5.60km、32.8km→5.02km（いずれも半径5kmの外）。外れ量が5km以下になる条件は d ≤ 31.25km。護衛対象機の最接近は29.4km（base_b1 Blue1）〜50.9km（別シナリオ）とシナリオ依存",
+      "phrase": "護衛対象機への3発は外れ5.02〜5.60kmで毎回アセット半径5kmの外。外れ量が5km以下になる条件は d ≤ 31.25km",
       "variable": "護衛対象機への発射距離 escortFireMinKm",
       "variable_name": "escortFireMinKm",
       "variable_status": "closed",
