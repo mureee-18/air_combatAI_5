@@ -68,3 +68,29 @@ def test_blocks_zip_with_local_only_specialist(tmp_path):
         assert "escort_hunt" in result.stdout
     finally:
         _build()
+
+
+def test_blocks_zip_whose_specialist_no_preset_names(tmp_path):
+    preset = tmp_path / "unlisted.json"
+    preset.write_text('{"type": "Fixed", "specialist": "ma_default"}', encoding="utf-8")
+    try:
+        _build("--args", str(preset))
+        result = _run("signate submit --path=submission/submit.zip", env_confirm=True)
+        assert result.returncode == 1
+        assert "ma_default" in result.stdout
+    finally:
+        _build()
+
+
+def test_submittable_specialists_come_from_args_and_presets():
+    sys.path.insert(0, str(GATE.parent))
+    try:
+        import pre_submit_gate
+    finally:
+        sys.path.remove(str(GATE.parent))
+    import json
+
+    names = pre_submit_gate.submittable_specialists()
+    named = [REPO_ROOT / "agent" / "args.json", *(REPO_ROOT / "agent" / "presets").glob("*.json")]
+    assert {json.loads(p.read_text(encoding="utf-8"))["specialist"] for p in named} == names
+    assert "escort_hunt" not in names

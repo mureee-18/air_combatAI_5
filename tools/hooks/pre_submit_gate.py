@@ -10,7 +10,7 @@ $env: で設定した env はゲートに届かない（kaggriculture 2026-09-28
 コマンド文字列中の `ATLA5_SUBMIT_CONFIRM=1` もフォールバックとして受け入れる。
 
 加えて、提出物そのものの安全確認として次を検証する。
-    1. 提出用 specialist であること（ローカル評価専用を誤提出しない）
+    1. 提出用 specialist であること（agent/args.json か agent/presets/*.json が名指しするもの）
     2. submission/submit.zip が必須3点を含むこと
     3. agent/ の fatal lint (ruff) が通ること
 """
@@ -31,7 +31,7 @@ ARGS_PATH = REPO_ROOT / "agent" / "args.json"
 ZIP_PATH = REPO_ROOT / "submission" / "submit.zip"
 CONFIRM_ENV = "ATLA5_SUBMIT_CONFIRM"
 
-ALLOWED_SPECIALISTS = {"baseline", "default", "hybrid"}  # hybrid: 別解法 V6（agent/presets/hybrid_v6.json）
+PRESETS_DIR = REPO_ROOT / "agent" / "presets"
 REQUIRED_ENTRIES = ["__init__.py", "args.json", "config.json"]
 
 
@@ -48,6 +48,19 @@ def _run(cmd: list[str]) -> str | None:
         err = (r.stderr or "")[-2000:]
         return f"コマンド失敗: {' '.join(cmd)}\n{out}\n{err}".strip()
     return None
+
+
+def submittable_specialists(repo_root: Path = REPO_ROOT) -> set[str]:
+    """提出できる specialist: agent/args.json か agent/presets/*.json が名指しするもの。"""
+    paths = [repo_root / "agent" / "args.json", *sorted((repo_root / "agent" / "presets").glob("*.json"))]
+    names = set()
+    for path in paths:
+        try:
+            names.add(str(json.loads(path.read_text(encoding="utf-8")).get("specialist", "")))
+        except (OSError, ValueError):
+            continue
+    names.discard("")
+    return names
 
 
 def _active_specialist() -> str:
@@ -71,11 +84,12 @@ def main() -> int:
         )
         return 1
 
+    allowed = submittable_specialists()
     specialist = _active_specialist()
-    if specialist not in ALLOWED_SPECIALISTS:
+    if specialist not in allowed:
         print(
             f"提出用ではない specialist が指定されています: {specialist}\n"
-            f"提出可能な specialist: {sorted(ALLOWED_SPECIALISTS)}"
+            f"提出可能な specialist: {sorted(allowed)}"
         )
         return 1
 
@@ -93,10 +107,10 @@ def main() -> int:
         print(f"提出物に必須ファイルがありません: {missing}")
         return 1
     # プリセットでビルドした場合は zip 内の args.json が実際に提出される specialist
-    if zip_specialist not in ALLOWED_SPECIALISTS:
+    if zip_specialist not in allowed:
         print(
             f"提出物 (zip 内 args.json) の specialist が提出用ではありません: {zip_specialist}\n"
-            f"提出可能な specialist: {sorted(ALLOWED_SPECIALISTS)}"
+            f"提出可能な specialist: {sorted(allowed)}"
         )
         return 1
 
