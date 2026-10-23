@@ -1885,3 +1885,13 @@
 - 検証: ④ペア評価 avg_score 0.650（基準0.674で-0.024）、our 3.50、enemy 3.67、5勝0敗1引分。Red seed3 +0.033、Blue seed2 TIMEUP引分け -0.190。予測0.69以上未達で不採用、revert 済み。
 - 指標: {"avg_score": 0.65, "avg_our_alive": 3.5, "avg_enemy_alive": 3.67, "games": 6}
 - 次の一手: 射撃対象選定軸は主要ルール試行済みのため一旦閉鎖。次は evade_beam_break_timing。
+
+## O-188 [observation/log] 2026-10-23T18:38:33
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: threat回避方向を直接退避（180度）から45度ずらす（未試験側、evade_beam_break_timing=3 で threat[1]+135）
+- 仮説: N-192
+- 変更: default.py に evade_beam_break_timing パラメータ（1=+90度、2=+45度、3=+135度、0=現行の+180度）を追加。args.json に evade_beam_break_timing=3。
+- 検証: ③1戦ゲート不合格：Red側全滅（alive Blue4/Red0、ELIMINATION、score 0.2375、hit_rate 0.208）。値1（+90度・O-181）、値2（+45度・O-182）と同じ全滅で、回避方向の横成分そのものが致命的であることが確定（どちらの向きでも全滅）。ペア評価はスキップし即revert、現行構成（escortFireMinKm=35.0）へ復帰。
+- 指標: {"avg_score": 0.65, "avg_our_alive": 3.5, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: 回避方向軸は 0/45/90/135 度と全値不採用で閉鎖（カード closed 化）。threat回避・beam/break軸の残は『回避する幅/期間』か『回避時の発射可否』など方向以外の軸。pending は 0 件。

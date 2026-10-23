@@ -291,11 +291,12 @@
       ]
     },
     "evade_beam_break_timing": {
-      "values": "1/2",
-      "result": "1=脅威から90度横回避、2=45度横回避、どちらもRed側全滅(alive0/ELIMINATION)。横回避軸は閉鎖",
+      "values": "1/2/3",
+      "result": "1=+90度横回避、2=+45度横回避、3=+135度（未試験側）：いずれもRed側全滅(alive0/ELIMINATION)。回避方向を直接退避から45度以上ずらすとどちらの向きでも全滅＝横成分自体が致命的。軸閉鎖、0（直接退避）のみ存続",
       "refs": [
         "O-181",
-        "O-182"
+        "O-182",
+        "O-188"
       ]
     },
     "escort_approach_dist": {

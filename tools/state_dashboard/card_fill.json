@@ -152,10 +152,10 @@
       "cause": "threat回避・beam/breakの切り替えタイミング、回避機動の挙動。脅威検知時にどの方向へ回避するか、beam/breakをいつ使うかが生存を左右する",
       "variable": "回避機動・脅威回避タイミング",
       "variable_name": "evade_beam_break_timing",
-      "variable_status": "open",
+      "variable_status": "closed",
       "judge": "avg_our_alive / avg_enemy_alive / avg_score",
-      "prediction": "threat回避・beam/breakの切り替えタイミングを機体ごとに最適化すれば、自軍生存 3.33 → 4.0 以上を見込む。回避機動の新変数で検証する。",
-      "reason": "射撃とは別の動き（機動）軸。既存変数（evadeCrankDeg など）では十分に制御できていない。新変数が必要"
+      "prediction": "",
+      "reason": "回避方向軸は 0/45/90/135度と全値不採用（1/2/3ともRed側全滅、O-181/O-182/O-188）。直接退避から45度以上ずらすとどちらの向きでも全滅＝横成分自体が致命的。残る材料は回避方向ではなく『回避する幅/期間』『回避中の発射可否』など方向以外の軸"
     },
     "metric:target_selection": {
       "cause": "射撃対象の決め方（最近傍・護衛候補優先・最も脅威・row集中など）。どの敵を優先して撃つかが命中率と撃墜数を左右する",
