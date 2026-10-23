@@ -1,0 +1,63 @@
+{
+ "candidate": {
+  "args": null,
+  "args_sha256": null,
+  "code_sha256": null,
+  "name": "hybrid_v6",
+  "specialist": null
+ },
+ "created_at": "2026-10-23T01:16:46.448400+00:00",
+ "finished_at": "2026-10-23T01:16:46.464892+00:00",
+ "games_sha256": "3a64a662b897983ce90963e6e4b9d74433837b5460b1ca29dfffde0f9be3c371",
+ "git": {
+  "branch": null,
+  "dirty": null,
+  "sha": null
+ },
+ "imported": true,
+ "n_games": 40,
+ "notes": "imported from /workspace/research/eval/pool/V6_vs_O_GUARD (legacy label V6)",
+ "opponents": [
+  {
+   "args_sha256": null,
+   "code_sha256": null,
+   "commit": null,
+   "name": "O_GUARD"
+  }
+ ],
+ "protocol": {
+  "colors": [
+   "Red",
+   "Blue"
+  ],
+  "make_log": true,
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20
+  ],
+  "youth": true
+ },
+ "run_id": "20261023T011646Z-legacy-5593976-wtchs9",
+ "schema": 1,
+ "source": "/workspace/research/eval/pool/V6_vs_O_GUARD",
+ "status": "complete",
+ "worker": "legacy"
+}

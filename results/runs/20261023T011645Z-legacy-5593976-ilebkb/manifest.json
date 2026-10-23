@@ -1,0 +1,63 @@
+{
+ "candidate": {
+  "args": null,
+  "args_sha256": null,
+  "code_sha256": null,
+  "name": "V3",
+  "specialist": null
+ },
+ "created_at": "2026-10-23T01:16:45.982017+00:00",
+ "finished_at": "2026-10-23T01:16:46.003521+00:00",
+ "games_sha256": "4c40f1dc71a2fd82649245d2f66a840eb6488859cfafdd6f13571f0d5ead6f36",
+ "git": {
+  "branch": null,
+  "dirty": null,
+  "sha": null
+ },
+ "imported": true,
+ "n_games": 40,
+ "notes": "imported from /workspace/research/eval/pool/V3_vs_O_RUSH (legacy label V3)",
+ "opponents": [
+  {
+   "args_sha256": null,
+   "code_sha256": null,
+   "commit": null,
+   "name": "O_RUSH"
+  }
+ ],
+ "protocol": {
+  "colors": [
+   "Red",
+   "Blue"
+  ],
+  "make_log": true,
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20
+  ],
+  "youth": true
+ },
+ "run_id": "20261023T011645Z-legacy-5593976-ilebkb",
+ "schema": 1,
+ "source": "/workspace/research/eval/pool/V3_vs_O_RUSH",
+ "status": "complete",
+ "worker": "legacy"
+}
