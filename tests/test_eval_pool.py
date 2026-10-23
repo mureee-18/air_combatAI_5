@@ -89,3 +89,11 @@ def test_main_writes_rows_through_the_store(tmp_path, monkeypatch):
     assert manifest["status"] == "complete" and manifest["n_games"] == 6
     assert manifest["candidate"]["name"] == "hybrid_v6" and manifest["candidate"]["specialist"] == "hybrid"
     assert list((sim / "Agents" / "_runs").iterdir()) == []
+
+
+def test_args_file_named_args_json_takes_its_directory_name(capsys):
+    assert ep.main(["--args", "opponents/MA/args.json", "--opponents", "BenchMark", "--seeds", "1", "--dry-run"]) == 0
+    assert ep.main(["--args", "agent/presets/hybrid_v6.json", "--opponents", "BenchMark", "--seeds", "1",
+                    "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "MA: 2 games" in out and "hybrid_v6: 2 games" in out

@@ -253,7 +253,8 @@ def main(argv=None) -> int:
         if not (ROOT / args_file).exists():
             raise SystemExit(f"missing preset: {args_file}")
     elif a.args:
-        name, args_file = Path(a.args).stem, a.args
+        path = Path(a.args)
+        name, args_file = (path.parent.name if path.stem == "args" else path.stem), a.args
     else:
         name, args_file = "default", None
     if a.dry_run:
