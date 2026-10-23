@@ -985,12 +985,13 @@ def _pending_hypothesis_ids(target_session: dict) -> list:
     }
     tv = (load_json(REPO_ROOT / "analysis" / "tools" / "tested_variables.json") or {}).get("variables", {})
     dir_ids = {it.get("id") for it in collect_directions().get("items", [])}
-    # card_fill の open/direction カードの変数は「検証入口」として pending から保護する
+    # card_fill の open カードの変数だけ pending から保護する（direction は1変数分解前の
+    # 方向カードで実装対象でないので sel に出さない。実装可能なのは open のみ）
     cards = (load_json(Path(__file__).with_name("card_fill.json")) or {}).get("cards", {})
     protected_vars = {
         (c.get("variable_name") or "").strip()
         for c in cards.values()
-        if c.get("variable_status") in ("open", "direction") and (c.get("variable_name") or "").strip()
+        if c.get("variable_status") == "open" and (c.get("variable_name") or "").strip()
     }
 
     def _is_tried_noise(h):
