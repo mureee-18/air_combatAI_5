@@ -33,14 +33,14 @@ jobs:
           path: _site
 
       - name: Upload Pages artifact
-        if: vars.PAGES_ENABLED == 'true'
+        if: github.ref == 'refs/heads/master'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy:
     needs: build
-    if: vars.PAGES_ENABLED == 'true'
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
