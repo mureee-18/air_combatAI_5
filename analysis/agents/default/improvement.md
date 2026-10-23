@@ -1855,3 +1855,13 @@
 - 検証: 1戦ゲート不合格：Red側全滅（alive Blue4/Red0、スコア Red0.2375/Blue0.7625、ELIMINATION、hit_rate 0.208）。予測 avg_score 0.69 以上 は外れ。35-40km帯の無駄撃ちで弾切れし護衛対象機へ届かなかった。O-183（50kmでTIMEUP引き分け）と同じ方向の失敗。ペア評価はスキップし即revert、現行構成（escortFireMinKm=35.0）へ復帰。
 - 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: 護衛対象機への射撃距離ゲート軸は 27/35/40/50 と全値試験済みのため閉鎖。escortFireMinKm と同義で枯渇している。次は別軸（射撃対象選定 target_selection_rule、回避タイミング evade_beam_break_timing）へ。
+
+## O-185 [observation/log] 2026-10-23T18:19:21
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛対象機への接近距離ゲート（escort_approach_dist）で射撃許可距離を拡張
+- 仮説: N-190
+- 変更: ①に args.json escort_approach_dist=40.0 を追加し default.py の escort_range_ok に距離ゲートを実装（35-40km帯で護衛向け発射を許可）。③1戦ゲートで Red側全滅（alive Blue4/Red0、ELIMINATION、hit_rate 0.208）となり不採用・即revert。revert後の現行構成（escortFireMinKm=35.0）で②③④⑤を実行。
+- 検証: ③ゲート不合格（Red全滅、score 0.2375）＝35-40km帯の無駄撃ちで弾切れし護衛対象機へ届かなかった。④ペア評価（revert後=現行構成）: 6勝0敗0分、avg_score 0.674、our_alive 3.33、enemy_alive 3.33、hit_rate 0.083。escort_approach_dist 軸は 40（全滅・O-184）/50（TIMEUP引き分け・O-183）とも不採用。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: escort_approach_dist 軸は 27/35/40/50 全値試験済みで、escortFireMinKm と同義のため閉鎖（カード closed 化済み）。残る pending は evade_beam_break_timing と target_selection_rule の2件。
