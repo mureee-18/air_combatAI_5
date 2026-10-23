@@ -1,0 +1,11 @@
+{
+ "type": "Fixed",
+ "specialist": "hybrid",
+ "fireRangeKm": 50.0,
+ "breakRangeKm": 35.0,
+ "evadeCrankDeg": 0.0,
+ "marginKm": 25.0,
+ "defPolicy": "ma",
+ "guardCount": 1,
+ "escortFireKm": 40
+}

@@ -32,4 +32,28 @@ def test_built_args_json_declares_allowed_specialist():
         args = json.loads(z.read("args.json"))
 
     assert "specialist" in args
-    assert args["specialist"] in {"baseline", "default"}
+    assert args["specialist"] in {"baseline", "default", "hybrid"}
+
+
+def test_build_with_hybrid_v6_preset_overrides_args_only_in_zip():
+    preset = REPO_ROOT / "agent" / "presets" / "hybrid_v6.json"
+    original_args = (REPO_ROOT / "agent" / "args.json").read_text(encoding="utf-8")
+    try:
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--args", "agent/presets/hybrid_v6.json"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        with zipfile.ZipFile(ZIP_PATH) as z:
+            args = json.loads(z.read("args.json"))
+            names = z.namelist()
+        assert args == json.loads(preset.read_text(encoding="utf-8"))
+        assert args["specialist"] == "hybrid"
+        assert "strategy/specialists/hybrid.py" in names
+        assert not any(name.startswith("presets/") for name in names)
+        # 既定の agent/args.json は変更しない
+        assert (REPO_ROOT / "agent" / "args.json").read_text(encoding="utf-8") == original_args
+    finally:
+        subprocess.run([sys.executable, str(SCRIPT)], cwd=str(REPO_ROOT), check=True, capture_output=True)

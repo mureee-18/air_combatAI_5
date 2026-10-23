@@ -1,0 +1,2 @@
+cd /workspace/air_combatAI_5 && rm -rf workspace/Agents/MyAgentNew && mkdir -p workspace/Agents/MyAgentNew && cp agent/__init__.py agent/args.json agent/config.json workspace/Agents/MyAgentNew/ && cp -r agent/strategy workspace/Agents/MyAgentNew/ && find workspace/Agents/MyAgentNew -name __pycache__ -exec rm -rf {} + ; python3 -c "
+import json;p='workspace/Agents/MyAgentNew/args.json';a=json.load(open(p));a['specialist']='escort_hunt';json.dump(a,open(p,'w'),indent=4)"

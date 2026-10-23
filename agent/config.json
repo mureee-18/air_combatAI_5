@@ -241,5 +241,57 @@
       "nominalThrottle": 1.0,
       "cmdDeltaAzLimit": 45.0
     }
+  },
+  "EscortHunt": {
+    "interval": {
+      "unit": "time",
+      "step": 1.0,
+      "perceive": 1.0,
+      "control": 1.0,
+      "behave": 1.0
+    },
+    "turnTable": [
+      -180.0,
+      -165.0,
+      -150.0,
+      -135.0,
+      -120.0,
+      -105.0,
+      -90.0,
+      -75.0,
+      -60.0,
+      -45.0,
+      -30.0,
+      -15.0,
+      0.0,
+      15.0,
+      30.0,
+      45.0,
+      60.0,
+      75.0,
+      90.0,
+      105.0,
+      120.0,
+      135.0,
+      150.0,
+      165.0
+    ],
+    "speedTable": [
+      220.0,
+      280.0,
+      340.0
+    ],
+    "maxEnemyNum": 5,
+    "altMin": 2000.0,
+    "altMax": 15000.0,
+    "maxSimulShot": 2,
+    "altitudeKeeper": {
+      "pGain": -0.3,
+      "dGain": -0.1,
+      "minPitch": -0.524,
+      "maxPitch": 0.524
+    },
+    "useIrstEscortId": true,
+    "escortMatchKm": 6.0
   }
 }

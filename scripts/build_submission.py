@@ -14,7 +14,7 @@ ENTRY_FILES = ["__init__.py", "args.json", "config.json"]
 PACKAGE_DIRS = ["strategy"]
 
 
-def build_staging():
+def build_staging(args_path=None):
     if STAGING.exists():
         shutil.rmtree(STAGING)
     STAGING.mkdir(parents=True)
@@ -24,6 +24,15 @@ def build_staging():
         if not src.exists():
             raise SystemExit(f"missing required file: {src}")
         shutil.copy(src, STAGING / name)
+
+    if args_path is not None:
+        # 別解法のプリセット（例: agent/presets/hybrid_v6.json）で args.json を差し替える。agent/args.json は変更しない
+        preset = Path(args_path)
+        if not preset.is_absolute():
+            preset = ROOT / preset
+        if not preset.exists():
+            raise SystemExit(f"missing args preset: {preset}")
+        shutil.copy(preset, STAGING / "args.json")
 
     for name in PACKAGE_DIRS:
         src = AGENT_DIR / name
@@ -54,9 +63,14 @@ def deploy():
 def main():
     parser = argparse.ArgumentParser(prog="build_submission")
     parser.add_argument("--deploy", action="store_true", help="workspace/Agents/MyAgent にも配置する")
+    parser.add_argument(
+        "--args",
+        default=None,
+        help="args.json の代わりに使うプリセット（例: agent/presets/hybrid_v6.json）",
+    )
     args = parser.parse_args()
 
-    build_staging()
+    build_staging(args.args)
     zip_path = make_zip()
     print(f"built: {zip_path} ({zip_path.stat().st_size} bytes)")
     for path in sorted(STAGING.rglob("*")):

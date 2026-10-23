@@ -8,7 +8,7 @@ SPECIALISTS_DIR = REPO_ROOT / "agent" / "strategy" / "specialists"
 ARGS_PATH = REPO_ROOT / "agent" / "args.json"
 CONFIG_PATH = REPO_ROOT / "agent" / "config.json"
 
-SPECIALIST_CONFIG_KEYS = {"default": "Fixed", "baseline": "Baseline"}
+SPECIALIST_CONFIG_KEYS = {"default": "Fixed", "baseline": "Baseline", "escort_hunt": "EscortHunt"}
 
 
 def _specialist_registry():

@@ -12,6 +12,8 @@ from ASRCAISim1.core import (
 )
 from BasicAgentUtility.util import TeamOrigin
 
+from .escort_id import EscortIdentifier
+
 
 class EscortHunterAgent(SingleAssetAgent):
     def initialize(self):
@@ -33,6 +35,10 @@ class EscortHunterAgent(SingleAssetAgent):
         self.altMin = getValueFromJsonKRD(mc, "altMin", self.randomGen, 2000.0)
         self.altMax = getValueFromJsonKRD(mc, "altMax", self.randomGen, 15000.0)
         self.altitudeKeeper = AltitudeKeeper(mc().get("altitudeKeeper", {}))
+        # IRST/レーダによる敵護衛対象機の識別（既定 OFF。OFF のとき観測・挙動は従来と同一）
+        self.useIrstEscortId = bool(getValueFromJsonKRD(mc, "useIrstEscortId", self.randomGen, False))
+        self.escortId = EscortIdentifier() if self.useIrstEscortId else None
+        self.escortMatchKm = float(getValueFromJsonKRD(mc, "escortMatchKm", self.randomGen, 6.0))
 
         self.lastTrackInfo = []
         self.dstDir = np.array([1.0, 0.0, 0.0], dtype=np.float64)
@@ -56,8 +62,10 @@ class EscortHunterAgent(SingleAssetAgent):
         threat = np.zeros([2], dtype=np.float32)
         self.lastTrackInfo = []
 
+        escort = np.zeros([6], dtype=np.float32)
+
         if not parent.isAlive():
-            return {"own": own, "enemy": enemy, "threat": threat}
+            return self._packObs(own, enemy, threat, escort)
 
         myMotion = MotionState(parent.observables["motion"]).transformTo(self.getLocalCRS())
         pos = self.teamOrigin.relPtoB(myMotion.pos())
@@ -100,16 +108,62 @@ class EscortHunterAgent(SingleAssetAgent):
                 threat[1] = degrees(atan2(d[1], d[0]))
                 break
 
-        return {"own": own, "enemy": enemy, "threat": threat}
+        if self.useIrstEscortId:
+            self._updateEscort(pos, enemy, escort, order[: self.maxEnemyNum], tracks)
+
+        return self._packObs(own, enemy, threat, escort)
+
+    def _packObs(self, own, enemy, threat, escort):
+        obs = {"own": own, "enemy": enemy, "threat": threat}
+        if self.useIrstEscortId:
+            obs["escort"] = escort
+        return obs
+
+    def _updateEscort(self, pos, enemy, escort, rows, tracks):
+        """IRST 方位列とレーダ航跡から敵護衛対象機を識別し、escort 観測と enemy[:,4] を埋める.
+
+        escort = [有効, x km, y km, vy m/s, 出所(1=IRST, 2=レーダ), 推定からの経過秒]（自陣営座標系）
+        """
+        parent = self.parent
+        crs = self.getLocalCRS()
+        t = float(self.manager.getElapsedTime())
+        irst = []
+        if parent.observables.contains_p("/sensor/irst/track"):
+            for tObs in parent.observables.at_p("/sensor/irst/track"):
+                try:
+                    d = self.teamOrigin.relPtoB(Track2D(tObs).transformTo(crs).dir())
+                    irst.append((str(tObs["truth"]()), degrees(atan2(d[1], d[0]))))
+                except Exception:
+                    continue
+        radar = []
+        for i in rows:
+            tp = self.teamOrigin.relPtoB(tracks[i].pos())
+            tv = self.teamOrigin.relPtoB(tracks[i].vel())
+            radar.append((tp[0] / 1000.0, tp[1] / 1000.0, float(tv[0]), float(tv[1])))
+        self.escortId.update(t, pos[0] / 1000.0, pos[1] / 1000.0, irst, radar)
+        pred = self.escortId.predicted(t)
+        if pred is None or pred["age"] > 120.0:
+            return
+        escort[:] = [1.0, pred["x"], pred["y"], pred["vy"], pred["src"], pred["age"]]
+        best = None
+        for row, (x, y, _vx, _vy) in enumerate(radar):
+            dd = sqrt((x - pred["x"]) ** 2 + (y - pred["y"]) ** 2)
+            if dd <= self.escortMatchKm and (best is None or dd < best[0]):
+                best = (dd, row)
+        if best is not None:
+            enemy[best[1], 4] = 1.0
 
     def observation_space(self):
         low = np.finfo(np.float32).min
         high = np.finfo(np.float32).max
-        return spaces.Dict({
+        space = {
             "own": spaces.Box(low, high, shape=[10], dtype=np.float32),
             "enemy": spaces.Box(low, high, shape=[self.maxEnemyNum, 6], dtype=np.float32),
             "threat": spaces.Box(low, high, shape=[2], dtype=np.float32),
-        })
+        }
+        if self.useIrstEscortId:
+            space["escort"] = spaces.Box(low, high, shape=[6], dtype=np.float32)
+        return spaces.Dict(space)
 
     def action_space(self):
         return spaces.Dict({

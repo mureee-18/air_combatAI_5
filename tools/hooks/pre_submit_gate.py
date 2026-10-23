@@ -31,7 +31,7 @@ ARGS_PATH = REPO_ROOT / "agent" / "args.json"
 ZIP_PATH = REPO_ROOT / "submission" / "submit.zip"
 CONFIRM_ENV = "ATLA5_SUBMIT_CONFIRM"
 
-ALLOWED_SPECIALISTS = {"baseline", "default"}
+ALLOWED_SPECIALISTS = {"baseline", "default", "hybrid"}  # hybrid: 別解法 V6（agent/presets/hybrid_v6.json）
 REQUIRED_ENTRIES = ["__init__.py", "args.json", "config.json"]
 
 
@@ -85,9 +85,19 @@ def main() -> int:
 
     with zipfile.ZipFile(ZIP_PATH) as z:
         names = set(z.namelist())
+        zip_specialist = None
+        if "args.json" in names:
+            zip_specialist = str(json.loads(z.read("args.json")).get("specialist", ""))
     missing = [entry for entry in REQUIRED_ENTRIES if entry not in names]
     if missing:
         print(f"提出物に必須ファイルがありません: {missing}")
+        return 1
+    # プリセットでビルドした場合は zip 内の args.json が実際に提出される specialist
+    if zip_specialist not in ALLOWED_SPECIALISTS:
+        print(
+            f"提出物 (zip 内 args.json) の specialist が提出用ではありません: {zip_specialist}\n"
+            f"提出可能な specialist: {sorted(ALLOWED_SPECIALISTS)}"
+        )
         return 1
 
     # CI では uvx ruff、ローカルでは ruff。uvx が使えない/取得失敗ならローカル ruff へ。
