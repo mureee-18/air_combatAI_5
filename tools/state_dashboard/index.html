@@ -327,6 +327,42 @@ function renderSub(d) {
   bindCopy(document.getElementById("sub"));
 }
 
+function agentTreeHtml(files) {
+  // agent/ 配下のフラットなファイル一覧を、ディレクトリ構造のツリーにする
+  const root = { dirs: {}, files: [] };
+  for (const f of files || []) {
+    const parts = String(f.path || "").split("/").filter(Boolean);
+    if (!parts.length) continue;
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const name = parts[i];
+      if (!node.dirs[name]) node.dirs[name] = { dirs: {}, files: [] };
+      node = node.dirs[name];
+    }
+    node.files.push({ name: parts[parts.length - 1], lines: f.lines, bytes: f.bytes });
+  }
+  const lines = [];
+  function walk(node, prefix) {
+    const items = [
+      ...Object.keys(node.dirs).map(n => ({ dir: true, name: n })),
+      ...node.files.map(f => ({ dir: false, name: f.name })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+    items.forEach((it, idx) => {
+      const last = idx === items.length - 1;
+      const branch = last ? "└─ " : "├─ ";
+      if (it.dir) {
+        lines.push(prefix + branch + it.name + "/");
+        walk(node.dirs[it.name], prefix + (last ? "   " : "│  "));
+      } else {
+        const f = node.files.find(x => x.name === it.name);
+        lines.push(prefix + branch + it.name + "  (" + (f ? f.lines : 0) + "行)");
+      }
+    });
+  }
+  walk(root, "");
+  return lines.map(l => esc(l)).join("\n");
+}
+
 function renderAgents(d) {
   const a = d.agents || {};
   let h = cards([
@@ -380,8 +416,10 @@ function renderAgents(d) {
   }
 
   h += "<h2>提出パッケージのファイル（agent/）</h2>";
-  h += table([{label:"パス"},{label:"行"},{label:"サイズ"}],
-    (a.files || []).map(f => [esc(f.path), String(f.lines), String(f.bytes)]));
+  const fileCount = (a.files || []).length;
+  const totalLines = (a.files || []).reduce((s, f) => s + (f.lines || 0), 0);
+  h += `<p class="meta">${fileCount} ファイル / 合計 ${totalLines} 行（ディレクトリごとにまとめたツリー）</p>`;
+  h += "<pre>" + agentTreeHtml(a.files) + "</pre>";
 
   const argsJson = JSON.stringify(a.args || {}, null, 2);
   h += "<h2>args.json（現在の設定）</h2>";

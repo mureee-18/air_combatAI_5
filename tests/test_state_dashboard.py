@@ -339,6 +339,9 @@ def test_index_has_agents_tab_showing_package_contents():
     assert "プリセット" in block
     assert "args.json" in block
     assert "d.agents" in block
+    # ファイル一覧はディレクトリ構造のツリーで見やすくする
+    assert "agentTreeHtml" in block
+    assert "提出パッケージのファイル（agent/）" in block
     # 描画パイプラインから呼ばれる
     assert "renderAgents(data)" in html
 
