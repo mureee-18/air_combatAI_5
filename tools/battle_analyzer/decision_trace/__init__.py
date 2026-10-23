@@ -35,8 +35,28 @@ def _tables(config: dict) -> tuple[list, list]:
     return list(fixed.get("turnTable") or []), list(fixed.get("speedTable") or [])
 
 
-def build_frame(log_path: Path, frame_idx: int, config: dict | None = None) -> dict:
-    """1フレームを機体ごとに 観測/判断/行動 に分けて返す."""
+def _ranges(config: dict) -> tuple[float, float]:
+    """射撃判定の距離（fireRangeKm / breakRangeKm）。config ではなく args から取る."""
+    fire = config.get("fireRangeKm", decision.FIRE_RANGE_KM)
+    brk = config.get("breakRangeKm", decision.BREAK_RANGE_KM)
+    try:
+        fire = float(fire)
+    except (TypeError, ValueError):
+        fire = decision.FIRE_RANGE_KM
+    try:
+        brk = float(brk)
+    except (TypeError, ValueError):
+        brk = decision.BREAK_RANGE_KM
+    return fire, brk
+
+
+def build_frame(log_path: Path, frame_idx: int, config: dict | None = None,
+                args: dict | None = None) -> dict:
+    """1フレームを機体ごとに 観測/判断/行動 に分けて返す.
+
+    config: agent/config.json（turnTable / speedTable の値）
+    args:   agent/args.json（fireRangeKm / breakRangeKm など。判定に使う距離）
+    """
     data = _load(log_path)
     obs_log = data.get("observations") or []
     act_log = data.get("actions") or []
@@ -49,6 +69,7 @@ def build_frame(log_path: Path, frame_idx: int, config: dict | None = None) -> d
     o_data = o_entry.get("data", {}) if isinstance(o_entry, dict) else {}
     a_data = a_entry.get("data", {}) if isinstance(a_entry, dict) else {}
     turn_table, speed_table = _tables(config or {})
+    fire_range, break_range = _ranges(args or {})
 
     aircraft = []
     for slot in sorted(o_data.keys()):
@@ -57,7 +78,7 @@ def build_frame(log_path: Path, frame_idx: int, config: dict | None = None) -> d
             continue
         obs = observation.read(payload)
         act = action.read(a_data.get(slot) or {}, turn_table, speed_table)
-        dec = decision.read(obs, act)
+        dec = decision.read(obs, act, fire_range, break_range)
         aircraft.append({
             "slot": slot,
             "observation": obs,

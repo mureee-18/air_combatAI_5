@@ -800,7 +800,8 @@ def decision_frame(log_rel: str, frame_idx: int) -> dict:
     if not candidate.is_file() or not candidate.name.startswith("log_"):
         raise ValueError("log_*.json のみ指定できます")
     config = load_json(REPO_ROOT / "agent" / "config.json") or {}
-    return module.build_frame(candidate, frame_idx, config)
+    args = load_json(REPO_ROOT / "agent" / "args.json") or {}
+    return module.build_frame(candidate, frame_idx, config, args)
 
 
 def collect_agent_config() -> dict:

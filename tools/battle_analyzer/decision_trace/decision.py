@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from . import observation
 
+# 既定値。実際の値は agent/args.json（fireRangeKm / breakRangeKm）から渡す
 FIRE_RANGE_KM = 50.0
 BREAK_RANGE_KM = 35.0
 
@@ -24,7 +25,8 @@ def _off_nose(own: dict, target: dict):
     return round(abs((heading - bearing + 180.0) % 360.0 - 180.0), 1)
 
 
-def read(obs: dict, act: dict) -> dict:
+def read(obs: dict, act: dict, fire_range_km: float = FIRE_RANGE_KM,
+         break_range_km: float = BREAK_RANGE_KM) -> dict:
     """観測と行動から判断を組み立てる."""
     own = obs.get("own") or {}
     enemies = obs.get("enemies") or []
@@ -42,7 +44,7 @@ def read(obs: dict, act: dict) -> dict:
     dist = target.get("dist") if target else None
     ammo = own.get("ammo")
     threat_flag = threat.get("flag")
-    can_fire = bool(ammo and not threat_flag and dist is not None and dist <= FIRE_RANGE_KM)
+    can_fire = bool(ammo and not threat_flag and dist is not None and dist <= fire_range_km)
 
     return {
         "target": target,
@@ -51,5 +53,7 @@ def read(obs: dict, act: dict) -> dict:
         "ammo": ammo,
         "threat": threat_flag,
         "can_fire": can_fire,
-        "break_zone": bool(dist is not None and dist <= BREAK_RANGE_KM),
+        "break_zone": bool(dist is not None and dist <= break_range_km),
+        "fire_range_km": fire_range_km,
+        "break_range_km": break_range_km,
     }

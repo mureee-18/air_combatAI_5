@@ -335,8 +335,9 @@ function renderSub(d) {
   bindCopy(document.getElementById("sub"));
 }
 
-function agentTreeHtml(files) {
+function agentTreeHtml(files, notPackaged) {
   // agent/ 配下のフラットなファイル一覧を、ディレクトリ構造のツリーにする
+  const skip = notPackaged || new Set();
   const root = { dirs: {}, files: [] };
   for (const f of files || []) {
     const parts = String(f.path || "").split("/").filter(Boolean);
@@ -347,7 +348,12 @@ function agentTreeHtml(files) {
       if (!node.dirs[name]) node.dirs[name] = { dirs: {}, files: [] };
       node = node.dirs[name];
     }
-    node.files.push({ name: parts[parts.length - 1], lines: f.lines, bytes: f.bytes });
+    node.files.push({
+      name: parts[parts.length - 1],
+      path: String(f.path || ""),
+      lines: f.lines,
+      bytes: f.bytes,
+    });
   }
   const lines = [];
   function walk(node, prefix) {
@@ -363,7 +369,8 @@ function agentTreeHtml(files) {
         walk(node.dirs[it.name], prefix + (last ? "   " : "│  "));
       } else {
         const f = node.files.find(x => x.name === it.name);
-        lines.push(prefix + branch + it.name + "  (" + (f ? f.lines : 0) + "行)");
+        const mark = skip.has(f.path) ? "  ※提出 zip には入らない" : "";
+        lines.push(prefix + branch + it.name + "  (" + (f ? f.lines : 0) + "行)" + mark);
       }
     });
   }
@@ -423,11 +430,20 @@ function renderAgents(d) {
       (a.ideas || []).map(id => [esc(id.name), esc((id.files || []).join(", "))]));
   }
 
-  h += "<h2>agent/ 配下のソース（提出 zip は 10 ファイル）</h2>";
+  // 提出 zip に入らないファイルを実データから求める（パスで比較する）
+  const zipSet = new Set(((d.submission || {}).zip_files) || []);
+  const notPackaged = new Set((a.files || [])
+    .map(f => String(f.path || ""))
+    .filter(p => p && !zipSet.has(p)));
+  const zipCount = zipSet.size;
+
+  h += `<h2>agent/ 配下のソース（提出 zip は ${zipCount} ファイル）</h2>`;
   const fileCount = (a.files || []).length;
   const totalLines = (a.files || []).reduce((s, f) => s + (f.lines || 0), 0);
-  h += `<p class="meta">${fileCount} ファイル / 合計 ${totalLines} 行（ディレクトリごとにまとめたツリー）。提出 zip にはこのうち 10 ファイルが入り、main.py は入らない。</p>`;
-  h += "<pre>" + agentTreeHtml(a.files) + "</pre>";
+  const excluded = notPackaged.size
+    ? `提出 zip にはこのうち ${zipCount} ファイルが入り、${notPackaged.size} ファイル（${Array.from(notPackaged).join(", ")}）は入らない。`
+    : `提出 zip にはこの ${fileCount} ファイルすべてが入る。`;  h += `<p class="meta">${fileCount} ファイル / 合計 ${totalLines} 行（ディレクトリごとにまとめたツリー）。${esc(excluded)}</p>`;
+  h += "<pre>" + agentTreeHtml(a.files, notPackaged) + "</pre>";
 
   const argsJson = JSON.stringify(a.args || {}, null, 2);
   h += "<h2>args.json（現在の設定）</h2>";
@@ -493,7 +509,9 @@ function renderDecisionHtml(dec) {
   h += '<div><div class="k">判断: 撃てるか</div><div class="v">'
      + (d.can_fire ? '発射可' : '発射不可')
      + `<br>残弾 ${esc(String(d.ammo))} / 脅威 ${esc(String(d.threat))}`
-     + (d.break_zone ? '<br>break 域内(35km)' : '') + '</div></div>';
+     + (d.fire_range_km !== undefined && d.fire_range_km !== null
+         ? `<br>射程 ${esc(String(d.fire_range_km))}km` : '')
+     + (d.break_zone ? `<br>break 域内（${esc(String(d.break_range_km))}km）` : '') + '</div></div>';
   return h;
 }
 
