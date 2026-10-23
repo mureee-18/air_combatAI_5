@@ -35,7 +35,10 @@ def _copy_agent(tmp_path: Path, package: str) -> Path:
 def test_discovers_existing_specialists_without_simulator():
     from agent.strategy import active
 
-    assert active.available_specialists() == ["baseline", "default", "escort_hunt", "hybrid", "ma_default"]
+    ideas = [p.name for p in (REPO_ROOT / "agent" / "strategy" / "ideas").iterdir()
+             if (p / "__init__.py").exists() and not p.name.startswith("_")]
+    expected = sorted(["baseline", "default", "escort_hunt", "hybrid", "ma_default"] + ideas)
+    assert active.available_specialists() == expected
     assert "ASRCAISim1" not in sys.modules
 
 
