@@ -1,0 +1,17 @@
+{
+    "type": "Fixed",
+    "specialist": "hosyan_h2defrange",
+    "fireRangeKm": 50.0,
+    "breakRangeKm": 35.0,
+    "evadeCrankDeg": 0.0,
+    "marginKm": 25.0,
+    "defPolicy": "ma",
+    "guardCount": 2,
+    "deepXKm": -20,
+    "flankXKm": 10,
+    "flankYKmDet": 50,
+    "escortFireKm": 40,
+    "maArgs": {
+        "fireRangeKm": 45.0
+    }
+}
