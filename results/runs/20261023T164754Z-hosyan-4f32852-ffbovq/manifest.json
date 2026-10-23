@@ -1,0 +1,95 @@
+{
+ "candidate": {
+  "args": {
+   "breakRangeKm": 35.0,
+   "deepXKm": -20,
+   "defPolicy": "ma",
+   "escortFireKm": 40,
+   "evadeCrankDeg": 0.0,
+   "fireRangeKm": 50.0,
+   "flankXKm": 10,
+   "flankYKmDet": 50,
+   "guardCount": 2,
+   "marginKm": 25.0,
+   "rushClusterKm": 15,
+   "rushLineXKm": 60,
+   "rushMinCount": 3,
+   "rushRangeKm": 45,
+   "rushWindowS": 300,
+   "specialist": "hosyan_h2b_rushrange",
+   "type": "Fixed"
+  },
+  "args_sha256": "28f0a2d2037fb62cfa314090ad662eed020a788272dc91187a81831dd41bea96",
+  "code_sha256": "35dbf61227537ce3e2ee6d212f1a90dceee96b0136f4485cf38b16236dce116a",
+  "name": "hosyan_h2b_rushrange",
+  "specialist": "hosyan_h2b_rushrange"
+ },
+ "created_at": "2026-10-23T16:47:54.816932+00:00",
+ "finished_at": "2026-10-23T17:05:09.735732+00:00",
+ "games_sha256": "cd57286ae1365e27f5869c29c01d5f08e591c09382b88b32a5c453843144de48",
+ "git": {
+  "branch": "exp/hosyan/h2b-rush-range",
+  "dirty": true,
+  "sha": "4f3285257eb154d4559198ce9a3e9e5d72db87a9"
+ },
+ "imported": false,
+ "n_games": 120,
+ "notes": "H2b k3 rest of pool (BenchMark,MA,O_BMAGG; screen run has O_RUSH,EH,O_GUARD)",
+ "opponents": [
+  {
+   "args_sha256": "e0968d07d33b0e7384fba7eacf021c4fac42ff30b6ac55e83b85230415532b11",
+   "code_sha256": "3f59c0a7d5919da9910b40f3f66441e5c5737a4ec3b1ceb2c7656dc56fdceb9c",
+   "commit": null,
+   "name": "BenchMark"
+  },
+  {
+   "args_sha256": "57e75cf3fdf80985c1f182f78d33641be6237754d38ce15c6c578a6f2b995f2d",
+   "code_sha256": "af291c7a1c7102da028c72c77f3024cf87ac27acf11f92d825293826e1838ae2",
+   "commit": "6866d8e1683a40745dfa5ddcef9181d934ca8c2c",
+   "name": "MA"
+  },
+  {
+   "args_sha256": "e0968d07d33b0e7384fba7eacf021c4fac42ff30b6ac55e83b85230415532b11",
+   "code_sha256": "f1b6798912605e9adbd6159c7711ff1da87e18925cf67844623c5990f07fa260",
+   "commit": null,
+   "name": "O_BMAGG"
+  }
+ ],
+ "protocol": {
+  "colors": [
+   "Red",
+   "Blue"
+  ],
+  "make_log": false,
+  "opponent_set": "BenchMark,MA,O_BMAGG",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20
+  ],
+  "shard": null,
+  "youth": true
+ },
+ "run_id": "20261023T164754Z-hosyan-4f32852-ffbovq",
+ "schema": 1,
+ "source": null,
+ "status": "complete",
+ "worker": "hosyan"
+}
