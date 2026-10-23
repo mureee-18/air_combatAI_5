@@ -517,6 +517,7 @@ const INTENT_ASSUMPTION = "# 前提登録 — この行をAIに貼って登録�
 const INTENT_HYPOTHESIS = "# 仮説登録 — この行をAIに貼って登録依頼\n";
 const INTENT_REVIEW = "# 文書レビュー — この指摘の修正をお願いします\n";
 const INTENT_REOPEN = "# 見直し依頼 — この材料は対応不要とされているが、見直しを求めます。理由も書いてください\n";
+const INTENT_IMPL = "# 実装依頼 — この行をAIに貼って1変数の実装を依頼（実装→build_submission --deploy→③ゲート→④ペア評価→⑤validate）\n";
 
 function withIntent(intent, cmd) {
   return cmd ? intent + cmd : cmd;
@@ -1046,10 +1047,9 @@ function renderVerify(d) {
   const tgt = s.target || "default";
   const varName = (cur && cur.variable) || "";
   const label = (varName || "hyp").replace(/[^A-Za-z0-9_]/g, "_");
-  h += '<p class="meta">① 実装: <code>agent/args.json</code> / ' +
-       '<code>agent/strategy/specialists/default.py</code> に ' +
-       `<b>${esc(varName || "対象変数")}</b> を 1変数だけ実装（他は据置）。` +
-       '悪化時に原因を切り分けられるよう同時変更しない。</p>';
+  h += cmdRow(
+    `変数 ${varName || "（仮説に未設定）"} を agent/args.json / agent/strategy/specialists/default.py に 1変数だけ実装する（他変数は据置、悪化時に原因を切り分けられるよう同時変更しない）。実装後に②build_submission→③1戦ゲート→④ペア評価→⑤validate へ進む。`,
+    "① 実装（1変数）", INTENT_IMPL);
   h += cmdRow("python scripts/build_submission.py --deploy", "② ビルド＆デプロイ");
   h += cmdRow(
     'docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --num-validation 1 --visualize 0"',
