@@ -1895,3 +1895,13 @@
 - 検証: ③1戦ゲート不合格：Red側全滅（alive Blue4/Red0、ELIMINATION、score 0.2375、hit_rate 0.208）。値1（+90度・O-181）、値2（+45度・O-182）と同じ全滅で、回避方向の横成分そのものが致命的であることが確定（どちらの向きでも全滅）。ペア評価はスキップし即revert、現行構成（escortFireMinKm=35.0）へ復帰。
 - 指標: {"avg_score": 0.65, "avg_our_alive": 3.5, "avg_enemy_alive": 3.67, "games": 6}
 - 次の一手: 回避方向軸は 0/45/90/135 度と全値不採用で閉鎖（カード closed 化）。threat回避・beam/break軸の残は『回避する幅/期間』か『回避時の発射可否』など方向以外の軸。pending は 0 件。
+
+## O-189 [observation/log] 2026-10-23T19:30:19
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 見送りカード『独自指標（未達）: 命中数0発』の復活。照準点の古さが外れ量を作る機構を特定し、護衛対象機への発射距離(escortFireMinKm 35→31)で外れ量を護衛アセット半径5km以内に_solver Krisp
+- 仮説: N-159
+- 変更: fact: 照準点は発射時の標的位置固定。護衛対象機(速度0.24km/s、アセット半径5km、直線飛行)への3発は飛行時間22秒で5.0〜5.6km前進＝外れ量5.0〜5.6km，每次都ほぼ半径5kmの外。実測: 34.2km→5.48km、33.5km→5.60km、32.8km→5.02km。外れ量が5km以下になる条件は d ≤ 31.25km。実装: args.json の escortFireMinKm を 35.0→31.0（1変数）
+- 検証: 1戦ゲートはDraw（TIMEUP、生存 Red2/Blue4、hit_rate 0.0）。ただしログ解析で護衛対象機の最接近が50.9kmで護衛向け発射が0発＝シナリオ要因で31kmが直接原因かは断定不能。ペア評価で判定: escortFireMinKm31 は 6勝0敗0分、avg_score 0.674、our 3.33、enemy 3.33、hit_rate 0.084（基準 0.083）。基準と同値で予測（0.69以上・hit_count 0→1以上）は未達で中立＝不採用、revert。機構の帰結: 護衛対象機の最接近はシナリオ依存（base_b1 Blue1で29.4km、別シナリオで50.9km）なので閾値では命中を安定化できない。先読み（5.3km前に撃つ）なら命中するが、action spaceのtargetは敵の行番号のみで弾は標的の現在位置から発射＝先読みは構造的に不可能。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: hit_count 軸はエージェント側の数値ノブでは閉じた（照準点の古さが外れ量を作り、先読みはaction space制約で不可、閾値ではシナリオ依存で安定化しない）。残る唯一の経路は自機が護衛対象機へ近づくこと（winpath-escort＝flank/engage-first系は全不採用）。カード metric:escort_miss_radius と metric:hit_count を closed に更新。
