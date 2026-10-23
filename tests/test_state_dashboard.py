@@ -324,6 +324,25 @@ def test_index_renders_session_steps_and_fact_cards():
     assert 'data-cmd="${esc(' not in html
 
 
+def test_index_has_agents_tab_showing_package_contents():
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    # 「エージェント」タブがystsAccessibleで、提出パッケージの中身を表示する
+    assert 'id="tab-agents"' in html
+    assert '<div id="agents"></div>' in html
+    assert '["agents", "エージェント"]' in html
+    start = html.index("function renderAgents")
+    end = html.index("function renderEval")
+    block = html[start:end]
+    # Agent クラス本体・Specialist・プリセット・アイデア・args.json を並べる
+    assert "Agent クラス本体" in block
+    assert "Specialist（方針）" in block
+    assert "プリセット" in block
+    assert "args.json" in block
+    assert "d.agents" in block
+    # 描画パイプラインから呼ばれる
+    assert "renderAgents(data)" in html
+
+
 def test_index_has_verify_tab_with_hypothesis_selector():
     html = INDEX_PATH.read_text(encoding="utf-8")
     # 「検証」タブが追加されている
@@ -597,8 +616,16 @@ def test_http_endpoints():
             "rules",
             "commands",
             "custom_metrics",
+            "agents",
         }
         assert {"target", "submitted", "steps", "evidence"} <= set(payload["session"].keys())
+        # エージェント（提出パッケージ）の中身
+        agents = payload["agents"]
+        assert agents["specialist"] == (agents["args"] or {}).get("specialist")
+        assert agents["files"], "agent/ 配下のファイルが列挙されていない"
+        assert any(f["path"] == "strategy/agents/escort_hunter.py" for f in agents["files"])
+        assert any(sp["name"] == "default" and sp["active"] for sp in agents["specialists"])
+        assert all(f["lines"] > 0 for f in agents["files"])
 
         with urllib.request.urlopen(f"{base}/api/replays", timeout=180) as res:
             replays = json.loads(res.read().decode("utf-8"))

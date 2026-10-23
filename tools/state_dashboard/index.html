@@ -171,6 +171,7 @@
 <main>
   <section class="tab" id="tab-env"><h2>環境</h2><div id="env"></div></section>
   <section class="tab" id="tab-sub"><h2>提出</h2><div id="sub"></div></section>
+  <section class="tab" id="tab-agents"><h2>エージェント（提出パッケージの中身）</h2><div id="agents"></div></section>
   <section class="tab" id="tab-eval"><h2>評価（seed固定ペア評価）</h2><div id="eval"></div></section>
   <section class="tab" id="tab-logs"><h2>ログ</h2><div id="logs"></div></section>
   <section class="tab" id="tab-hyp"><h2>仮説登録</h2><div id="hyp"></div></section>
@@ -194,7 +195,7 @@
 
 <script>
 const TABS = [
-  ["env", "環境"], ["sub", "提出"], ["eval", "評価"], ["logs", "ログ"],
+  ["env", "環境"], ["sub", "提出"], ["agents", "エージェント"], ["eval", "評価"], ["logs", "ログ"],
   ["hyp", "仮説登録"], ["session", "改善サイクル"], ["verify", "検証"], ["git", "git"], ["cmd", "コマンド"], ["rules", "ルール"],
   ["traj", "自機視点"], ["battle", "戦場俯瞰"],
 ];
@@ -324,6 +325,73 @@ function renderSub(d) {
   if (s.zip.exists) h += `<p class="meta">ビルド日時: ${esc(s.zip.mtime)} / サイズ: ${esc(s.zip.size_h)}</p>`;
   document.getElementById("sub").innerHTML = h;
   bindCopy(document.getElementById("sub"));
+}
+
+function renderAgents(d) {
+  const a = d.agents || {};
+  let h = cards([
+    { k: "現在の specialist", v: a.specialist || "（未設定）", cls: a.specialist ? "ok" : "warn" },
+    { k: "登録済み specialist", v: (a.known_specialists || []).join(" / ") || "（判定不能）" },
+    { k: "Agent クラス", v: (a.agents || []).length + " 個" },
+    { k: "Specialist（方針）", v: (a.specialists || []).length + " 個" },
+    { k: "プリセット", v: (a.presets || []).length + " 個" },
+  ]);
+
+  h += "<h2>Specialist（方針）— 提出で使われる実装</h2>";
+  h += table([{label:"名前"},{label:"状態"},{label:"クラス"},{label:"説明"},{label:"行"}],
+    (a.specialists || []).map(sp => [
+      esc(sp.name),
+      sp.active ? '<span class="ok">使用中</span>' : "",
+      esc((sp.classes || []).join(", ")),
+      esc(sp.summary || ""),
+      String(sp.lines),
+    ]));
+  (a.specialists || []).forEach(sp => {
+    if (!sp.arg_keys || !sp.arg_keys.length) return;
+    h += `<div class="meta">${esc(sp.name)} が args.json から読む設定: <code>${esc(sp.arg_keys.join(", "))}</code></div>`;
+  });
+
+  h += "<h2>Agent クラス本体（agent/strategy/agents/）</h2>";
+  if (!(a.agents || []).length) {
+    h += '<p class="meta">このディレクトリには .py がありません。</p>';
+  } else {
+    h += table([{label:"モジュール"},{label:"クラス"},{label:"説明"},{label:"行"}],
+      (a.agents || []).map(ag => [
+        esc(ag.name), esc((ag.classes || []).join(", ")), esc(ag.summary || ""), String(ag.lines),
+      ]));
+  }
+
+  h += "<h2>プリセット（agent/presets/）</h2>";
+  if (!(a.presets || []).length) {
+    h += '<p class="meta">プリセットはありません。</p>';
+  } else {
+    h += table([{label:"名前"},{label:"specialist"},{label:"設定数"},{label:"ファイル"}],
+      (a.presets || []).map(ps => [
+        esc(ps.name), esc(ps.specialist || ""), String(ps.arg_count), esc(ps.file),
+      ]));
+  }
+
+  h += "<h2>アイデア（agent/strategy/ideas/）</h2>";
+  if (!(a.ideas || []).length) {
+    h += '<p class="meta">まだideaは追加されていません。</p>';
+  } else {
+    h += table([{label:"名前"},{label:"ファイル"}],
+      (a.ideas || []).map(id => [esc(id.name), esc((id.files || []).join(", "))]));
+  }
+
+  h += "<h2>提出パッケージのファイル（agent/）</h2>";
+  h += table([{label:"パス"},{label:"行"},{label:"サイズ"}],
+    (a.files || []).map(f => [esc(f.path), String(f.lines), String(f.bytes)]));
+
+  const argsJson = JSON.stringify(a.args || {}, null, 2);
+  h += "<h2>args.json（現在の設定）</h2>";
+  h += `<div class="cmd"><span class="title">args.json をコピー</span>` +
+    `<span class="muted" style="flex:1">下の JSON 項と同一</span>` +
+    `<button data-cmd="${attr(argsJson)}">コピー</button></div>`;
+  h += "<pre>" + esc(argsJson) + "</pre>";
+
+  document.getElementById("agents").innerHTML = h;
+  bindCopy(document.getElementById("agents"));
 }
 
 function renderEval(d) {
@@ -2242,7 +2310,7 @@ async function load(force) {
     if (stampEl.classList) stampEl.classList.toggle("warn", !!stale);
     // Compute evidence diffs before rendering
     markEvidenceDiffs(data);
-    renderEnv(data); renderSub(data); renderEval(data); renderLogs(data);
+    renderEnv(data); renderSub(data); renderAgents(data); renderEval(data); renderLogs(data);
     renderHypothesis(data); renderSession(data); renderVerify(data); renderGit(data); renderCmd(data); renderRules(data);
   } catch (err) {
     document.getElementById("stamp").textContent = "読み込み失敗: " + err;

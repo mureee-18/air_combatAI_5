@@ -637,6 +637,143 @@ def collect_submission() -> dict:
     }
 
 
+def _module_summary(path: Path) -> str:
+    """モジュールの docstring 1行目（説明）."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    m = re.match(r'\s*"""(.*?)"""', text, flags=re.S)
+    if not m:
+        return ""
+    for line in m.group(1).strip().splitlines():
+        if line.strip():
+            return line.strip()
+    return ""
+
+
+def _arg_keys(path: Path) -> list[str]:
+    """モジュールが args から読む設定キー."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    return sorted(set(re.findall(r'args\.get\(\s*"([^"]+)"', text)))
+
+
+def _py_classes(path: Path) -> list[str]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    return re.findall(r"^class\s+(\w+)", text, flags=re.M)
+
+
+def collect_agents() -> dict:
+    """提出パッケージ（agent/）の中身。読み取り専用で確認する.
+
+    - 現在の提出がどの Agent クラス／Specialist を使うか
+    - agent/strategy/agents/（Agent クラス本体）と specialists/（方針）の一覧
+    - プリセット（agent/presets/）とアイデア（agent/strategy/ideas/）の一覧
+    """
+    agent_dir = REPO_ROOT / "agent"
+    args = load_json(agent_dir / "args.json") or {}
+    specialist = args.get("specialist")
+
+    files = []
+    for path in sorted(agent_dir.rglob("*")):
+        if not path.is_file() or "__pycache__" in path.parts:
+            continue
+        if path.suffix not in (".py", ".json"):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        files.append({
+            "path": path.relative_to(agent_dir).as_posix(),
+            "lines": text.count("\n") + 1,
+            "bytes": path.stat().st_size,
+        })
+
+    agents = []
+    agents_dir = agent_dir / "strategy" / "agents"
+    if agents_dir.is_dir():
+        for path in sorted(agents_dir.glob("*.py")):
+            if path.name == "__init__.py":
+                continue
+            agents.append({
+                "name": path.stem,
+                "file": path.relative_to(REPO_ROOT).as_posix(),
+                "classes": _py_classes(path),
+                "summary": _module_summary(path),
+                "arg_keys": _arg_keys(path),
+                "lines": len(path.read_text(encoding="utf-8").splitlines()),
+            })
+
+    specialists = []
+    specialists_dir = agent_dir / "strategy" / "specialists"
+    if specialists_dir.is_dir():
+        for path in sorted(specialists_dir.glob("*.py")):
+            if path.name == "__init__.py":
+                continue
+            specialists.append({
+                "name": path.stem,
+                "file": path.relative_to(REPO_ROOT).as_posix(),
+                "classes": _py_classes(path),
+                "summary": _module_summary(path),
+                "arg_keys": _arg_keys(path),
+                "lines": len(path.read_text(encoding="utf-8").splitlines()),
+                "active": path.stem == specialist,
+            })
+
+    presets = []
+    presets_dir = agent_dir / "presets"
+    if presets_dir.is_dir():
+        for path in sorted(presets_dir.glob("*.json")):
+            data = load_json(path) or {}
+            presets.append({
+                "name": path.stem,
+                "file": path.relative_to(REPO_ROOT).as_posix(),
+                "specialist": data.get("specialist"),
+                "arg_count": len([k for k in data if k != "type"]),
+                "args": data,
+            })
+
+    ideas = []
+    ideas_dir = agent_dir / "strategy" / "ideas"
+    if ideas_dir.is_dir():
+        for path in sorted(p for p in ideas_dir.iterdir() if p.is_dir()):
+            ideas.append({
+                "name": path.name,
+                "files": sorted(
+                    p.relative_to(REPO_ROOT).as_posix()
+                    for p in path.rglob("*")
+                    if p.is_file() and "__pycache__" not in p.parts
+                ),
+            })
+
+    active_text = ""
+    active_path = agent_dir / "strategy" / "active.py"
+    if active_path.exists():
+        try:
+            active_text = active_path.read_text(encoding="utf-8")
+        except OSError:
+            active_text = ""
+    known = sorted(set(re.findall(r'^\s*"([\w]+)":', active_text, flags=re.M)))
+
+    return {
+        "specialist": specialist,
+        "known_specialists": known,
+        "files": files,
+        "agents": agents,
+        "specialists": specialists,
+        "presets": presets,
+        "ideas": ideas,
+        "args": args,
+    }
+
+
 def collect_paired() -> dict:
     paired_dir = WORKSPACE / "paired"
     files = []
@@ -2540,6 +2677,7 @@ def collect_summary() -> dict:
         "repo_root": str(REPO_ROOT),
         "environment": collect_environment(),
         "submission": collect_submission(),
+        "agents": collect_agents(),
         "paired": session["paired"],
         "custom_metrics": collect_custom_metrics(session["paired"], session["target"]),
         "logs": collect_logs(),
