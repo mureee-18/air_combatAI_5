@@ -1865,3 +1865,23 @@
 - 検証: ③ゲート不合格（Red全滅、score 0.2375）＝35-40km帯の無駄撃ちで弾切れし護衛対象機へ届かなかった。④ペア評価（revert後=現行構成）: 6勝0敗0分、avg_score 0.674、our_alive 3.33、enemy_alive 3.33、hit_rate 0.083。escort_approach_dist 軸は 40（全滅・O-184）/50（TIMEUP引き分け・O-183）とも不採用。
 - 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: escort_approach_dist 軸は 27/35/40/50 全値試験済みで、escortFireMinKm と同義のため閉鎖（カード closed 化済み）。残る pending は evade_beam_break_timing と target_selection_rule の2件。
+
+## O-186 [observation/log] 2026-10-23T18:31:50
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃対象選定を『前進方向の最深部（絶対x最大）』に変更（targetSelectionRule=1、護衛候補優先のフォールバック）
+- 仮説: N-193
+- 変更: default.py に targetSelectionRule パラメータを追加し、fire_target 選択で護衛候補が使えない場合に前進方向最深部（絶対x最大、射程内）を優先。args.json に targetSelectionRule=1。移動・beam/break判定には影響させず発射対象のみ変更（1変数）。
+- 検証: ③ゲートは通過（Red勝ち ELIMINATION、score 0.664、生存4/4）。④ペア評価: avg_score 0.650（基準0.674より-0.024で悪化）、our_alive 3.50（3.33→改善）、enemy_alive 3.67（3.33→悪化）、5勝0敗1引分、hit_rate 0.069。Red seed3 が 0.663→0.696（+0.033）で改善、Blue seed2 が 0.690→0.500（TIMEUP引分け）で悪化し相殺。敵生存3.67は敵を1機も倒せていないことを示す。予測 avg_score 0.69以上 は未達で不採用、revert して現行構成（escortFireMinKm=35.0）へ復帰。
+- 指標: {"avg_score": 0.65, "avg_our_alive": 3.5, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: 射撃対象選定は targetMode=farthest（全滅）・targetSpread（生存低下）・escortFireMode（中立）とともに主要ルールは試行済み。深部優先も不採用で、この軸は一旦閉鎖。次は残る pending の evade_beam_break_timing（回避タイミング）へ。
+
+## O-187 [observation/log] 2026-10-23T18:32:04
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃対象選定を前進方向最深部（絶対x最大）に変更（targetSelectionRule=1）
+- 仮説: N-193
+- 変更: default.py に targetSelectionRule を追加し護衛候補不可時に射程内の前進最深部を優先（発射対象のみ変更）。args.json に targetSelectionRule=1。
+- 検証: ④ペア評価 avg_score 0.650（基準0.674で-0.024）、our 3.50、enemy 3.67、5勝0敗1引分。Red seed3 +0.033、Blue seed2 TIMEUP引分け -0.190。予測0.69以上未達で不採用、revert 済み。
+- 指標: {"avg_score": 0.65, "avg_our_alive": 3.5, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: 射撃対象選定軸は主要ルール試行済みのため一旦閉鎖。次は evade_beam_break_timing。

@@ -161,10 +161,10 @@
       "cause": "射撃対象の決め方（最近傍・護衛候補優先・最も脅威・row集中など）。どの敵を優先して撃つかが命中率と撃墜数を左右する",
       "variable": "射撃対象選定ルール",
       "variable_name": "target_selection_rule",
-      "variable_status": "open",
+      "variable_status": "closed",
       "judge": "burst_first_hit_rate / hit_count / avg_enemy_alive / avg_score",
-      "prediction": "射撃対象を最近傍から護衛候補（前方x最大、速度<=0.3km/s）優先に変更すれば、バースト初弾命中率 0/4=0.0 から上昇し、avg_score 0.674 → 0.69 以上を見込む。対象選定を護衛候補優先に変更し、1変数で検証する。",
-      "reason": "射撃対象の決め方軸。既存変数（targetSpread など）では十分に制御できていない。新変数が必要"
+      "prediction": "",
+      "reason": "射撃対象選定は targetMode=farthest（全滅・N-026）・targetSpread（生存低下・N-131）・escortFireMode（中立・N-139）・前進最深部優先（avg_score 0.650 で悪化・O-187）と主要ルールは試行済み。この軸は一旦閉鎖"
     },
     "metric:escort_approach": {
       "cause": "護衛対象機への接近動きと距離管理。護衛対象機まで到達できず撃墜できないのが現状の課題。到達経路と接近タイミングが勝敗を左右する",
