@@ -52,12 +52,26 @@ def test_lower_pool_min_fails():
     assert any(line.startswith("FAIL pool min 0.4000 < current 0.5000") for line in lines)
 
 
-def test_paired_gain_equal_to_se_fails():
-    seeds = list(range(1, 5))  # 2相手 × 4 seed × 2色 = 16 組。1組だけ +0.5 なら差と SE がちょうど等しい
-    runs = [_run("new", NEW, {("A", 1, "Red"): 1.0}, seeds=seeds), _run("cur", CUR, {}, seeds=seeds)]
+def test_paired_gain_between_one_and_two_se_fails():
+    seeds = list(range(1, 5))  # 2相手 × 4 seed × 2色 = 16 組。2組だけ +0.5 なら差 0.0625、SE 約 0.043
+    new = {("A", 1, "Red"): 1.0, ("B", 1, "Red"): 1.0}
+    runs = [_run("new", NEW, new, seeds=seeds), _run("cur", CUR, {}, seeds=seeds)]
     ok, lines = cp.verdict(runs, NEW, CUR, POOL, seeds=seeds)
     assert not ok
-    assert any(line.startswith("FAIL paired pool diff +0.0312 is not larger than its SE 0.03125") for line in lines)
+    assert any(line.startswith("FAIL paired pool diff +0.0625 is not larger than 2×SE") for line in lines)
+
+
+def test_large_loss_to_one_opponent_fails():
+    # pool min（0.5 >= 0.5）と全体の差は通るが、B には全試合 -0.05 で負ける（SE 0 なので -2×SE = 0 を下回る）
+    new = {"A": 0.9, "B": 0.5}
+    cur = {"A": 0.5, "B": 0.55}
+    new_scores = {(o, s, c): new[o] for o in POOL for s in cp.SEEDS for c in cp.COLORS}
+    new_scores.update({("A", s, "Red"): 0.95 for s in cp.SEEDS})  # 全体の SE を 0 にしないための揺らぎ
+    runs = [_run("new", NEW, new_scores), _run("cur", CUR, {(o, s, c): cur[o] for o in POOL for s in cp.SEEDS
+                                                             for c in cp.COLORS})]
+    ok, lines = cp.verdict(runs, NEW, CUR, POOL)
+    assert not ok
+    assert any(line.startswith("FAIL B: paired diff -0.0500") for line in lines)
 
 
 def test_passing_promotion():

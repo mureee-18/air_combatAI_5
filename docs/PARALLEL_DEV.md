@@ -84,9 +84,11 @@ run が無ければ `idea 'hosyan_rushguard' has no complete run under results/r
 1. 新しい `agent/args.json` と現行の既定（merge base の `agent/args.json`）の両方に、同じ args で作った
    complete の run が `results/runs/` にあり、seeds 1〜20 × 両色 × `opponents/pool.json` の pool 全部を覆う
 2. pool の最小値（相手ごとの平均スコアの最小）が現行以上
-3. 同じ相手・seed・色で突き合わせた pool 平均の差が、その標準誤差より大きい
+3. 同じ相手・seed・色で突き合わせた pool 平均の差が、その標準誤差の2倍より大きい
+4. どの相手でも、その相手だけで突き合わせた差の平均が −2×標準誤差 以上（大きく負ける相手がない）
 
 run は次のように作ります。現行の既定は昇格 PR を作る前の master で `--default` を回します。
+同じ args の complete run が `results/runs/` に既にあれば、それが使われるので回し直しは要りません。
 
 ```bash
 python scripts/eval_pool.py --default --opponents pool --seeds 1-20   # master で現行の既定

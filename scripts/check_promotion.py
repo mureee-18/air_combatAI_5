@@ -4,7 +4,8 @@
 results/runs/ に complete の run があり、seeds 1〜20 × 両色 × opponents/pool.json の pool 全部を覆うこと。
 そのうえで次の2つを満たすときだけ通す。
   1. pool の最小値（相手ごとの平均スコアの最小）が現行以上
-  2. pool 全体の対応差（同じ相手・seed・色の score 差）の平均が、その標準誤差より大きい
+  2. pool 全体の対応差（同じ相手・seed・色の score 差）の平均が、その標準誤差の2倍より大きい
+  3. どの相手でも、その相手の対応差の平均が −2×標準誤差 以上（大きく負ける相手がない）
 
     python scripts/check_promotion.py --base origin/master
 """
@@ -75,11 +76,16 @@ def verdict(runs, new_args: dict, cur_args: dict, pool: list[str], seeds=SEEDS) 
         lines.append(f"ok   pool min {ns['min']:.4f} >= current {cs['min']:.4f}")
     keys = {(o, s, c) for o in pool for s in seeds for c in COLORS}
     pd = rr.paired_diff({k: new[k] for k in keys}, {k: cur[k] for k in keys})
-    if pd["se"] is None or not pd["diff"] > pd["se"]:
+    if pd["se"] is None or not pd["diff"] > 2 * pd["se"]:
         ok = False
-        lines.append(f"FAIL paired pool diff {pd['diff']:+.4f} is not larger than its SE {pd['se']} (n={pd['n']})")
+        lines.append(f"FAIL paired pool diff {pd['diff']:+.4f} is not larger than 2×SE {pd['se']} (n={pd['n']})")
     else:
-        lines.append(f"ok   paired pool diff {pd['diff']:+.4f} > SE {pd['se']:.4f} (n={pd['n']})")
+        lines.append(f"ok   paired pool diff {pd['diff']:+.4f} > 2×SE {2 * pd['se']:.4f} (n={pd['n']})")
+    for o in pool:
+        po = rr.paired_diff({k: new[k] for k in keys}, {k: cur[k] for k in keys}, opponents={o})
+        if po["diff"] < -2 * (po["se"] or 0):
+            ok = False
+            lines.append(f"FAIL {o}: paired diff {po['diff']:+.4f} < -2×SE {-2 * (po['se'] or 0):.4f}")
     return ok, lines
 
 
