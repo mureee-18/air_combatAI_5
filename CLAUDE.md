@@ -11,11 +11,11 @@ x86 CPU・Linux 上で初期行動判断モデル（BenchMark）と対戦させ�
 
 ## Anti-Regression Rules (CRITICAL — これを破る変更はバグとみなす)
 
-1. **提出されるのは `agent/` を zip 化した1モジュールのみ。** 提出用 specialist は現在 `default`
-   （自作ルールベース。seeds1-5×両面の10戦ペア評価で avg_score 0.500 ＝ `baseline` と同値、
-   敗戦0（10/10 引き分け）だったため 2026-10-07 に切り替え）。
-   `tools/hooks/pre_submit_gate.py` が `args.json` の `specialist` を検証し、
-   `baseline` / `default` のいずれでもないもの（ローカル評価専用の実験）は弾く。
+1. **提出されるのは `agent/` を zip 化した1モジュールのみ。** zip に入る戦法は、
+   `agent/args.json`（既定）か `agent/presets/<名前>.json`（プリセット）が `specialist` で名指しするものだけで、
+   ビルドはその戦法が import するファイルだけを入れる。
+   `tools/hooks/pre_submit_gate.py` はこの2か所が名指ししない `specialist`（ローカル評価専用の実験）を弾く。
+   `ideas/` のアイデアを提出したいときは、プリセットを足す PR を通す。
 2. **提出はユーザーの明示指示がある時のみ。** `signate submit` は環境変数
    `ATLA5_SUBMIT_CONFIRM=1` 付きで実行する（ゲートが無指示の提出をブロック）。
 3. **スタンドアロンな実装を増やさない。** Agent 本体は `agent/strategy/agents/`、
@@ -27,6 +27,19 @@ x86 CPU・Linux 上で初期行動判断モデル（BenchMark）と対戦させ�
    生成せず、`env.manager` の生状態は `getEntityByName` で core dump するため使わない。
    軌跡は `tools/battle_analyzer/trajectory.py` の復元式
    （`enemy = own + dist·(cos bearing, sin bearing)`、陣営座標系 x=+ が敵陣方向）を正とする。
+7. **`agent/args.json` は昇格ルールを通ったときだけ変える。** これは「既定の `agent/args.json` は変えない」
+   という以前の決まりを置き換える。`agent/args.json` を変える PR では CI が `scripts/check_promotion.py` を実行し、
+   次をすべて満たすときだけ通す。
+   - 新しい `agent/args.json` と現行の既定（merge base の `agent/args.json`）の両方に、同じ args で作った
+     complete の run が `results/runs/` にあり、seeds 1〜20 × 両色 × `opponents/pool.json` の pool 全部を覆う
+   - pool の最小値（相手ごとの平均スコアの最小）が現行以上
+   - 同じ相手・seed・色で突き合わせた pool 平均の差が、その標準誤差より大きい
+8. **共有コアは後方互換の変更だけ。** `agent/strategy/agents/`・`specialists/`・`active.py`・`config.json` を
+   変えたら `python scripts/check_core_compat.py` を実行し、既定ビルドと全プリセットの対戦結果が
+   merge base と1行も変わらないことを確かめる。新しいアイデアは `ideas/<作者>_<名前>/` に足し、
+   手順は `docs/PARALLEL_DEV.md` に従う。
+
+Claude 以外のエージェントの入口は `AGENTS.md`、フォルダの分け方と誰がどこを変えてよいかは `docs/REPO_LAYOUT.md` にある。
 
 ## Environment
 
@@ -87,6 +100,14 @@ docker exec atla5-cpu bash -lc "python /repo/scripts/zip_check.py /repo/submissi
 python tools/signate/cli.py files
 python tools/signate/cli.py submit submission/submit.zip --memo "..."
 
+# 並行開発（手順は docs/PARALLEL_DEV.md）
+python scripts/new_idea.py <作者> <名前>                    # ideas/<作者>_<名前>/ と presets/<作者>_<名前>.json を作る
+python scripts/eval_pool.py --preset <作者>_<名前> --opponents pool --seeds 1-20   # results/runs/ に run を書く
+python scripts/results_report.py --out /tmp/leaderboard     # 集計表
+python scripts/check_core_compat.py --base origin/master    # 共有コアを変えたとき
+python scripts/check_promotion.py --base origin/master      # agent/args.json を変えたとき
+python scripts/changelog.py                                 # changelog.d/ の断片から CHANGELOG.md を作る
+
 # テスト・lint（CI と同じ）
 pytest tests/ -q
 ruff check agent/ tools/ tests/ scripts/
@@ -104,6 +125,8 @@ python analysis/tools/improvement_session.py record --specialist default \
 ```
 
 ## Architecture
+
+リポジトリ全体のフォルダの分け方は `docs/REPO_LAYOUT.md` を見る。ここでは `agent/` の中だけを示す。
 
 ```
 agent/

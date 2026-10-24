@@ -1,0 +1,8 @@
+# 共有コアと仕組みの変更は MA と hosyan のレビューを通す。アイデア（agent/strategy/ideas/）とプリセットと results/ は対象外。
+/agent/strategy/agents/ @mureee-18 @hosyan3279
+/agent/strategy/active.py @mureee-18 @hosyan3279
+/agent/config.json @mureee-18 @hosyan3279
+/agent/args.json @mureee-18 @hosyan3279
+/scripts/ @mureee-18 @hosyan3279
+/tools/hooks/ @mureee-18 @hosyan3279
+/.github/ @mureee-18 @hosyan3279

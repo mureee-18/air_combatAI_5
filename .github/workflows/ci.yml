@@ -70,3 +70,11 @@ jobs:
             fi
           done
           [ ! -s "$RUNNER_TEMP/append-only" ]
+
+      - name: Idea rules
+        if: github.event_name == 'pull_request'
+        run: uvx python scripts/new_idea.py --check "origin/${{ github.base_ref }}"
+
+      - name: Promotion rule
+        if: github.event_name == 'pull_request'
+        run: uvx python scripts/check_promotion.py --base "origin/${{ github.base_ref }}"
