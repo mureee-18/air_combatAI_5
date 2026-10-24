@@ -1743,3 +1743,165 @@
 - 検証: 仮説N-162は不的中: Red4 予測（ELIMINATION/護衛最小≤35km/win≥0.65/enemy4→3）に対し実測は draw 0.500・our_alive1・enemy4・護衛最小159.8km。時間上限自体は機能した（f210→f240で西行固定が解除、f300-350に東向きで15km接近）が、自機が f405 で全滅するため迎撃（射程到達 ~f760）に届かない。挙動だけ変えて結果が変わらない典型例。
 - 指標: {"avg_score": 0.659, "avg_our_alive": 3.21, "avg_enemy_alive": 3.29, "games": 14}
 - 次の一手: seed4 の拘束条件は『護衛への到達』ではなく『生存』と確定（threat回避・武器配分・crank の3系統すべてで結果不変）。残る可能性は (a) 自機が敵戦闘機の正面を横切る幾何自体を変える（進路・初期展開）、(b) 4機の役割分離で1機を護衛に専念させる（escortChaserCount は否決済み）、(c) seed4 を打ち切って 0.659 を確定。
+
+## N-006 [inference/log] 2026-10-18T19:02:55
+- 種別: inference（仮説・推論）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛対象機への接近路を側方オフセットに変える（winpath-escort の幾何軸）
+- 仮説: N-164
+- 変更: 新変数 escortFlankDeg=15（既定0=現行）を実装: 護衛対象機への指向角に距離比例オフセット（dist/150km で最大15°、接近で0に収束）+ 無探知時の進路。default.py に _flankDeg と flankFullDistKm を追加。1戦ゲート後、ペア評価が悪化したため args.json・default.py とも完全巻き戻し（git はコミット済み fm35 状態と一致・差分0）
+- 検証: 仮説N-164は部分的中だが採用不可: 1戦ゲートでは seed4 Red が draw 0.500->win 0.6613（ELIMINATION steps1698 / our_alive4 / enemy_alive2 / hit0.167）と予測(>=0.60)を達成したが、seed4 Blue は 0.500 据置（our_alive 1->2・enemy_alive 4->5）で事前基準（両者>=0.60、片方据置なら棄却）に不適合。14戦ペア flank15 = avg_score 0.643（予測 >=0.655 未達）、win12/draw1/loss1。内訳: Red4 +0.161 / Red2 +0.039 / Red3 +0.045 / Blue7 +0.054 / Blue5 +0.010 / Blue6 +0.006 / Blue2 +0.007 の改善に対し Blue1 0.708->0.238（our_alive 5->0 = 護衛喪失・steps717で敗北）の大回帰が相殺。改善方向は実在するが同値では採用不可
+- 指標: {"avg_score": 0.643, "avg_our_alive": 3.14, "avg_enemy_alive": 3.00, "games": 14}（flank15 の実測。ツールが前サイクル値を流用したため手修正）
+- 次の一手: seed4 の拘束（生存）に対し初めて有効な軸を確認: 接近幾何は Red4 を勝ちに変える。ただし 15° は Blue1 で護衛を失う尾部リスク。次の候補は (i) より小さいフランク値（8°/5°）で尾部リスクを下げて改善を残せるか（1変数の値スイープ）、(ii) フランクは護衛へ到達できない機のみに制限（役割分離）、(iii) (a) を打ち切り 0.659 を確定。現状の採用構成は escortFireMinKm=35（avg_score 0.659）
+
+## N-007 [inference/log] 2026-10-18T20:06:26
+- 種別: inference（仮説・推論）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 接近幾何（フランク）の値スイープ 15/8/5 とホールドアウト検証
+- 仮説: N-164
+- 変更: escortFlankDeg を 15->8->5 と変更して各回 14戦ペア評価＋ホールドアウト(seeds8-10両面)。全値を棄却し args.json・default.py とも 0（コードなし）へ完全巻き戻し（git diff = 0、deploy 済み）
+- 検証: 事前予測（5°: avg>=0.665・win>=12・護衛喪失0）は不的中: 14戦 avg 0.658（win11/draw3/loss0）。値別: 15°=0.643(B1護衛喪失0.2375) / 8°=0.630(B4護衛喪失・R3R5が勝ち→分) / 5°=0.658(B1・R7が勝ち→分、our 3.50/en 2.86) に対し 0°=0.659。部分集合では符号が食い違う(seeds1-5×両面: flank5 0.6593 > 0 0.6391 / seeds1-3×両面: 0 0.6745 > flank5 0.6687)ため、新規 seeds8-10×両面のホールドアウトで決着: 0°=0.698(6勝0分0敗) vs flank5=0.646(5勝1分)= +0.052 で 0° が優位。フランクの効果は seed4 Red を全値で勝ち化(0.661/0.677/0.685)する一方、他試合の勝敗を値ごとに再シャッフルする混沌的効果で、平均を押し上げない
+- 指標: {"avg_score": 0.658, "avg_our_alive": 3.50, "avg_enemy_alive": 2.86, "games": 14}（flank5 の実測。ツールが前サイクル値を流用したため手修正）
+- 次の一手: 接近幾何(a)は3値とも棄却。seed4 の引き分けを勝ちに変える唯一の軸だったが、代償として別の勝ち試合が落ちる（合計は同等以下）。残る選択は (c) 0.659（escortFireMinKm=35）で確定・打ち切り。他に (i) フランクを『護衛対象機に届かない機だけ』に限定（役割分離、2変数になるので分割実施）。(ii) 5°採用はホールドアウト +0.052 反証があるため非推奨
+
+## N-008 [inference/log] 2026-10-18T20:28:38
+- 種別: inference（仮説・推論）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: フランクの役割分離（外側2機のみ・escortFlankOuter=1）で尾部リスクを回避できるか
+- 変更: 新変数 escortFlankOuter（既定0、外側N機のみフランク）を追加し escortFlankDeg=15・escortFlankOuter=1 で試験（機番1=-15°/機番4=+15°に分離、中央2機は護衛へ直進）。ゲート不合格のため args.json・default.py ともコミット済み0.659構成へ巻き戻し（git diff=0、deploy 済み、ruff clean）
+- 検証: 事前予測は不的中: ゲート（seeds1,4×両面=4戦、ペア評価で採点）で R4 は 0.500->0.6613 win（予測>=0.60 達成・フランク効果は2機でも保持）だが B1 は 0.7084->0.2375（護衛喪失 our0/en5、予測>=0.60 に不適合）。事前基準（R4>=0.60 かつ B1>=0.60、片方不適合なら即棄却）により棄却。4戦avg 0.510（0°=0.5875）。R4=0.6613・B1=0.2375 は全機フランク15°版と完全一致→機番2,3は seeds1,4 の結果に寄与せず、『編隊全体が散るから護衛が失われる』という機構説明は反証。尾部リスクは機番1/4の離脱自体に起因し、役割分離では回避不能
+- 指標: {"avg_score": 0.510, "avg_our_alive": 2.75, "avg_enemy_alive": 4.00, "games": 4}（ゲート4戦の実測 vs 0°=0.5875。ツールが前サイクル値を流用したため手修正）
+- 次の一手: 接近幾何(a)系は全機15°/8°/5°＋役割分離の計4試験すべて棄却（seed4 の勝ち化は再現するが必ず別試合の勝ちを失う）。残選択肢は (c) 0.659（escortFireMinKm=35）で確定・打ち切りを再確認。これ以上のフランク変種（距離上限付きの一時フランク等）は同一軸の反復になるため、実施するならユーザー指示を得てから
+
+## O-176 [observation/log] 2026-10-20T00:08:28
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: fireAlignOnlyDeg=20 で発射ゲートのみ姿勢制限を追加し、無誘導浪費を減らして hit_rate と生存を改善する
+- 仮説: N-170
+- 変更: agent/args.json に fireAlignOnlyDeg=20.0 を追加し default.py 発射ゲートに off_nose<=20 条件を追加（既存 fireAlignDeg は 0 のまま）
+- 検証: 1ゲームゲート（seed4 Red / seed1 Blue）で不合格。Red4: 決定時の姿勢は全発射≤14度（基準1は充足）だが死亡遷移 (372,4→3),(380,3→2),(382,2→1) とタイムアップ draw 0.5 はベース完全一致で改善なし（基準2不合格）。Blue1: ベースの win 0.708(ELIMINATION,1184f) が draw 0.500(TIMEUP,1800f) に悪化（基準3不合格）。md5再現で両側同一条件を確認のうえ即 revert。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 4.0, "games": 2}（fao20 ゲート2戦の実測 vs base: Red4 は 0.5/1/4 で同一、Blue1 は 0.708/5/3 → 0.500/5/4。ツールが前サイクル値を流用したため手修正）
+- 次の一手: 発射姿勢制限は Red4 ではベースと同一の結果、Blue1 では勝利→引き分けに悪化するため不採用。次は護衛機撃破経路（Blue1 の ELIMINATION が遅れる要因）を1変数で狙う別仮説へ
+
+## O-177 [observation/log] 2026-10-20T16:33:20
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: hit-rate
+- 変更: beamHoldWhileArmed を escort_candidate の場合のみ無効化（設計変更）。args+code変更（stash保存）。
+- 検証: ゲート（seed1 Blue / seed4 Red）で両方とも win→Red勝利（ELIMINATION）に転落（Blue1 0.7084→Red勝/0.2375相当、Red4 draw→Blue勝/0.2348相当）＝全滅方向に回帰。N-140（全体適用）と同じ傾向。Escort限定でも護衛対象機のビーム維持を外すと生存が崩れる。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 変更は即 revert・stash復元済。指標分離（escort_hit_rate 追加）は有用だが、hit_rate向上の直接的な1変数は現状見当たらない。0.659 構成確定を再提案。
+
+## O-178 [observation/analysis] 2026-10-20T17:00:04
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: hit-rate
+- 変更: launch_analyzer.py を実装（発射単位で escort 判定・off_nose・dist_at_launch・outcome を抽出）。base_b1/fm35_b5 の護衛対象機への発射は3発ずつで、off_nose < 6°・dist 32–35km だが trajectory 推定では miss 判定（HIT_RADIUS 10km では接近しても当該フレームの enemy クラスタと終点の合致が微妙）。発射単位分析基盤を作成したことで launch-based 指標（escort_launch_hit_rate）算出が可能になった。
+- 検証: launch_analyzer: escort_target 発射を正しく抽出（escort_candidate True で判定）、off_nose < 6° の護衛射撃を確認。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: escort_launch_hit_rate（護衛対象機への発射単位命中率）を custom_metrics.json に追加し、trajectory の hit/miss 判定との整合性を確認した上で launch_analyzer ベースで集計する。引分けで hit_rate 0 となる全体定義から分離する方針を継続。
+
+## O-179 [observation/log] 2026-10-20T20:45:42
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: バーストサイズを1発に制限し初弾無駄撃ちを省き弾を節約する
+- 変更: maxSimulShot=1 を args.json に追加しペア評価(seeds1-3×両面=6戦)。実測 avg_score 0.674（defaultと同一・変化なし）、our_alive 3.33、enemy_alive 3.33、6勝0敗0分。予測 0.69 以上は外れたため不採用。revert し現行構成（escortFireMinKm=35.0）に戻す。
+- 検証: maxSimulShot は escort_hunter.py で飛翔中ミサイル数制限として使用中だが、1発に制限してもバースト初弾の外れは解消されずスコア・生存とも変化なし。バースト初弾命中0の改善は struct-firing-track 方向カードで別途検討。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: args.json から maxSimulShot を削除し現行構成で確定。バースト指標（burst_first_hit_rate 等）は launch_analyzer で継続観測。
+
+## O-180 [observation/log] 2026-10-20T22:55:20
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: バースト1発目のみに off_nose ゲートを適用し、姿勢安定まで発射を遅らせる（burstHeadAlignDeg=15）
+- 変更: default.py にバースト検知（BURST_GAP_FRAMES=3）とバースト1発目のみ burstHeadAlignDeg ゲートを追加。args.json に burstHeadAlignDeg=15 を追加。1戦ゲートで Red 側 TIMEUP 引き分け（scores 0.5/0.5、alive Blue3/Red1、hit_rate 0.0）。現行構成（avg_score 0.674 / our 3.33 / enemy 3.33 / 6勝0敗0分）から明確な回帰。予測 0.69 以上は大幅に外れ、不採用。即座に revert し現行構成を確定。
+- 検証: バースト1発目のみの off_nose ゲートは、初弾発射を遅らせ ELIMINATION 勝ちを TIMEUP 引き分けに変え、自軍生存を 3.33→1.0 に低下させた。fireAlignDeg/fireAlignOnlyDeg と同様に、姿勢制限は生存を悪化させる。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行構成（escortFireMinKm=35.0）で安定運用継続。バースト初弾命中0の改善は、姿勢制限以外のアプローチ（例：バーストサイズ制御、発射タイミングの別軸）が必要。launch_analyzer で継続観測。
+
+## O-181 [observation/log] 2026-10-21T17:15:27
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: threat回避・beam/breakの切り替えタイミングを機体ごとに最適化（横回避 threat[1]+90度）
+- 変更: default.py に evade_beam_break_timing パラメータ追加。args.json に evade_beam_break_timing=1。1戦ゲートで Red側全滅（alive Blue4/Red0、スコア Red0.2375/Blue0.7625、ELIMINATION）。予測 our_alive 3.33→4.0以上 は大幅に外れ、不採用。即座に revert し現行構成（escortFireMinKm=35.0）を確定。
+- 検証: 横回避（脅威から90度ずらし）が自滅を招き、全滅。脅威回避のための横移動は接近経路を崩し、境界や敵陣に直進する結果になる。ビーム（180度直進）の方が生存に寄与する。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行構成（escortFireMinKm=35.0）で安定運用継続。movement_evasion 軸は別アプローチが必要（beam/breakの切り替えではなく、接近経路そのものの見直しなど）。launch_analyzer で継続観測。
+
+## O-182 [observation/log] 2026-10-21T17:43:45
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: threat回避・beam/breakの切り替えタイミング（横回避）の別値試験
+- 変更: evade_beam_break_timing=2（脅威から45度ずらし）を args.json/default.py に追加し1戦ゲート。Red側全滅（alive Blue4/Red0、スコア Red0.2318/Blue0.7682、ELIMINATION）。前回の90度ずらしと同様に横回避が自滅を招く。予測 our_alive 3.33→4.0以上 は大幅に外れ、不採用。即座に revert し現行構成（escortFireMinKm=35.0）を確定。
+- 検証: 横回避（45度・90度の両方）が全滅。脅威回避のための横移動は接近経路を崩し、境界や敵陣に直進する結果になる。ビーム（180度直進）の方が生存に寄与する。evade_beam_break_timing 軸は不採用。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行構成（escortFireMinKm=35.0）で安定運用継続。movement_evasion 軸は別アプローチが必要（回避方向ではなく、接近経路そのものの見直し、または脅威検知しきい値の変更など）。launch_analyzer で継続観測。
+
+## O-183 [observation/log] 2026-10-21T19:02:25
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛対象機への接近距離を 50km 以内に制限して発射条件を満たす（escort_approach_dist=50.0）
+- 変更: args.json に escort_approach_dist=50.0 を追加。default.py に escort_range_ok に距離条件を追加。1戦ゲートで Red側 TIMEUP 引き分け（scores 0.5/0.5、alive Blue4/Red1、hit_rate 0.0）。予測 avg_score 0.69 以上 は大幅に外れ、不採用。即座に revert し現行構成（escortFireMinKm=35.0）を確定。
+- 検証: 護衛対象機への発射を 50km 以内に制限すると発射機会が減り、TIMEUP 引き分け。接近距離制限は発射機会を削りすぎる。予測 は大幅に外れ、不採用。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 現行構成（escortFireMinKm=35.0）で安定運用継続。escort_approach_dist 軸は不採用。次は metric:target_selection（射撃対象選定）から検討。
+
+## O-184 [observation/log] 2026-10-23T18:07:14
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛対象機への接近距離ゲートを 40km に設定（escort_approach_dist=40、35-40km帯で護衛向け発射を許可）
+- 仮説: N-190
+- 変更: args.json に escort_approach_dist=40.0 を追加し、default.py の escort_range_ok に距離ゲートを追加（他変数は据置）。build_submission --deploy 済み。
+- 検証: 1戦ゲート不合格：Red側全滅（alive Blue4/Red0、スコア Red0.2375/Blue0.7625、ELIMINATION、hit_rate 0.208）。予測 avg_score 0.69 以上 は外れ。35-40km帯の無駄撃ちで弾切れし護衛対象機へ届かなかった。O-183（50kmでTIMEUP引き分け）と同じ方向の失敗。ペア評価はスキップし即revert、現行構成（escortFireMinKm=35.0）へ復帰。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: 護衛対象機への射撃距離ゲート軸は 27/35/40/50 と全値試験済みのため閉鎖。escortFireMinKm と同義で枯渇している。次は別軸（射撃対象選定 target_selection_rule、回避タイミング evade_beam_break_timing）へ。
+
+## O-185 [observation/log] 2026-10-23T18:19:21
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛対象機への接近距離ゲート（escort_approach_dist）で射撃許可距離を拡張
+- 仮説: N-190
+- 変更: ①に args.json escort_approach_dist=40.0 を追加し default.py の escort_range_ok に距離ゲートを実装（35-40km帯で護衛向け発射を許可）。③1戦ゲートで Red側全滅（alive Blue4/Red0、ELIMINATION、hit_rate 0.208）となり不採用・即revert。revert後の現行構成（escortFireMinKm=35.0）で②③④⑤を実行。
+- 検証: ③ゲート不合格（Red全滅、score 0.2375）＝35-40km帯の無駄撃ちで弾切れし護衛対象機へ届かなかった。④ペア評価（revert後=現行構成）: 6勝0敗0分、avg_score 0.674、our_alive 3.33、enemy_alive 3.33、hit_rate 0.083。escort_approach_dist 軸は 40（全滅・O-184）/50（TIMEUP引き分け・O-183）とも不採用。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: escort_approach_dist 軸は 27/35/40/50 全値試験済みで、escortFireMinKm と同義のため閉鎖（カード closed 化済み）。残る pending は evade_beam_break_timing と target_selection_rule の2件。
+
+## O-186 [observation/log] 2026-10-23T18:31:50
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃対象選定を『前進方向の最深部（絶対x最大）』に変更（targetSelectionRule=1、護衛候補優先のフォールバック）
+- 仮説: N-193
+- 変更: default.py に targetSelectionRule パラメータを追加し、fire_target 選択で護衛候補が使えない場合に前進方向最深部（絶対x最大、射程内）を優先。args.json に targetSelectionRule=1。移動・beam/break判定には影響させず発射対象のみ変更（1変数）。
+- 検証: ③ゲートは通過（Red勝ち ELIMINATION、score 0.664、生存4/4）。④ペア評価: avg_score 0.650（基準0.674より-0.024で悪化）、our_alive 3.50（3.33→改善）、enemy_alive 3.67（3.33→悪化）、5勝0敗1引分、hit_rate 0.069。Red seed3 が 0.663→0.696（+0.033）で改善、Blue seed2 が 0.690→0.500（TIMEUP引分け）で悪化し相殺。敵生存3.67は敵を1機も倒せていないことを示す。予測 avg_score 0.69以上 は未達で不採用、revert して現行構成（escortFireMinKm=35.0）へ復帰。
+- 指標: {"avg_score": 0.65, "avg_our_alive": 3.5, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: 射撃対象選定は targetMode=farthest（全滅）・targetSpread（生存低下）・escortFireMode（中立）とともに主要ルールは試行済み。深部優先も不採用で、この軸は一旦閉鎖。次は残る pending の evade_beam_break_timing（回避タイミング）へ。
+
+## O-187 [observation/log] 2026-10-23T18:32:04
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃対象選定を前進方向最深部（絶対x最大）に変更（targetSelectionRule=1）
+- 仮説: N-193
+- 変更: default.py に targetSelectionRule を追加し護衛候補不可時に射程内の前進最深部を優先（発射対象のみ変更）。args.json に targetSelectionRule=1。
+- 検証: ④ペア評価 avg_score 0.650（基準0.674で-0.024）、our 3.50、enemy 3.67、5勝0敗1引分。Red seed3 +0.033、Blue seed2 TIMEUP引分け -0.190。予測0.69以上未達で不採用、revert 済み。
+- 指標: {"avg_score": 0.65, "avg_our_alive": 3.5, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: 射撃対象選定軸は主要ルール試行済みのため一旦閉鎖。次は evade_beam_break_timing。
+
+## O-188 [observation/log] 2026-10-23T18:38:33
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: threat回避方向を直接退避（180度）から45度ずらす（未試験側、evade_beam_break_timing=3 で threat[1]+135）
+- 仮説: N-192
+- 変更: default.py に evade_beam_break_timing パラメータ（1=+90度、2=+45度、3=+135度、0=現行の+180度）を追加。args.json に evade_beam_break_timing=3。
+- 検証: ③1戦ゲート不合格：Red側全滅（alive Blue4/Red0、ELIMINATION、score 0.2375、hit_rate 0.208）。値1（+90度・O-181）、値2（+45度・O-182）と同じ全滅で、回避方向の横成分そのものが致命的であることが確定（どちらの向きでも全滅）。ペア評価はスキップし即revert、現行構成（escortFireMinKm=35.0）へ復帰。
+- 指標: {"avg_score": 0.65, "avg_our_alive": 3.5, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: 回避方向軸は 0/45/90/135 度と全値不採用で閉鎖（カード closed 化）。threat回避・beam/break軸の残は『回避する幅/期間』か『回避時の発射可否』など方向以外の軸。pending は 0 件。
+
+## O-189 [observation/log] 2026-10-23T19:30:19
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 見送りカード『独自指標（未達）: 命中数0発』の復活。照準点の古さが外れ量を作る機構を特定し、護衛対象機への発射距離(escortFireMinKm 35→31)で外れ量を護衛アセット半径5km以内に_solver Krisp
+- 仮説: N-159
+- 変更: fact: 照準点は発射時の標的位置固定。護衛対象機(速度0.24km/s、アセット半径5km、直線飛行)への3発は飛行時間22秒で5.0〜5.6km前進＝外れ量5.0〜5.6km，每次都ほぼ半径5kmの外。実測: 34.2km→5.48km、33.5km→5.60km、32.8km→5.02km。外れ量が5km以下になる条件は d ≤ 31.25km。実装: args.json の escortFireMinKm を 35.0→31.0（1変数）
+- 検証: 1戦ゲートはDraw（TIMEUP、生存 Red2/Blue4、hit_rate 0.0）。ただしログ解析で護衛対象機の最接近が50.9kmで護衛向け発射が0発＝シナリオ要因で31kmが直接原因かは断定不能。ペア評価で判定: escortFireMinKm31 は 6勝0敗0分、avg_score 0.674、our 3.33、enemy 3.33、hit_rate 0.084（基準 0.083）。基準と同値で予測（0.69以上・hit_count 0→1以上）は未達で中立＝不採用、revert。機構の帰結: 護衛対象機の最接近はシナリオ依存（base_b1 Blue1で29.4km、別シナリオで50.9km）なので閾値では命中を安定化できない。先読み（5.3km前に撃つ）なら命中するが、action spaceのtargetは敵の行番号のみで弾は標的の現在位置から発射＝先読みは構造的に不可能。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: hit_count 軸はエージェント側の数値ノブでは閉じた（照準点の古さが外れ量を作り、先読みはaction space制約で不可、閾値ではシナリオ依存で安定化しない）。残る唯一の経路は自機が護衛対象機へ近づくこと（winpath-escort＝flank/engage-first系は全不採用）。カード metric:escort_miss_radius と metric:hit_count を closed に更新。

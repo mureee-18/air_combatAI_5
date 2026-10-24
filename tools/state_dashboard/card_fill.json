@@ -26,7 +26,7 @@
     "metric:min_dist_km": {
       "cause": "最初の接触（f216）で3機が 33〜35km まで詰まり、breakRangeKm=35 の境界で回避に切り替わる",
       "variable": "breakRangeKm",
-      "variable_status": "closed",
+      "variable_status": "none",
       "judge": "min_dist_km",
       "reason": "breakRangeKm は 0/20/25/35/45 で試験済み（N-130 ほか）。35 を維持"
     },
@@ -78,54 +78,113 @@
       "prediction": "方向カード winpath-escort の 1 変数に分解して着手する（早期撃墜を減らせば予備が護衛対象機へ届く）。予備値そのものは 2/3/4/5 試験済みで 3 が最良",
       "reason": ""
     },
-    "metric:hit_rate": {
-      "cause": "命中数カードと同じ原因（一斉射撃による重ね撃ち）",
-      "variable": "",
-      "variable_status": "none",
-      "direction_id": "",
-      "judge": "",
-      "prediction": "",
-      "reason": "命中数カード（N-133: launchIntervalFrames）に統合。同じ変数の仮説を別に立てない"
-    },
     "metric:hit_count": {
-      "cause": "一斉射撃（4 フレーム間隔で 2〜3 発を同じ目標へ連続発射）で、1 発目の結果前に次を撃ち、24 発中命中 0",
-      "variable": "発射間隔 launchIntervalFrames",
+      "cause": "一斉射撃（4 フレーム間隔で 2〜3 発を同じ目標へ連続発射）で、1 発目の結果前に次を撃ち、24 発中命中 0。再検証で外れ量の正体を特定：照準点は『発射時の標的位置』固定。護衛対象機（速度0.24km/s）への3発は飛行時間22秒のあいだ護衛対象機が5.0〜5.6km動く＝照準点の古さ。護衛対象機はアセット半径5kmの巡回体（mission config radius 5000m）なので5.02〜5.60kmの外れは毎回ほぼ半径外。弾は10km以遠では発射時航跡で誘導される（O-164）ため先読みは効かない",
+      "phrase": "命中0の正体：照準点は発射時の位置固定で22秒後に5.0〜5.6kmずれ、護衛アセット半径5kmを毎回わずかに外す",
+      "variable": "発射距離 launchIntervalFrames",
       "variable_name": "launchIntervalFrames",
-      "variable_status": "closed",
-      "direction_id": "",
+      "variable_status": "none",
       "judge": "hit_count / avg_score / avg_our_alive",
       "prediction": "",
-      "reason": "launchIntervalFrames は 30 で試験済み（N-133/N-134/N-137）。一斉射撃は分割できたが hit_count 0 のまま。命中改善なし。残る材料は方向カード struct-firing-track"
+      "reason": "directions.json struct-firing-track に一本化。launchIntervalFrames は 30 で試験済み（N-133/N-134/N-137）。一斉射撃は分割できたが hit_count 0 のまま。命中改善なし。再検証で外れ量の正体を特定：照準点は発射時の標的位置固定で22秒後に5.0〜5.6kmずれる（O-189）。数値ノブでは直せず、action space が敵の行番号のみで先読みを許さないため構造的に閉じた。残る材料は自機の接近（winpath-escort）"
     },
-    "metric:first_shot_hit": {
-      "cause": "命中数カードと同じ原因（一斉射撃による重ね撃ち）",
-      "variable": "",
-      "variable_status": "none",
-      "direction_id": "",
-      "judge": "",
+    "metric:escort_miss_radius": {
+      "cause": "護衛対象機への発射が毎回『護衛アセット半径5kmの JUST外側』に着弾している。外れ量＝護衛対象機速度0.24km/s × 飛行時間(d/1.5)。実測: 34.2km発射→外れ5.48km、33.5km→5.60km、32.8km→5.02km（いずれも半径5kmの外）。外れ量が5km以下になる条件は d ≤ 31.25km。護衛対象機の最接近は29.4km（base_b1 Blue1）〜50.9km（別シナリオ）とシナリオ依存",
+      "phrase": "護衛対象機への3発は外れ5.02〜5.60kmで毎回アセット半径5kmの外。外れ量が5km以下になる条件は d ≤ 31.25km",
+      "variable": "護衛対象機への発射距離 escortFireMinKm",
+      "variable_name": "escortFireMinKm",
+      "variable_status": "closed",
+      "judge": "hit_count / escort_min_dist_km / avg_score / avg_our_alive",
       "prediction": "",
-      "reason": "命中数カード（N-133: launchIntervalFrames）に統合。同じ変数の仮説を別に立てない"
+      "reason": "escortFireMinKm 31 を実装しペア評価: 6勝0敗0分 avg_score 0.674（基準35と同値）、hit_rate 0.084（0.083）。中立で予測未達・不採用（O-189）。機構の帰結: 閾値では最接近がシナリオ依存（29.4〜50.9km）なので命中を安定化できない。先読みなら命中するがaction spaceのtargetは敵の行番号のみで弾は標的の現在位置から発射＝先読みは構造的に不可。残る経路は自機が護衛対象機へ近づくこと（winpath-escort）"
     },
     "metric:first_shot_distance": {
       "cause": "fireRangeKm=50 で、敵が 50km に入った 4 フレーム後に発射",
       "variable": "fireRangeKm",
-      "variable_status": "closed",
+      "variable_status": "none",
       "judge": "first_shot_distance",
-      "reason": "fireRangeKm は 30/38/40/50 で試験済み（N-017/N-022/N-118/N-124）。距離軸は閉鎖。代替は struct-firing-track"
+      "reason": "directions.json struct-firing-track に一本化。fireRangeKm は 30/38/40/50 で試験済み（N-017/N-022/N-118/N-124）。距離軸は閉鎖。代替は方向カード struct-firing-track"
     },
-    "trigger_ammo_dry": {
-      "cause": "深追い（x=128km）の時点で残弾が 0 になっている",
-      "variable": "",
+    "metric:posture_gate_exhausted": {
+      "cause": "fireAlignDeg=30（N-142）、fireAlignOnlyDeg=20（N-170）、beamHoldWhileArmed=1（N-140/escort限定）、burstHeadAlignDeg=15（バースト1発目のみ）の4変数すべてが不採用。姿勢制限は全て自軍生存・スコアを悪化させる",
+      "variable": "発射姿勢ゲート（fireAlign/fireAlignOnly/beamHold/burstHeadAlign）",
+      "variable_name": "",
       "variable_status": "none",
-      "judge": "最大進出 x と最終残弾",
-      "reason": "進出の結果であり変数ではない。温存（N-028）は棄却済み。命中は hit_rate カードで扱う"
+      "judge": "avg_score / avg_our_alive / burst_first_hit_rate",
+      "prediction": "",
+      "reason": "directions.json struct-firing-track に一本化。姿勢制限系は全変数試験済みで生存悪化または変化なし。別軸（バーストサイズ・発射タイミング・追跡安定度）が必要"
     },
-    "trigger_orders_gap": {
-      "cause": "残弾0以降も指示が続き、指示と発射の差が出る",
-      "variable": "",
+    "metric:burst_size_control_closed": {
+      "cause": "maxSimulShot=2/4/8 試験済み、maxSimulShot=1 もペア評価 avg_score 0.674 で変化なし（不採用）。バーストサイズ制御だけでは初弾命中率が上がらない",
+      "variable": "バーストサイズ（maxSimulShot）",
+      "variable_name": "maxSimulShot",
       "variable_status": "none",
-      "judge": "fire_orders と launch の差",
-      "reason": "指標の定義差（③）。採点には効かない"
+      "judge": "burst_avg_size / avg_score / burst_first_hit_rate",
+      "prediction": "",
+      "reason": "directions.json struct-firing-track に一本化。バーストサイズ制御は maxSimulShot で試験済み。1発に制限しても命中0のまま。バーストサイズ軸は閉鎖"
+    },
+    "metric:next_burst_improvement": {
+      "cause": "バースト初弾命中率 0/4=0.0 の改善には、姿勢制限とバーストサイズ制御が全て閉鎖済み。残る軸は（a）追跡安定度ベース発射（struct-firing-track：同じ目標を連続Nフレーム追跡できた時だけ発射）、（b）4機の役割分担（struct-spread-with-cover：攻撃機と回避機に分離）、（c）バースト初弾のみ別ルール（未実装）",
+      "variable": "バースト初弾命中改善の新変数",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "burst_first_hit_rate / avg_score / avg_our_alive",
+      "prediction": "",
+      "reason": "既存変数では改善できなかった。launch_analyzer でバースト行動を継続観測し、新変数・方向カードが出た際に1変数ずつ検証"
+    },
+    "metric:burst_timing_stagger": {
+      "cause": "4機がほぼ同時刻に同じ目標へ発射（バースト）。射撃タイミングを機体ごとにずらし、同時に同じ目標を撃たないことで、バースト初弾の無駄撃ちを減らす",
+      "variable": "射撃タイミングのずらし（バースト解消）",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "burst_first_hit_rate / burst_avg_size / avg_score / avg_our_alive",
+      "prediction": "",
+      "reason": "新変数が必要（未実装）。既存変数では射撃タイミングのずらしが制御できない。launch_analyzer でバーストの時刻分布を確認した上で、1変数ずつ検証"
+    },
+    "metric:burst_target_stagger": {
+      "cause": "同時刻に同じ行（row）の目標を撃つのを避け、射撃対象を分散させることで、バーストによる重ね撃ちを減らす",
+      "variable": "射撃対象の分散（バースト解消）",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "burst_first_hit_rate / burst_avg_size / avg_score / avg_our_alive",
+      "prediction": "",
+      "reason": "新変数が必要（未実装）。既存変数では射撃対象の分散が制御できない。launch_analyzer でバーストの対象行分布を確認した上で、1変数ずつ検証"
+    },
+    "metric:burst_role_split": {
+      "cause": "4機を攻撃機1機＋回避機3機などに役割分担し、攻撃機のみ発射・回避機は発射せず beam/break を優先することで、バーストを防ぎ生存と命中を両立する",
+      "variable": "4機の役割分担（攻撃機／回避機）",
+      "variable_name": "",
+      "variable_status": "none",
+      "judge": "avg_our_alive / avg_score / burst_first_hit_rate",
+      "prediction": "",
+      "reason": "directionカード struct-spread-with-cover と関連。1変数ずつに分解して検証（例：機体1のみ攻撃専用、他3機は発射禁止）"
+    },
+    "metric:movement_evasion": {
+      "cause": "threat回避・beam/breakの切り替えタイミング、回避機動の挙動。脅威検知時にどの方向へ回避するか、beam/breakをいつ使うかが生存を左右する",
+      "variable": "回避機動・脅威回避タイミング",
+      "variable_name": "evade_beam_break_timing",
+      "variable_status": "closed",
+      "judge": "avg_our_alive / avg_enemy_alive / avg_score",
+      "prediction": "",
+      "reason": "回避方向軸は 0/45/90/135度と全値不採用（1/2/3ともRed側全滅、O-181/O-182/O-188）。直接退避から45度以上ずらすとどちらの向きでも全滅＝横成分自体が致命的。残る材料は回避方向ではなく『回避する幅/期間』『回避中の発射可否』など方向以外の軸"
+    },
+    "metric:target_selection": {
+      "cause": "射撃対象の決め方（最近傍・護衛候補優先・最も脅威・row集中など）。どの敵を優先して撃つかが命中率と撃墜数を左右する",
+      "variable": "射撃対象選定ルール",
+      "variable_name": "target_selection_rule",
+      "variable_status": "closed",
+      "judge": "burst_first_hit_rate / hit_count / avg_enemy_alive / avg_score",
+      "prediction": "",
+      "reason": "射撃対象選定は targetMode=farthest（全滅・N-026）・targetSpread（生存低下・N-131）・escortFireMode（中立・N-139）・前進最深部優先（avg_score 0.650 で悪化・O-187）と主要ルールは試行済み。この軸は一旦閉鎖"
+    },
+    "metric:escort_approach": {
+      "cause": "護衛対象機への接近動きと距離管理。護衛対象機まで到達できず撃墜できないのが現状の課題。到達経路と接近タイミングが勝敗を左右する",
+      "variable": "護衛対象機への接近動き",
+      "variable_name": "escort_approach_dist",
+      "variable_status": "closed",
+      "judge": "escort_min_dist_km / avg_enemy_alive / avg_score",
+      "prediction": "",
+      "reason": "護衛対象機への射撃距離ゲート軸は 27/35/40/50 と全値試験済みで不採用（40は全滅・O-184、50はTIMEUP引き分け・O-183、27/35/40は escortFireMinKm 側）。escortFireMinKm と同義で枯渇。別軸（射撃対象選定・回避タイミング）へ"
     },
     "constraints": {
       "cause": "既知の制約（前提）",

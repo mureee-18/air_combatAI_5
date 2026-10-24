@@ -613,10 +613,12 @@ def collect_submission() -> dict:
     zip_path = REPO_ROOT / "submission" / "submit.zip"
 
     entries = {}
+    zip_files = []
     if zip_path.exists():
         try:
             with zipfile.ZipFile(zip_path) as zf:
                 names = {Path(n).as_posix() for n in zf.namelist()}
+                zip_files = sorted(n for n in names if not n.endswith("/"))
             for required in REQUIRED_ZIP_ENTRIES:
                 entries[required] = required in names
         except zipfile.BadZipFile:
@@ -630,11 +632,194 @@ def collect_submission() -> dict:
         "args": args,
         "zip": file_info(zip_path),
         "zip_entries": entries,
+        "zip_files": zip_files,
         "gate_ok": gate_code == 0,
         "gate_code": gate_code,
         "gate_output": (gate or "ゲートを実行できませんでした").splitlines()[-12:],
         "confirm_env": "ATLA5_SUBMIT_CONFIRM",
     }
+
+
+def _module_summary(path: Path) -> str:
+    """モジュールの docstring 1行目（説明）."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    m = re.match(r'\s*"""(.*?)"""', text, flags=re.S)
+    if not m:
+        return ""
+    for line in m.group(1).strip().splitlines():
+        if line.strip():
+            return line.strip()
+    return ""
+
+
+def _arg_keys(path: Path) -> list[str]:
+    """モジュールが args から読む設定キー."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    return sorted(set(re.findall(r'args\.get\(\s*"([^"]+)"', text)))
+
+
+def _py_classes(path: Path) -> list[str]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    return re.findall(r"^class\s+(\w+)", text, flags=re.M)
+
+
+def collect_agents() -> dict:
+    """提出パッケージ（agent/）の中身。読み取り専用で確認する.
+
+    - 現在の提出がどの Agent クラス／Specialist を使うか
+    - agent/strategy/agents/（Agent クラス本体）と specialists/（方針）の一覧
+    - プリセット（agent/presets/）とアイデア（agent/strategy/ideas/）の一覧
+    """
+    agent_dir = REPO_ROOT / "agent"
+    args = load_json(agent_dir / "args.json") or {}
+    specialist = args.get("specialist")
+
+    files = []
+    for path in sorted(agent_dir.rglob("*")):
+        if not path.is_file() or "__pycache__" in path.parts:
+            continue
+        if path.suffix not in (".py", ".json"):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        files.append({
+            "path": path.relative_to(agent_dir).as_posix(),
+            "lines": text.count("\n") + 1,
+            "bytes": path.stat().st_size,
+        })
+
+    agents = []
+    agents_dir = agent_dir / "strategy" / "agents"
+    if agents_dir.is_dir():
+        for path in sorted(agents_dir.glob("*.py")):
+            if path.name == "__init__.py":
+                continue
+            agents.append({
+                "name": path.stem,
+                "file": path.relative_to(REPO_ROOT).as_posix(),
+                "classes": _py_classes(path),
+                "summary": _module_summary(path),
+                "arg_keys": _arg_keys(path),
+                "lines": len(path.read_text(encoding="utf-8").splitlines()),
+            })
+
+    specialists = []
+    specialists_dir = agent_dir / "strategy" / "specialists"
+    if specialists_dir.is_dir():
+        for path in sorted(specialists_dir.glob("*.py")):
+            if path.name == "__init__.py":
+                continue
+            specialists.append({
+                "name": path.stem,
+                "file": path.relative_to(REPO_ROOT).as_posix(),
+                "classes": _py_classes(path),
+                "summary": _module_summary(path),
+                "arg_keys": _arg_keys(path),
+                "lines": len(path.read_text(encoding="utf-8").splitlines()),
+                "active": path.stem == specialist,
+            })
+
+    presets = []
+    presets_dir = agent_dir / "presets"
+    if presets_dir.is_dir():
+        for path in sorted(presets_dir.glob("*.json")):
+            data = load_json(path) or {}
+            presets.append({
+                "name": path.stem,
+                "file": path.relative_to(REPO_ROOT).as_posix(),
+                "specialist": data.get("specialist"),
+                "arg_count": len([k for k in data if k != "type"]),
+                "args": data,
+            })
+
+    ideas = []
+    ideas_dir = agent_dir / "strategy" / "ideas"
+    if ideas_dir.is_dir():
+        for path in sorted(p for p in ideas_dir.iterdir() if p.is_dir()):
+            ideas.append({
+                "name": path.name,
+                "files": sorted(
+                    p.relative_to(REPO_ROOT).as_posix()
+                    for p in path.rglob("*")
+                    if p.is_file() and "__pycache__" not in p.parts
+                ),
+            })
+
+    active_text = ""
+    active_path = agent_dir / "strategy" / "active.py"
+    if active_path.exists():
+        try:
+            active_text = active_path.read_text(encoding="utf-8")
+        except OSError:
+            active_text = ""
+    known = sorted(set(re.findall(r'^\s*"([\w]+)":', active_text, flags=re.M)))
+
+    return {
+        "specialist": specialist,
+        "known_specialists": known,
+        "files": files,
+        "agents": agents,
+        "specialists": specialists,
+        "presets": presets,
+        "ideas": ideas,
+        "args": args,
+        "config": collect_agent_config(),
+    }
+
+
+def _decision_module():
+    """tools/battle_analyzer/decision_trace パッケージを import する."""
+    sys.path.insert(0, str(TRAJECTORY_DIR))
+    try:
+        import decision_trace
+        importlib.reload(decision_trace)
+        for name in ("observation", "decision", "action"):
+            sub = getattr(decision_trace, name, None)
+            if sub is not None:
+                importlib.reload(sub)
+    finally:
+        sys.path.pop(0)
+    return decision_trace
+
+
+def decision_frame(log_rel: str, frame_idx: int) -> dict:
+    """1フレームを機体ごとに 観測/判断/行動 に分けて返す."""
+    module = _decision_module()
+    candidate = (REPO_ROOT / log_rel).resolve()
+    if not candidate.is_file() or not candidate.name.startswith("log_"):
+        raise ValueError("log_*.json のみ指定できます")
+    config = load_json(REPO_ROOT / "agent" / "config.json") or {}
+    args = load_json(REPO_ROOT / "agent" / "args.json") or {}
+    return module.build_frame(candidate, frame_idx, config, args)
+
+
+def collect_agent_config() -> dict:
+    """agent/config.json（提出の modelConfig）の中身."""
+    config = load_json(REPO_ROOT / "agent" / "config.json") or {}
+    sections = []
+    for name, body in config.items():
+        if not isinstance(body, dict):
+            continue
+        rows = []
+        tables = {}
+        for key, value in body.items():
+            if isinstance(value, list):
+                tables[key] = value
+            else:
+                rows.append({"key": key, "value": json.dumps(value, ensure_ascii=False)})
+        sections.append({"name": name, "rows": rows, "tables": tables})
+    return {"sections": sections, "raw": json.dumps(config, ensure_ascii=False, indent=2)}
 
 
 def collect_paired() -> dict:
@@ -970,13 +1155,49 @@ def _validated_hypothesis_ids(target_session: dict) -> set:
 
 
 def _pending_hypothesis_ids(target_session: dict) -> list:
-    """まだ検証が必要な仮説 id（登録順）。"""
+    """まだ検証が必要な仮説 id（登録順）。
+
+    既試軸ノイズ整理: tested_variables.json に載る変数、または directions.json の
+    方向カードID を variable に持つ仮説は「実装1変数の未試」ではないため pending から外す。
+    """
     validated = _validated_hypothesis_ids(target_session)
-    return [
-        h.get("id")
-        for h in target_session.get("hypotheses", [])
-        if h.get("id") not in validated
+    hyps = target_session.get("hypotheses", [])
+    # 検証済み仮説と同じ変数を持つ仮説もまとめて外す（検証単位は「変数」＝旧重複を消す）
+    validated_vars = {
+        (h.get("variable") or "").strip()
+        for h in hyps
+        if h.get("id") in validated and (h.get("variable") or "").strip()
+    }
+    tv = (load_json(REPO_ROOT / "analysis" / "tools" / "tested_variables.json") or {}).get("variables", {})
+    dir_ids = {it.get("id") for it in collect_directions().get("items", [])}
+    # card_fill の open カードの変数だけ pending から保護する（direction は1変数分解前の
+    # 方向カードで実装対象でないので sel に出さない。実装可能なのは open のみ）
+    cards = (load_json(Path(__file__).with_name("card_fill.json")) or {}).get("cards", {})
+    protected_vars = {
+        (c.get("variable_name") or "").strip()
+        for c in cards.values()
+        if c.get("variable_status") == "open" and (c.get("variable_name") or "").strip()
+    }
+
+    def _is_tried_noise(h):
+        v = (h.get("variable") or "").strip()
+        if not v or v in protected_vars:
+            return False
+        return v in tv or v in dir_ids or v in validated_vars
+
+    pending = [
+        h
+        for h in hyps
+        if h.get("id") not in validated and not _is_tried_noise(h)
     ]
+    # 同一変数の再登録重複は最新1件のみ pending に残す（検証対象の曖昧さを防ぐ）
+    out: list = []
+    for h in pending:
+        v = (h.get("variable") or "").strip()
+        if v:
+            out = [x for x in out if (x.get("variable") or "").strip() != v]
+        out.append(h)
+    return [h.get("id") for h in out]
 
 
 def _open_work(target: str, target_session: dict) -> dict:
@@ -2210,6 +2431,40 @@ def collect_evidence(target: str) -> list[dict]:
             "command_label": "",
         })
 
+    # card_fill.json に定義されているが動的 evidence に含まれていないカードを追加
+    existing_ids = {c.get("id") for c in cards}
+    fill_cards = (load_json(Path(__file__).with_name("card_fill.json")) or {}).get("cards", {})
+    for card_id, fill in fill_cards.items():
+        if card_id in existing_ids:
+            continue
+        cause = str(fill.get("cause") or "")
+        # phrase は仮説ビルダー用に 120 字以内。長い場合は card_fill.json の phrase を優先する
+        phrase = str(fill.get("phrase") or cause)[:120]
+        title = cause[:60] or card_id.replace("metric:", "").replace("_", " ").title()
+        cards.append({
+            "id": card_id,
+            "kind": "observation",
+            "source": "log",
+            "title": title,
+            "summary": cause,
+            "cause": cause,
+            "evidence": [{"label": "原因", "value": cause, "num": False}],
+            "hypothesis": fill.get("prediction", ""),
+            "prediction": fill.get("prediction", ""),
+            "phrase": phrase,
+            "metric": fill.get("judge", ""),
+            "from_tab": "事実カード",
+            "from_path": "",
+            "command": "",
+            "command_label": "",
+            "variable": fill.get("variable", ""),
+            "variable_name": fill.get("variable_name", ""),
+            "variable_status": fill.get("variable_status", "none"),
+            "judge": fill.get("judge", ""),
+            "reason": fill.get("reason", ""),
+            "direction_id": fill.get("direction_id", ""),
+        })
+
     return cards
 
 
@@ -2470,6 +2725,7 @@ def collect_summary() -> dict:
         "repo_root": str(REPO_ROOT),
         "environment": collect_environment(),
         "submission": collect_submission(),
+        "agents": collect_agents(),
         "paired": session["paired"],
         "custom_metrics": collect_custom_metrics(session["paired"], session["target"]),
         "logs": collect_logs(),
@@ -2538,6 +2794,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         route = self.path.split("?", 1)[0]
+        if route.startswith("/js/") and route.endswith(".js"):
+            # タブ別のスクリプト（js/<name>.js）を配信する
+            name = route[len("/js/"):]
+            if not all(c.isalnum() or c in "._-" for c in name) or "/" in name or "\\" in name:
+                self._send(404, b"not found", "text/plain; charset=utf-8")
+                return
+            js_path = INDEX_HTML.parent / "js" / name
+            if not js_path.is_file():
+                self._send(404, b"not found", "text/plain; charset=utf-8")
+                return
+            self._send(200, js_path.read_bytes(), "application/javascript; charset=utf-8")
+            return
         if route in ("/", "/index.html"):
             if INDEX_HTML.exists():
                 self._send(200, index_body(build_id()), "text/html; charset=utf-8")
@@ -2556,6 +2824,25 @@ class Handler(BaseHTTPRequestHandler):
             payload = get_summary(force=force)
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             self._send(200, body, "application/json; charset=utf-8")
+            return
+        if route == "/api/decision":
+            params = parse_qs(urlparse(self.path).query)
+            log_rel = (params.get("log") or [""])[0]
+            try:
+                frame = int((params.get("frame") or ["0"])[0])
+            except ValueError:
+                frame = 0
+            try:
+                payload = decision_frame(log_rel, frame)
+                status = 200
+            except ValueError as exc:
+                payload = {"error": str(exc)}
+                status = 400
+            except Exception as exc:  # noqa: BLE001
+                payload = {"error": str(exc)}
+                status = 500
+            body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            self._send(status, body, "application/json; charset=utf-8")
             return
         if route == "/api/replays":
             try:

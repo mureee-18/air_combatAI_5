@@ -299,11 +299,31 @@ def warn_untracked_variable(state: dict, hypothesis_id: str) -> None:
     )
 
 
+def _card_fill_open_direction_vars() -> set:
+    """card_fill.json の open/direction カードが検証入口として立てる変数名。"""
+    path = REPO_ROOT / "tools" / "state_dashboard" / "card_fill.json"
+    try:
+        with open(path, encoding="utf-8") as f:
+            cards = (json.load(f) or {}).get("cards", {})
+    except (OSError, ValueError):
+        return set()
+    return {
+        (c.get("variable_name") or "").strip()
+        for c in cards.values()
+        if c.get("variable_status") in ("open", "direction") and (c.get("variable_name") or "").strip()
+    }
+
+
 def check_variable_untested(variable: str, retest: str) -> None:
-    """登録簿に載っている変数は仮説にできない（重複・再試験の防止）。"""
+    """登録簿に載っている変数は仮説にできない（重複・再試験の防止）。
+    card_fill の open/direction カードが検証入口として立てた変数は再試験許可する
+    （pending側も同じ変数を保護している）。"""
     data = load_tested_variables()
     entry = data.get("variables", {}).get(variable)
     if entry is None:
+        return
+    if variable in _card_fill_open_direction_vars():
+        print(f"※ 事実カード(open/direction)の変数 {variable} は検証入口なので再試験許可します")
         return
     if retest.strip():
         print(f"※ 試験済みの変数 {variable} を再試験します（理由: {retest}）")
@@ -318,12 +338,31 @@ def check_variable_untested(variable: str, retest: str) -> None:
     raise SystemExit(2)
 
 
+def _pending_variables(state: dict) -> set:
+    """未検証（pending）の仮説が持つ変数名。同一変数の再登録を止める判定に使う。"""
+    validated = {
+        c.get("hypothesis")
+        for c in state.get("cycles", [])
+        if c.get("kind") == "validate" and c.get("hypothesis")
+    }
+    validated |= {r.get("hypothesis") for r in state.get("records", []) if r.get("hypothesis")}
+    return {
+        (h.get("variable") or "").strip()
+        for h in state.get("hypotheses", [])
+        if h.get("id") not in validated and (h.get("variable") or "").strip()
+    }
+
+
 def cmd_hypothesis(args) -> None:
     validate_record("inference", args.source)
     variable = getattr(args, "variable", "") or ""
     retest = getattr(args, "retest", "") or ""
     check_variable_untested(variable, retest)
     state = load_state(args.specialist)
+    if variable and variable in _pending_variables(state):
+        print(f"登録拒否: 変数 {variable} の仮説が未検証で残っています。")
+        print("  同一変数の再登録は累積の温床になるので、既存の仮説を検証して消化してください。")
+        raise SystemExit(2)
     text = normalize_text(args.text)
     state.setdefault("hypotheses", []).append({
         "id": next_hypothesis_id(state),
