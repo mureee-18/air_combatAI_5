@@ -1,16 +1,15 @@
+import atexit
 import importlib
 import json
 import shutil
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
 zip_path = Path(sys.argv[1])
-extract_root = Path("/tmp/zipcheck")
-
-if extract_root.exists():
-    shutil.rmtree(extract_root)
-extract_root.mkdir(parents=True)
+extract_root = Path(tempfile.mkdtemp(prefix="zipcheck_"))
+atexit.register(shutil.rmtree, extract_root, True)
 
 with zipfile.ZipFile(zip_path) as z:
     z.extractall(extract_root / "MyAgent")
