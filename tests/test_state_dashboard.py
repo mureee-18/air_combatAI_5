@@ -23,6 +23,24 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SERVE_PATH = REPO_ROOT / "tools" / "state_dashboard" / "serve.py"
 INDEX_PATH = REPO_ROOT / "tools" / "state_dashboard" / "index.html"
 
+
+def dashboard_source() -> str:
+    """index.html 本体と、分割された js/*.js を元の読み込み順で連結して返す（コード分離後の回帰検査用）。"""
+    import re
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    parts = [html]
+    js_dir = INDEX_PATH.parent / "js"
+    ordered = []
+    for name in re.findall(r'<script src="js/([^"]+)"', html):
+        path = js_dir / name
+        if path.is_file():
+            ordered.append(path)
+    if not ordered and js_dir.is_dir():
+        ordered = sorted(js_dir.glob("*.js"))
+    for path in ordered:
+        parts.append(path.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
 TABS = ["環境", "提出", "エージェント", "観測・判断・行動", "評価", "ログ", "仮説登録",
         "改善サイクル", "git", "コマンド", "コンペルール", "自機視点", "戦場俯瞰"]
 
@@ -49,7 +67,7 @@ serve = load_serve()
 
 
 def test_index_has_all_tabs():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     for tab in TABS:
         assert f'"{tab}"' in html or f">{tab}<" in html
     assert 'id="auto"' in html
@@ -57,7 +75,7 @@ def test_index_has_all_tabs():
 
 
 def test_index_has_trajectory_replay_wiring():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     assert 'id="tab-traj"' in html
     assert "api/replays" in html
     assert "api/replay?log=" in html
@@ -79,7 +97,7 @@ def test_index_has_trajectory_replay_wiring():
 
 
 def test_index_has_battle_overview_wiring():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     assert 'id="tab-battle"' in html
     for hook in ["battle-canvas", "battle-seek", "battle-play", "drawBattle", "openBattle",
                  "buildBattleShell", "renderBattleLegend", "drawBattleIcon"]:
@@ -90,7 +108,7 @@ def test_index_has_battle_overview_wiring():
 
 
 def test_index_eval_goal_board_replaces_detail_rows():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     for hook in ["目標（独自指標）", "renderGoals", "goalPct", "goalStatus",
                  "add_metric.py --id", 'bindCopy(document.getElementById("eval"))',
                  "目標の編集"]:
@@ -327,7 +345,7 @@ def test_session_steps_mark_hypothesis_current_when_empty():
 
 
 def test_index_renders_session_steps_and_fact_cards():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     for hook in ["renderSteps", "renderFact", "STEP_STATE_LABEL", "bindCopy", "attr"]:
         assert hook in html
     assert "fact-grid" in html and "hyp-box" in html
@@ -337,7 +355,7 @@ def test_index_renders_session_steps_and_fact_cards():
 
 
 def test_index_has_agents_tab_showing_package_contents():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     # 「エージェント」タブがystsAccessibleで、提出パッケージの中身を表示する
     assert 'id="tab-agents"' in html
     assert '<div id="agents"></div>' in html
@@ -365,7 +383,7 @@ def test_index_has_agents_tab_showing_package_contents():
 
 
 def test_index_has_decision_tab_splitting_observation_decision_action():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     assert 'id="tab-decision"' in html
     assert '<div id="decision"></div>' in html
     assert '["decision", "観測・判断・行動"]' in html
@@ -439,7 +457,7 @@ def test_decision_trace_splits_observation_decision_action():
 
 
 def test_index_has_verify_tab_with_hypothesis_selector():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     # 「検証」タブが追加されている
     assert 'id="tab-verify"' in html
     assert '<div id="verify"></div>' in html
@@ -484,7 +502,7 @@ def test_index_has_verify_tab_with_hypothesis_selector():
 
 def test_index_hypothesis_tab_hides_registered_fact_cards():
     # 「仮説登録」タブは登録済み（過去の検証）を材料にした事実カードを出さない
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     start = html.index("function renderHypothesis")
     end = html.index("function renderSession")
     block = html[start:end]
@@ -494,7 +512,7 @@ def test_index_hypothesis_tab_hides_registered_fact_cards():
 
 
 def test_handled_materials_sink_and_clear():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     assert "opencode-handled-materials" not in html
     assert "data-handled-key" not in html
     assert "sortByHandled" in html
@@ -534,7 +552,7 @@ def test_session_exposes_recorded_materials():
 
 def test_index_improvement_cycle_tab_unchanged():
     # 「改善サイクル」タブ（renderSteps）は読み取り専用のまま。コマンドは描画しない
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     start = html.index("function renderSteps")
     end = html.index("function renderFact")
     assert "cmdRow" not in html[start:end]
@@ -553,7 +571,7 @@ def test_fact_cards_have_phrase_for_the_hypothesis_builder():
 
 
 def test_hypothesis_builder_has_inputs_and_one_copy_button():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     for key in ("fact", "cause", "change", "variable", "metric", "judge", "source"):
         assert f'data-hy="{key}"' in html
     assert 'id="hypho-text"' in html
@@ -567,8 +585,13 @@ def test_hypothesis_builder_has_inputs_and_one_copy_button():
 
 HARNESS_JS = r"""
 const fs = require("fs");
+const path = require("path");
 const html = fs.readFileSync(process.argv[2], "utf-8");
-const js = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join("\n");
+const baseDir = path.dirname(process.argv[2]);
+const external = [...html.matchAll(/<script src="js\/([^"]+)"/g)]
+  .map(m => fs.readFileSync(path.join(baseDir, "js", m[1]), "utf-8"));
+const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+const js = external.concat(inline).join("\n");
 const payload = JSON.parse(fs.readFileSync(process.argv[3], "utf-8"));
 function stubEl() {
   return {

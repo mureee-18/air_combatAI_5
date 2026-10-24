@@ -2794,6 +2794,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         route = self.path.split("?", 1)[0]
+        if route.startswith("/js/") and route.endswith(".js"):
+            # タブ別のスクリプト（js/<name>.js）を配信する
+            name = route[len("/js/"):]
+            if not all(c.isalnum() or c in "._-" for c in name) or "/" in name or "\\" in name:
+                self._send(404, b"not found", "text/plain; charset=utf-8")
+                return
+            js_path = INDEX_HTML.parent / "js" / name
+            if not js_path.is_file():
+                self._send(404, b"not found", "text/plain; charset=utf-8")
+                return
+            self._send(200, js_path.read_bytes(), "application/javascript; charset=utf-8")
+            return
         if route in ("/", "/index.html"):
             if INDEX_HTML.exists():
                 self._send(200, index_body(build_id()), "text/html; charset=utf-8")
