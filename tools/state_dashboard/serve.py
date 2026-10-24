@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib
+import importlib.util
 import json
 import math
 import platform
@@ -43,7 +44,7 @@ INDEX_HTML = Path(__file__).resolve().parent / "index.html"
 RULES_JSON = Path(__file__).resolve().parent / "rules.json"
 TRAJECTORY_DIR = REPO_ROOT / "tools" / "battle_analyzer"
 CACHE_EPOCH = REPO_ROOT / "analysis" / "ops" / "dashboard_cache_epoch.txt"
-ALLOWED_SPECIALISTS = {"baseline", "default"}
+GATE_PY = REPO_ROOT / "tools" / "hooks" / "pre_submit_gate.py"
 REQUIRED_ZIP_ENTRIES = ["__init__.py", "args.json", "config.json"]
 
 COMMANDS = [
@@ -607,6 +608,14 @@ def _has_numpy() -> bool:
         return False
 
 
+def submittable_specialists() -> set[str]:
+    """提出ゲートと同じ規則（agent/args.json か agent/presets/*.json が名指しする specialist）。"""
+    spec = importlib.util.spec_from_file_location("pre_submit_gate", GATE_PY)
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+    return gate.submittable_specialists(REPO_ROOT)
+
+
 def collect_submission() -> dict:
     args = load_json(REPO_ROOT / "agent" / "args.json") or {}
     specialist = args.get("specialist")
@@ -626,7 +635,7 @@ def collect_submission() -> dict:
 
     return {
         "specialist": specialist,
-        "specialist_allowed": specialist in ALLOWED_SPECIALISTS,
+        "specialist_allowed": specialist in submittable_specialists(),
         "args": args,
         "zip": file_info(zip_path),
         "zip_entries": entries,
