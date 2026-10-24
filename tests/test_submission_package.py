@@ -1,8 +1,11 @@
 import json
+import shutil
 import subprocess
 import sys
 import zipfile
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "build_submission.py"
@@ -96,3 +99,54 @@ def test_unknown_preset_names_the_missing_file(tmp_path):
     )
     assert result.returncode != 0
     assert "agent/presets/does_not_exist.json" in result.stderr
+
+
+def _load_build_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("build_submission", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+PRESETS = sorted((REPO_ROOT / "agent" / "presets").glob("*.json"))
+
+
+@pytest.mark.parametrize("preset", [None, *PRESETS], ids=lambda p: "default" if p is None else p.stem)
+def test_zip_ships_only_the_import_closure(tmp_path, preset):
+    build = _load_build_module()
+    flags = ["--args", str(preset)] if preset else []
+    subprocess.run([sys.executable, str(SCRIPT), *flags, "--out", str(tmp_path)], cwd=str(REPO_ROOT), check=True)
+    args_file = preset or REPO_ROOT / "agent" / "args.json"
+    specialist = json.loads(args_file.read_text(encoding="utf-8"))["specialist"]
+    with zipfile.ZipFile(tmp_path / "submit.zip") as z:
+        names = sorted(z.namelist())
+    assert names == sorted(REQUIRED_ENTRIES + build.import_closure(specialist))
+
+
+def test_default_zip_leaves_out_unused_specialists(tmp_path):
+    subprocess.run([sys.executable, str(SCRIPT), "--out", str(tmp_path)], cwd=str(REPO_ROOT), check=True)
+    with zipfile.ZipFile(tmp_path / "submit.zip") as z:
+        names = set(z.namelist())
+    needed = {"strategy/specialists/default.py", "strategy/agents/escort_hunter.py", "strategy/agents/escort_id.py"}
+    assert needed <= names
+    assert "strategy/specialists/hybrid.py" not in names
+
+
+def test_idea_ships_its_sibling_module_and_data(tmp_path):
+    build = _load_build_module()
+    agent = tmp_path / "agent"
+    shutil.copytree(REPO_ROOT / "agent", agent, ignore=shutil.ignore_patterns("__pycache__"))
+    idea = agent / "strategy" / "ideas" / "hosyan_probe"
+    idea.mkdir()
+    (idea / "__init__.py").write_text("from .policy import get_policy  # noqa: F401\n", encoding="utf-8")
+    sibling = "from ...agents.escort_id import EscortIdentifier  # noqa: F401\n"
+    (idea / "policy.py").write_text(sibling, encoding="utf-8")
+    (idea / "config.json").write_text("{}", encoding="utf-8")
+    files = build.import_closure("hosyan_probe", agent)
+    assert "strategy/ideas/__init__.py" in files
+    assert "strategy/ideas/hosyan_probe/policy.py" in files
+    assert "strategy/ideas/hosyan_probe/config.json" in files
+    assert "strategy/agents/escort_id.py" in files
+    assert "strategy/specialists/hybrid.py" not in files
