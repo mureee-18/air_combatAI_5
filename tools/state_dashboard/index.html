@@ -326,10 +326,25 @@ function renderSub(d) {
   bindCopy(document.getElementById("sub"));
 }
 
+function renderResults(r) {
+  if (!r || !r.rows || !r.rows.length) return "";
+  const cols = r.opponents || [];
+  let h = '<div class="card"><h3>results/ の集計（生成データ）</h3><div class="muted">' + esc(r.runs) +
+    ' run から生成。セルは平均スコアと 勝/分/敗、* は未完了の run を含む。</div><table class="results-board"><tr><th>候補</th>' +
+    cols.map(o => "<th>" + esc(o) + "</th>").join("") + "<th>pool mean</th><th>pool min</th></tr>";
+  r.rows.forEach(row => {
+    const f = v => (v === null || v === undefined) ? "-" : Number(v).toFixed(3);
+    h += "<tr><th>" + esc(row.name) + "</th>" + cols.map(o => "<td>" + esc(row.cells[o] || "-") + "</td>").join("") +
+      "<td>" + f(row.pool_mean) + "</td><td>" + f(row.pool_min) + "</td></tr>";
+  });
+  return h + "</table></div>";
+}
+
 function renderEval(d) {
   const p = d.paired;
+  const board = renderResults(d.results);
   if (!p.files.length) {
-    document.getElementById("eval").innerHTML =
+    document.getElementById("eval").innerHTML = board +
       '<div class="empty">workspace/paired/*.json がありません。<br>docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --label baseline --out /workspace/paired/baseline.json"</div>';
     return;
   }
@@ -414,7 +429,7 @@ function renderEval(d) {
 
   h += "<h2>目標（独自指標）</h2>";
   h += renderGoals(d);
-  document.getElementById("eval").innerHTML = h;
+  document.getElementById("eval").innerHTML = board + h;
   bindCopy(document.getElementById("eval"));
 }
 

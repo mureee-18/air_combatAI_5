@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
@@ -22,3 +24,49 @@ jobs:
 
       - name: Build submission package
         run: uvx python scripts/build_submission.py
+
+      - name: Build every preset
+        run: |
+          status=0
+          for preset in agent/presets/*.json; do
+            name=$(basename "$preset" .json)
+            out=$(mktemp -d)
+            if uvx python scripts/build_submission.py --preset "$name" --out "$out" > "$out/build.log" 2>&1 \
+              && uvx python - "$out/submit.zip" "$preset" <<'PY'
+          import json, sys, zipfile
+          names = set(zipfile.ZipFile(sys.argv[1]).namelist())
+          missing = [e for e in ("__init__.py", "args.json", "config.json", "strategy/active.py") if e not in names]
+          bad = [n for n in names if "__pycache__" in n or n.endswith(".pyc") or n.startswith(("presets/", "results/"))]
+          args = json.loads(zipfile.ZipFile(sys.argv[1]).read("args.json"))
+          same = args == json.load(open(sys.argv[2], encoding="utf-8"))
+          sys.exit(0 if not missing and not bad and same else f"missing={missing} unexpected={bad} args_match={same}")
+          PY
+            then
+              echo "build preset $name: ok"
+            else
+              echo "::error::build preset $name: FAILED"
+              cat "$out/build.log"
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: Validate results store
+        run: uvx python scripts/results_store.py validate results/
+
+      - name: Complete runs are append-only
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          base=$(git merge-base "$BASE" HEAD)
+          git diff --name-status --no-renames "$base" HEAD -- results/runs/ | while read -r st path; do
+            [ "$st" = "A" ] && continue
+            run=$(echo "$path" | cut -d/ -f1-3)
+            manifest=$(git show "$base:$run/manifest.json" 2>/dev/null || true)
+            if [[ "$manifest" == *'"status": "complete"'* ]]; then
+              echo "::error file=$path::$st on a file of a complete run ($run). Complete runs are append-only; add a new run instead."
+              echo FAIL >> "$RUNNER_TEMP/append-only"
+            fi
+          done
+          [ ! -s "$RUNNER_TEMP/append-only" ]

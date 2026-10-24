@@ -45,6 +45,7 @@ RULES_JSON = Path(__file__).resolve().parent / "rules.json"
 TRAJECTORY_DIR = REPO_ROOT / "tools" / "battle_analyzer"
 CACHE_EPOCH = REPO_ROOT / "analysis" / "ops" / "dashboard_cache_epoch.txt"
 GATE_PY = REPO_ROOT / "tools" / "hooks" / "pre_submit_gate.py"
+RESULTS_REPORT_PY = REPO_ROOT / "scripts" / "results_report.py"
 REQUIRED_ZIP_ENTRIES = ["__init__.py", "args.json", "config.json"]
 
 COMMANDS = [
@@ -644,6 +645,17 @@ def collect_submission() -> dict:
         "gate_output": (gate or "ゲートを実行できませんでした").splitlines()[-12:],
         "confirm_env": "ATLA5_SUBMIT_CONFIRM",
     }
+
+
+def collect_results() -> dict:
+    """results/ から生成した集計（scripts/results_report.py と同じ計算）。手書きの結果表は使わない。"""
+    try:
+        spec = importlib.util.spec_from_file_location("results_report", RESULTS_REPORT_PY)
+        report = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(report)
+        return {"ok": True, "source": "results/runs", **report.dashboard_data(report.build(REPO_ROOT / "results"))}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "source": "results/runs", "error": str(e), "rows": [], "opponents": [], "pool": []}
 
 
 def collect_paired() -> dict:
@@ -2480,6 +2492,7 @@ def collect_summary() -> dict:
         "environment": collect_environment(),
         "submission": collect_submission(),
         "paired": session["paired"],
+        "results": collect_results(),
         "custom_metrics": collect_custom_metrics(session["paired"], session["target"]),
         "logs": collect_logs(),
         "session": session,

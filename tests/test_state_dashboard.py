@@ -577,6 +577,7 @@ def test_http_endpoints():
             "environment",
             "submission",
             "paired",
+            "results",
             "logs",
             "session",
             "git",
@@ -719,3 +720,21 @@ def test_collect_directions_shape():
         assert isinstance(it["steps"], list) and it["steps"]
         assert isinstance(it["records"], list)
         assert isinstance(it["paths"], list)
+
+
+def test_results_card_is_generated_from_results_store(tmp_path, monkeypatch):
+    runs = tmp_path / "results" / "runs" / "20261023T000000Z-t-abc1234-aaaaaa"
+    runs.mkdir(parents=True)
+    rows = [{"opponent": "O_RUSH", "seed": s, "color": "Red", "result": "win" if s == 1 else "loss",
+             "score": 0.8 if s == 1 else 0.2} for s in (1, 2)]
+    (runs / "games.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    (runs / "manifest.json").write_text(json.dumps({
+        "run_id": runs.name, "status": "complete", "finished_at": "2026-10-23T00:00:00Z",
+        "candidate": {"name": "hybrid_v6"}}), encoding="utf-8")
+    monkeypatch.setattr(serve, "REPO_ROOT", tmp_path)
+    data = serve.collect_results()
+    assert data["ok"] and data["source"] == "results/runs"
+    assert data["rows"][0]["name"] == "hybrid_v6"
+    assert data["rows"][0]["cells"]["O_RUSH"] == "0.500 1/0/1"
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    assert "function renderResults" in html and "renderResults(d.results)" in html
