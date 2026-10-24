@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "results run manifest v1",
+  "type": "object",
+  "required": ["schema", "run_id", "status", "created_at", "worker", "git", "candidate", "opponents", "protocol", "imported"],
+  "properties": {
+    "schema": {"type": "integer", "enum": [1]},
+    "run_id": {"type": "string"},
+    "status": {"type": "string", "enum": ["running", "complete", "aborted"]},
+    "created_at": {"type": "string"},
+    "finished_at": {"type": ["string", "null"]},
+    "worker": {"type": "string"},
+    "git": {
+      "type": "object",
+      "required": ["sha", "branch", "dirty"],
+      "properties": {
+        "sha": {"type": ["string", "null"]},
+        "branch": {"type": ["string", "null"]},
+        "dirty": {"type": ["boolean", "null"]}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "required": ["name", "args"],
+      "properties": {
+        "name": {"type": "string"},
+        "specialist": {"type": ["string", "null"]},
+        "args": {"type": ["object", "null"]},
+        "args_sha256": {"type": ["string", "null"]},
+        "code_sha256": {"type": ["string", "null"]}
+      }
+    },
+    "opponents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "commit": {"type": ["string", "null"]},
+          "args_sha256": {"type": ["string", "null"]},
+          "code_sha256": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "required": ["seeds", "colors", "youth", "make_log"],
+      "properties": {
+        "seeds": {"type": "array", "items": {"type": "integer"}},
+        "colors": {"type": "array", "items": {"type": "string", "enum": ["Red", "Blue"]}},
+        "youth": {"type": "boolean"},
+        "make_log": {"type": "boolean"}
+      }
+    },
+    "imported": {"type": "boolean"},
+    "source": {"type": ["string", "null"]},
+    "n_games": {"type": ["integer", "null"]},
+    "games_sha256": {"type": ["string", "null"]},
+    "notes": {"type": ["string", "null"]}
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "results game row v1",
+  "type": "object",
+  "required": ["opponent", "seed", "color", "result", "score", "endReason", "step_count", "our_alive", "enemy_alive",
+               "our_launched", "our_hits", "enemy_launched", "enemy_hits", "error"],
+  "properties": {
+    "opponent": {"type": "string"},
+    "seed": {"type": "integer"},
+    "color": {"type": "string", "enum": ["Red", "Blue"]},
+    "result": {"type": "string", "enum": ["win", "draw", "loss"]},
+    "score": {"type": "number"},
+    "endReason": {"type": ["string", "null"]},
+    "step_count": {"type": ["integer", "null"]},
+    "our_alive": {"type": "number"},
+    "enemy_alive": {"type": "number"},
+    "our_launched": {"type": "integer"},
+    "our_hits": {"type": "integer"},
+    "enemy_launched": {"type": "integer"},
+    "enemy_hits": {"type": "integer"},
+    "enemy_escort_killed": {"type": "boolean"},
+    "our_escort_killed": {"type": "boolean"},
+    "error": {"type": "boolean"},
+    "wall_s": {"type": "number"}
+  }
+}
