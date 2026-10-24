@@ -1,0 +1,11 @@
+{
+  "pool": ["BenchMark", "MA", "EH", "O_RUSH", "O_GUARD", "O_BMAGG"],
+  "opponents": {
+    "BenchMark": {"kind": "sim", "path": "Agents/BenchMark", "about": "配布の初期行動判断モデル"},
+    "MA": {"kind": "repo", "commit": "6866d8e1683a40745dfa5ddcef9181d934ca8c2c", "args": "opponents/MA/args.json", "about": "MA の default（温存弾版、2026-10-17）"},
+    "EH": {"kind": "repo", "commit": "e7de27dac7748e0a821436e8b0c823f1fe176613", "args": "opponents/EH/args.json", "about": "escort_hunt の既定設定"},
+    "O_RUSH": {"kind": "repo", "commit": "cb5cdae0fc0a8802c53587c89e1eaaee2262cb87", "args": "opponents/O_RUSH/args.json", "about": "4機で護衛対象機へ突撃"},
+    "O_GUARD": {"kind": "repo", "commit": "cb5cdae0fc0a8802c53587c89e1eaaee2262cb87", "args": "opponents/O_GUARD/args.json", "about": "1機攻撃、3機で自陣の護衛"},
+    "O_BMAGG": {"kind": "sim", "path": "Agents/BenchMark", "config": "opponents/O_BMAGG/config.json", "about": "BenchMark の攻撃寄り設定（kShoot 0.3 ほか）"}
+  }
+}

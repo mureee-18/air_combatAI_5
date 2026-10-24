@@ -1,0 +1,19 @@
+{
+ "type": "Fixed",
+ "specialist": "escort_hunt",
+ "fireRangeKm": 50.0,
+ "breakRangeKm": 35.0,
+ "evadeCrankDeg": 0.0,
+ "marginKm": 25.0,
+ "attackerSlots": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "routeMode": "direct",
+ "flankRoute": false,
+ "interceptMode": "racetrack",
+ "escortFireKm": 40,
+ "escortShotIntervalS": 20
+}
