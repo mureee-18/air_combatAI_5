@@ -17,6 +17,7 @@ class DefaultPolicy(StandalonePolicy):
         self.break_range_km = float(args.get("breakRangeKm", 35.0))
         self.margin_az_deg = float(args.get("marginAzDeg", 120.0))
         self.track_confirm_frames = int(args.get("trackConfirmFrames", 0))
+        self.max_simul_shot = int(args.get("maxSimulShot", 4))
         self.track_pos_tolerance_km = float(args.get("trackPosToleranceKm", 10.0))
         self.target_spread = int(args.get("targetSpread", 0))
         self.role_split = int(args.get("roleSplit", 0))
@@ -35,6 +36,7 @@ class DefaultPolicy(StandalonePolicy):
         self.beam_hold_while_armed = int(args.get("beamHoldWhileArmed", 0))
         self.beam_hold_frames = int(args.get("beamHoldFrames", 0))
         self.fire_align_deg = float(args.get("fireAlignDeg", 0.0))
+        self.burst_head_align_deg = float(args.get("burstHeadAlignDeg", 0.0))
         self.evade_crank_deg = float(args.get("evadeCrankDeg", 0.0))
         self._beam_hold_start = {}
         self._last_target_xy = None
