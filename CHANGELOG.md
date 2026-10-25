@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-10-26
+
+### CLAUDE.md: ドキュメントとコードが食い違うときの方針
+
+- `CLAUDE.md` に「Documentation vs. code」節を追加: ドキュメントと既存コードが食い違うときは既存コードの慣習に従い、最終返信で見つけた食い違いを1件ずつ挙げる
+
 ## 2026-10-17
 
 ### 護衛対象機の速度識別＋弾温存で ELIMINATION 勝利（default specialist）
