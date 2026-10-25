@@ -6,6 +6,14 @@
 
 - `CLAUDE.md` に「Documentation vs. code」節を追加: ドキュメントと既存コードが食い違うときは既存コードの慣習に従い、最終返信で見つけた食い違いを1件ずつ挙げる
 
+## 2026-10-25
+
+### コミット前チェック（Lefthook + Ruff、任意導入）
+
+- `lefthook.yml` を追加: pre-commit でステージした `*.py` に `ruff check`、新規追加した `*.py` に `ruff format --check` を並列実行
+- `pyproject.toml`: dev 依存に `lefthook` を追加、Ruff の exclude に `docs/pr`・`docs/exp`（証跡スクリプト）を追加。ルールは従来どおり `E`, `F`
+- `docs/dev/lefthook.md`: 導入（`uv run lefthook install`）と飛ばし方（`LEFTHOOK=0` / `--no-verify`）
+
 ## 2026-10-17
 
 ### 護衛対象機の速度識別＋弾温存で ELIMINATION 勝利（default specialist）

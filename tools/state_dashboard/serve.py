@@ -1163,25 +1163,7 @@ def _pending_hypothesis_ids(target_session: dict) -> list:
     validated = _validated_hypothesis_ids(target_session)
     hyps = target_session.get("hypotheses", [])
     # 検証済み仮説と同じ変数を持つ仮説もまとめて外す（検証単位は「変数」＝旧重複を消す）
-    validated_vars = {
-        (h.get("variable") or "").strip()
-        for h in hyps
-        if h.get("id") in validated and (h.get("variable") or "").strip()
-    }
-    tv = (load_json(REPO_ROOT / "analysis" / "tools" / "tested_variables.json") or {}).get("variables", {})
-    dir_ids = {it.get("id") for it in collect_directions().get("items", [])}
-    # card_fill の open カードの変数だけ pending から保護する（direction は1変数分解前の
-    # 方向カードで実装対象でないので sel に出さない。実装可能なのは open のみ）
-    cards = (load_json(Path(__file__).with_name("card_fill.json")) or {}).get("cards", {})
-    protected_vars = {
-        (c.get("variable_name") or "").strip()
-        for c in cards.values()
-        if c.get("variable_status") == "open" and (c.get("variable_name") or "").strip()
-    }
-
     def _is_tried_noise(h):
-        # 未検証の仮説は、試験済み/検証済み変数でも pending に残す。
-        # 後段の dedup で同一変数の最新 1 件だけを表示する。
         return False
 
     pending = [
