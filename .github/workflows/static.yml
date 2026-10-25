@@ -1,4 +1,5 @@
-# Simple workflow for deploying static content to GitHub Pages
+# Deploy the state dashboard snapshot (tools/state_dashboard) to GitHub Pages.
+# This is the only Pages workflow; the Jekyll one was removed so the two no longer race.
 name: Deploy static content to Pages
 
 on:
@@ -33,11 +34,15 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Build dashboard snapshot
+        env:
+          TZ: Asia/Tokyo
+        run: bash scripts/build_pages.sh _site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          # Upload only the dashboard snapshot (index.html at the site root)
+          path: '_site'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
