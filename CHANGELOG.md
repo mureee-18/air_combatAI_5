@@ -2,6 +2,12 @@
 
 ## 2026-10-26
 
+### GitHub Pages: 公開ワークフローを1本にしてダッシュボードを出す
+
+- `.github/workflows/jekyll-gh-pages.yml` を削除: `static.yml` と同時に動き、後から終わるほうが README の Jekyll 表示で上書きしていた
+- `static.yml`: リポジトリ全体ではなく、`scripts/build_pages.sh` で作った `_site/`（ダッシュボードの静的スナップショット）だけを公開する
+- `scripts/build_pages.sh`: `tools/state_dashboard` の `index.html` と `js/` をコピーし、`serve.py --once` の結果を `api/summary.json` に書く。API の取得先は生成物の中だけ相対パスに置き換え、ソースは変えない。リプレイなどライブ専用の API は静的版では読めない
+
 ### CLAUDE.md: ドキュメントとコードが食い違うときの方針
 
 - `CLAUDE.md` に「Documentation vs. code」節を追加: ドキュメントと既存コードが食い違うときは既存コードの慣習に従い、最終返信で見つけた食い違いを1件ずつ挙げる
