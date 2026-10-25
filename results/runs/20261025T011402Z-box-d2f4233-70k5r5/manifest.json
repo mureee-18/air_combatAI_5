@@ -1,0 +1,70 @@
+{
+ "candidate": {
+  "args": {
+   "breakRangeKm": 35.0,
+   "deepXKm": -20,
+   "defPolicy": "ma",
+   "escortFireKm": 40,
+   "evadeCrankDeg": 0.0,
+   "fireRangeKm": 50.0,
+   "flankXKm": 10,
+   "flankYKmDet": 50,
+   "guardCount": 2,
+   "marginKm": 25.0,
+   "redArgs": {
+    "deepXKm": 0,
+    "flankXKm": 30
+   },
+   "specialist": "hosyan_h9redtune",
+   "type": "Fixed"
+  },
+  "args_sha256": "f1f78098c57b9940f3cb65e9e9631a7fc05ca16252f585f88b6f223e113f0956",
+  "code_sha256": "6c09749a11f3aad6efbb0894a00888222ab519474b962b99cd010859ce905f65",
+  "name": "hosyan_h9redtune_guard",
+  "specialist": "hosyan_h9redtune"
+ },
+ "created_at": "2026-10-25T01:14:02.946479+00:00",
+ "finished_at": "2026-10-25T01:14:55.250498+00:00",
+ "games_sha256": "f20afeec93ef975a7e31ad31a1323548de09844c39224cdbd4289976a894f8c6",
+ "git": {
+  "branch": "exp/hosyan/h9-red-tune",
+  "dirty": true,
+  "sha": "d2f423317d9b501803bd0950872f9818f2d77438"
+ },
+ "imported": false,
+ "n_games": 8,
+ "notes": "H9 identity/color check",
+ "opponents": [
+  {
+   "args_sha256": "7a448d50ea2d42344b714904d557cd030cfadc34c0c5084f51a70e031f49cf0e",
+   "code_sha256": "57d76d5dca4cf33f64d37c6b541281705e7dad96704ae6e8940c2b5930f37666",
+   "commit": "cb5cdae0fc0a8802c53587c89e1eaaee2262cb87",
+   "name": "O_GUARD"
+  },
+  {
+   "args_sha256": "ec829d582cd7ab9d0a89656f7283964707d4d4e1707fe3fa2b9b192ee915a273",
+   "code_sha256": "e7917ef881a135ea2064fd18477bdb8612a5d9fa6d95dc9aab956d319f47821b",
+   "commit": "cb5cdae0fc0a8802c53587c89e1eaaee2262cb87",
+   "name": "O_RUSH"
+  }
+ ],
+ "protocol": {
+  "colors": [
+   "Red",
+   "Blue"
+  ],
+  "make_log": false,
+  "opponent_set": "O_GUARD,O_RUSH",
+  "seeds": [
+   1,
+   2
+  ],
+  "shard": null,
+  "youth": true
+ },
+ "run_id": "20261025T011402Z-box-d2f4233-70k5r5",
+ "schema": 1,
+ "source": null,
+ "status": "complete",
+ "worker": "box"
+}
