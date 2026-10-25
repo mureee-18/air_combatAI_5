@@ -1,0 +1,16 @@
+# コミット前チェック（任意導入）。導入: `uv run lefthook install`
+# 一度だけ飛ばす: `LEFTHOOK=0 git commit ...` または `git commit --no-verify`
+# 詳細は docs/dev/lefthook.md
+pre-commit:
+  parallel: true
+  commands:
+    # ステージした .py だけを lint する（既存ファイルの未修正の指摘でコミットが止まらないように）
+    ruff-check:
+      glob: "*.py"
+      run: uv run ruff check --force-exclude {staged_files}
+    # 書式チェックは「新しく追加した .py」だけに掛ける。
+    # 既存ファイルは未整形のものが多く、触るたびに全体整形させると戦略コードの差分が膨らむため。
+    ruff-format-new-files:
+      glob: "*.py"
+      files: git diff --cached --name-only --diff-filter=A
+      run: uv run ruff format --check --force-exclude {files}
