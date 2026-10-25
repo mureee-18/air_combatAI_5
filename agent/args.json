@@ -20,5 +20,7 @@
     "beamHoldFrames": 0,
     "fireAlignDeg": 0,
     "launchIntervalFrames": 0,
-    "roleSplit": 1
+    "roleSplit": 1,
+    "burstHeadAlignDeg": 15.0,
+    "maxSimulShot": 1
 }

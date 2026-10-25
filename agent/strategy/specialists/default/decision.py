@@ -133,7 +133,10 @@ def decide(policy, observation, reward, done, info, agent_full_name, observation
             or fire_target != escort_candidate
             or float(enemy[escort_candidate, 2]) <= policy.escort_fire_min_km
         )
+        burst_head = name not in policy._last_fire or tick - policy._last_fire[name] > 4
         align_ok = policy.fire_align_deg <= 0.0 or off_nose <= policy.fire_align_deg
+        if policy.burst_head_align_deg > 0.0 and burst_head:
+            align_ok = align_ok and off_nose <= policy.burst_head_align_deg
         if (
             not breaking
             and escort_range_ok

@@ -1955,3 +1955,23 @@
 - 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 2勝4分0敗 avg_score0.557 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.049
 - 指標: {"avg_score": 0.557, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
 - 次の一手: ログで回避方向・生存・命中を確認し、必要ならrevert
+
+## O-195 [observation/log] 2026-10-25T11:45:09
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: バースト1発目align
+- 仮説: N-178
+- 変更: args.json burstHeadAlignDeg=15.0; policy parse burst_head_align_deg; decision first-shot gate off_nose <= 15
+- 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 2勝4分0敗 avg_score0.557 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.049
+- 指標: {"avg_score": 0.557, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-196 [observation/log] 2026-10-25T12:09:01
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: バーストサイズ
+- 仮説: N-177
+- 変更: args.json maxSimulShot=1; config.py maxSimulShot override; agent maxSimulShot=1
+- 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 2勝4分0敗 avg_score0.595 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.175
+- 指標: {"avg_score": 0.595, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
