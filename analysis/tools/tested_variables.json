@@ -256,6 +256,103 @@
         "N-162",
         "results_thr30_r4"
       ]
+    },
+    "escortFlankDeg": {
+      "values": "0/15/0/5/8/15",
+      "result": "全値棄却。15=0.643(B1護衛喪失)/8=0.630(B4護衛喪失・R3R5勝ち→分)/5=0.658(B1R7勝ち→分,我3.50敵2.86)。14戦avgは0(0.6586)が最良、seeds1-5×両面はflank5が0.6593>0.6391と良く見えるが、ホールドアウト seeds8-10×両面で0.698(6勝) vs flank5 0.646(5勝1分) と逆転し一般化せず。seed4 Red は全値で勝ち化(0.661/0.677/0.685)するが他試合の勝敗が再シャッフルされる混沌的効果。0 を維持",
+      "refs": [
+        "N-164",
+        "flank15.json",
+        "results_flank15_r4",
+        "flank8.json",
+        "flank5.json",
+        "flank5_ho.json",
+        "fm35_ho.json"
+      ]
+    },
+    "escortFlankOuter": {
+      "values": "0/1",
+      "result": "棄却（ゲート不合格）。escortFlankOuter=1（外側2機=機番1と4のみフランク、中央2機は直進）＋escortFlankDeg=15 でゲート4戦: R4 0.500->0.6613 win（フランク効果は保持）だが B1 0.7084->0.2375 損失（護衛喪失・our0/en5）。事前基準（R4>=0.60 かつ B1>=0.60）に B1 が不適合→即棄却。さらに R4=0.6613 / B1=0.2375 は『全機フランク15°』と完全一致＝機番2,3はこれら試合の結果に寄与しておらず、役割分離では尾部リスクを回避できない（機構説明の反証）。4戦avg 0.51 vs 0.5875(0°)",
+      "refs": [
+        "flanko1_gate.json",
+        "flank15.json",
+        "fm35_7.json"
+      ]
+    },
+    "fireAlignOnlyDeg": {
+      "values": "0/20",
+      "result": "20 は Red4 はベース同一・Blue1 は win 0.708→draw 0.500 と悪化。不採用、0 に revert",
+      "refs": [
+        "N-170",
+        "results_base_b1",
+        "results_fao20_b1",
+        "results_base_r4",
+        "results_fao20_r4"
+      ]
+    },
+    "evade_beam_break_timing": {
+      "values": "1/2/3",
+      "result": "1=+90度横回避、2=+45度横回避、3=+135度（未試験側）：いずれもRed側全滅(alive0/ELIMINATION)。回避方向を直接退避から45度以上ずらすとどちらの向きでも全滅＝横成分自体が致命的。軸閉鎖、0（直接退避）のみ存続",
+      "refs": [
+        "O-181",
+        "O-182",
+        "O-188"
+      ]
+    },
+    "escort_approach_dist": {
+      "values": "40/50",
+      "result": "40=護衛対象機へ40km以内で射撃許可→35-40km帯の無駄撃ちで弾切れ、Red全滅(O-184)。50=TIMEUP引き分け(O-183)。いずれも不採用。escortFireMinKm(27/35/40/50)と同義の軸で枯渇",
+      "refs": [
+        "O-183",
+        "O-184"
+      ]
+    },
+    "burst_head_align_deg": {
+      "values": "15",
+      "result": "バースト初弾のみのoff_noseゲート。Red TIMEUP引き分け(alive1)・hit_rate0。姿勢制限同系で不採用",
+      "refs": [
+        "O-180"
+      ]
+    },
+    "target_selection_rule": {
+      "values": "1",
+      "result": "1=護衛候補不可時に前進方向最深部（絶対x最大、射程内）を優先。ペア評価 avg_score 0.650（基準0.674で-0.024）、our 3.50、enemy 3.67、5勝0敗1引分。Red seed3 +0.033だが Blue seed2 がTIMEUP引分けで相殺。敵生存3.67＝敵を1機も倒せず不採用",
+      "refs": [
+        "O-187",
+        "N-193"
+      ]
+    },
+    "avoidance-width-period": {
+      "values": "15",
+      "result": "paired 4勝2分0敗 avg_score0.62 avg_our_alive3.67 avg_enemy_alive3.5 hit_rate0.065",
+      "refs": [
+        "N-196",
+        "avoidance_width_period.json"
+      ]
+    },
+    "first_shot_distance": {
+      "values": "30",
+      "result": "paired 3勝3分0敗 avg_score0.59 avg_our_alive3.5 avg_enemy_alive4.5 hit_rate0.091",
+      "refs": [
+        "N-195",
+        "first_shot_distance.json"
+      ]
+    },
+    "struct-spread-with-cover": {
+      "values": "1",
+      "result": "paired 2勝4分0敗 avg_score0.557 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.049",
+      "refs": [
+        "N-197",
+        "struct-spread-with-cover.json"
+      ]
+    },
+    "struct-firing-track": {
+      "values": "3",
+      "result": "paired 2勝4分0敗 avg_score0.557 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.049",
+      "refs": [
+        "N-194",
+        "struct-firing-track.json"
+      ]
     }
   }
 }

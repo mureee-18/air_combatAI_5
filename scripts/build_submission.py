@@ -31,7 +31,7 @@ def build_staging(args_path=None, staging=STAGING):
         if not preset.is_absolute():
             preset = ROOT / preset
         if not preset.exists():
-            raise SystemExit(f"missing args preset: {preset}")
+            raise SystemExit(f"missing args preset: {args_path}")
         shutil.copy(preset, staging / "args.json")
 
     for name in PACKAGE_DIRS:

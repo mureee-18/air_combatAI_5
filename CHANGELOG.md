@@ -122,3 +122,68 @@
   - 独自指標・条件トリガー・scoring: 「仮説の材料」コピー（値・目標・達成/未達を前提に仮説を1本立てる）
   - constraints（既知の制約）: 前提（assumption）登録のコピー
   - 仮説ビルダー: 仮説登録のコピー
+## 2026-10-18
+
+- docs: add CHANGELOG entries for 2026-10-15/16/17
+- dashboard: reanalyze stranded-ammo card as direction (reserve x early loss); record N-149
+- Hold escort fire until 35 km so the reserve is spent at hit range
+- Merge pull request #4 from mureee-18/feature/hypothesis-tab-copy
+- reject approach-flank geometry: seed4 wins but no net gain (N-164/N-006/N-007)
+- reject role-separated flank: two wingmen still cost Blue1's escort (N-008)
+
+## 2026-10-20
+
+- docs: record fireAlignOnlyDeg gate rejection and log key renumbering
+- feat: バースト指標と事実カードを追加し見送りカードを整理
+- fix: maxSimulShot=1 不採用のため args.json から削除し現行構成を確定
+- feat: バースト行動カードと現行構成安定カードを追加
+- fix: burstHeadAlignDeg 不採用のため revert し現行構成を確定
+- feat: バースト初弾命中0の改善軸を事実カードに整理
+- feat: ダッシュボード方向カードにバースト初弾命中0の改善軸を追加し表示整合を確保
+
+## 2026-10-21
+
+- feat: card_fill.json の事実カードを動的 evidence に追加しダッシュボード表示を確保
+- feat: バースト初弾命中0の改善軸を3枚の事実カードに整理
+- feat: 動き・射撃対象選定・護衛接近の事実カードを追加
+- fix: metric:target_selection を仮想登録可能に
+- fix: 事実カードを未処理3枚に集約し見送りをゼロに
+- fix: escort_approach_dist 不採用のため revert し現行構成を確定
+- fix: dashboard verification tab showing already-verified hypotheses
+- fix: dashboard pending hypothesis logic
+
+## 2026-10-22
+
+- fix: set variable_name on open fact cards to stop placeholder in dashboard hypothesis button
+- docs: codify dashboard 2-instruction rule (implementation belongs to verify flow)
+- feat: verify tab emits full implement->deploy->gate->paired->validate->record command chain
+- fix: verify tab step 5/6 bind --hypothesis to selected id so pending clears
+- fix: prune pending of tried-axis and same-variable duplicates
+
+## 2026-10-23
+
+- fix: pending drops same-variable old duplicates when a var is validated
+- feat: verify tab step 1 (implement) becomes a copy button like the other rows
+- fix: protect card_fill open/direction variables from pending exclusion
+- fix: allow re-registering open/direction card variables in hypothesis
+- fix: pending protects only open-card variables, not direction cards
+- fix: stop hypothesis re-registration loop and close exhausted approach axis
+- docs: record escort_approach_dist verification result (N-190, O-185)
+- fix: verify tab record command uses valid kind/source values
+- fix: target_selection_rule rejected, close selection axis (O-187, N-193)
+- fix: evade_beam_break_timing=3 rejected, close evasion-direction axis (O-188, N-192)
+- fix: hit_count 軸の再検証で外れ量の機構を特定し軸を閉鎖 (O-189, N-159)
+- fix: dashboard fact-card rendering and test expectations
+- feat: add agents tab showing the submission package contents
+- feat: show agent package files as a directory tree
+- feat: add observation/decision/action tab and config.json view
+- refactor: split decision trace into separate observation/decision/action modules
+- chore: remove superseded single-file decision_trace.py
+
+## 2026-10-24
+
+- fix: show the real submission package (zip) contents and correct the source heading
+- fix: derive package contents and firing thresholds from data instead of hard-coding
+- Merge remote-tracking branch 'origin/master' into feature/hypothesis-tab-copy
+- refactor: split dashboard JavaScript into per-tab modules and fix asset serving
+

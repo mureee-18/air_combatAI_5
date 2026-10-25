@@ -34,15 +34,19 @@
       "why": [
         "fireRangeKm を 30〜50 で動かしても avg_score は 0.500 据置、40 以下は敗戦増（N-017/N-022/N-118/N-124）",
         "trackConfirmFrames による連続追跡は 0.500 で据置。ただし目標の入れ替わりが多く、接近速度 85000km/h 超の不安定トラックに発射している（N-120/N-125）",
-        "初弾は実在しない目標に発射された可能性が高い（初弾命中 0 回、事実カード first_shot_hit）"
+        "初弾は実在しない目標に発射された可能性が高い（初弾命中 0 回、事実カード first_shot_hit）",
+        "バースト（一斉射撃）の最初の弾が常に外れる（base_b1: バーストサイズ12、head off_nose 31.75° / dist 46.25km / miss、バースト初弾命中率 0/4=0.0）。1発目の外れが後続を無駄にする",
+        "姿勢制限系（fireAlignDeg/fireAlignOnlyDeg/beamHoldWhileArmed/burstHeadAlignDeg）は全変数試験済みで生存悪化または変化なし。バーストサイズ制御（maxSimulShot=1）も不採用。姿勢制限とバーストサイズ軸は閉鎖",
+        "距離軸（fireRangeKm）も閉鎖。残る軸は『同じ目標を連続 N フレーム追跡できた時だけ発射』のみ"
       ],
       "steps": [
         "発射条件を『同一目標の連続追跡 N フレーム』に限定する（距離条件は据置、既存の trackConfirmFrames とは別の判定として実装）",
+        "バースト（一斉射撃）の最初の1発のみ、off_nose ゲートを適用し姿勢安定まで発射を遅らせる（burstHeadAlignDeg は不採用済み、別軸として検討不要）",
         "1 変数として N のみを振る（N = 3 / 5）",
-        "判定は初発距離・初弾命中・avg_score・avg_our_alive の4指標。初弾命中が 0 のまま変わらなければ棄却"
+        "判定は初発距離・初弾命中・バースト初弾命中率・avg_score・avg_our_alive の5指標。初弾命中が 0 のまま変わらなければ棄却"
       ],
-      "records": ["N-120", "N-125", "N-118", "N-124"],
-      "metrics": "first_shot_distance / first_shot_hit / avg_score / avg_our_alive",
+      "records": ["N-120", "N-125", "N-118", "N-124", "O-142", "O-170", "O-180"],
+      "metrics": "first_shot_distance / first_shot_hit / burst_first_hit_rate / avg_score / avg_our_alive",
       "paths": [
         "agent/strategy/specialists/default.py",
         "analysis/agents/default/improvement.md"

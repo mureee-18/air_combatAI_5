@@ -9,6 +9,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import urllib.error
 import urllib.parse
@@ -22,8 +23,26 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SERVE_PATH = REPO_ROOT / "tools" / "state_dashboard" / "serve.py"
 INDEX_PATH = REPO_ROOT / "tools" / "state_dashboard" / "index.html"
 
-TABS = ["環境", "提出", "評価", "ログ", "仮説登録", "改善サイクル", "git", "コマンド",
-        "コンペルール", "自機視点", "戦場俯瞰"]
+
+def dashboard_source() -> str:
+    """index.html 本体と、分割された js/*.js を元の読み込み順で連結して返す（コード分離後の回帰検査用）。"""
+    import re
+    html = INDEX_PATH.read_text(encoding="utf-8")
+    parts = [html]
+    js_dir = INDEX_PATH.parent / "js"
+    ordered = []
+    for name in re.findall(r'<script src="js/([^"]+)"', html):
+        path = js_dir / name
+        if path.is_file():
+            ordered.append(path)
+    if not ordered and js_dir.is_dir():
+        ordered = sorted(js_dir.glob("*.js"))
+    for path in ordered:
+        parts.append(path.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
+TABS = ["環境", "提出", "エージェント", "観測・判断・行動", "評価", "ログ", "仮説登録",
+        "改善サイクル", "git", "コマンド", "コンペルール", "自機視点", "戦場俯瞰"]
 
 
 def load_serve():
@@ -33,11 +52,22 @@ def load_serve():
     return module
 
 
+def _decision_module():
+    path = REPO_ROOT / "tools" / "battle_analyzer"
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
+    import decision_trace
+    importlib.reload(decision_trace)
+    for name in ("observation", "decision", "action"):
+        importlib.reload(getattr(decision_trace, name))
+    return decision_trace
+
+
 serve = load_serve()
 
 
 def test_index_has_all_tabs():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     for tab in TABS:
         assert f'"{tab}"' in html or f">{tab}<" in html
     assert 'id="auto"' in html
@@ -45,7 +75,7 @@ def test_index_has_all_tabs():
 
 
 def test_index_has_trajectory_replay_wiring():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     assert 'id="tab-traj"' in html
     assert "api/replays" in html
     assert "api/replay?log=" in html
@@ -67,7 +97,7 @@ def test_index_has_trajectory_replay_wiring():
 
 
 def test_index_has_battle_overview_wiring():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     assert 'id="tab-battle"' in html
     for hook in ["battle-canvas", "battle-seek", "battle-play", "drawBattle", "openBattle",
                  "buildBattleShell", "renderBattleLegend", "drawBattleIcon"]:
@@ -78,7 +108,7 @@ def test_index_has_battle_overview_wiring():
 
 
 def test_index_eval_goal_board_replaces_detail_rows():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     for hook in ["目標（独自指標）", "renderGoals", "goalPct", "goalStatus",
                  "add_metric.py --id", 'bindCopy(document.getElementById("eval"))',
                  "目標の編集"]:
@@ -315,7 +345,7 @@ def test_session_steps_mark_hypothesis_current_when_empty():
 
 
 def test_index_renders_session_steps_and_fact_cards():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     for hook in ["renderSteps", "renderFact", "STEP_STATE_LABEL", "bindCopy", "attr"]:
         assert hook in html
     assert "fact-grid" in html and "hyp-box" in html
@@ -324,8 +354,110 @@ def test_index_renders_session_steps_and_fact_cards():
     assert 'data-cmd="${esc(' not in html
 
 
+def test_index_has_agents_tab_showing_package_contents():
+    html = dashboard_source()
+    # 「エージェント」タブがystsAccessibleで、提出パッケージの中身を表示する
+    assert 'id="tab-agents"' in html
+    assert '<div id="agents"></div>' in html
+    assert '["agents", "エージェント"]' in html
+    start = html.index("function renderAgents")
+    end = html.index("function renderEval")
+    block = html[start:end]
+    # Agent クラス本体・Specialist・プリセット・アイデア・args.json を並べる
+    assert "Agent クラス本体" in block
+    assert "Specialist（方針）" in block
+    assert "プリセット" in block
+    assert "args.json" in block
+    assert "d.agents" in block
+    # 提出 zip の中身を出す（実体が「提出パッケージ」）
+    assert "提出 zip の中身" in html
+    assert "s.zip_files" in html
+    assert "提出物のルートファイル" in html
+    # agent/ ソースの見出しは実態に合わせる（zip 10 ファイル、main.py は入らない）
+    assert "agent/ 配下のソース" in html
+    assert "提出パッケージのファイル（agent/）" not in html
+    # ファイル一覧はディレクトリ構造のツリーで見やすくする
+    assert "agentTreeHtml" in block
+    # 描画パイプラインから呼ばれる
+    assert "renderAgents(data)" in html
+
+
+def test_index_has_decision_tab_splitting_observation_decision_action():
+    html = dashboard_source()
+    assert 'id="tab-decision"' in html
+    assert '<div id="decision"></div>' in html
+    assert '["decision", "観測・判断・行動"]' in html
+    # 観測・判断・行動 の描画は独立した関数（1つの関数に埋め込まない）
+    for fn in ("renderObservationHtml", "renderDecisionHtml", "renderActionHtml", "renderAircraft"):
+        assert f"function {fn}(" in html, f"{fn} が独立していない"
+
+    def fn_block(name):
+        s = html.index(f"function {name}(")
+        e = html.index("\nfunction ", s + 10)
+        return html[s:e]
+
+    # 観測の中 Villain 入れない: 観測だけ应是ログの値
+    assert "can_fire" not in fn_block("renderObservationHtml")
+    assert "off_nose" not in fn_block("renderObservationHtml")
+    # 行動の中は判定しない
+    assert "can_fire" not in fn_block("renderActionHtml")
+    assert "off_nose" not in fn_block("renderActionHtml")
+    # 判断だけが撃てるかの判定を持つ
+    assert "can_fire" in fn_block("renderDecisionHtml")
+    # renderDecision は機体ごとの描画を renderAircraft に委譲する
+    rdec = fn_block("renderDecision")
+    assert "renderAircraft(ac)" in rdec
+    for label in ("観測: 自機", "判断: 標的", "行動: 機首"):
+        assert label not in rdec, f"{label} の描画が renderDecision に残っている"
+    # ログ選択とフレーム移動
+    assert "/api/decision" in rdec
+    assert "/api/replays" in rdec
+    assert "renderDecision(data)" in html
+
+
+def test_decision_trace_is_split_into_separate_modules():
+    pkg = REPO_ROOT / "tools" / "battle_analyzer" / "decision_trace"
+    # 観測・判断・行動 はそれぞれ別ファイル
+    assert pkg.is_dir(), "decision_trace はディレクトリ（パッケージ）であるべき"
+    for name in ("observation.py", "decision.py", "action.py", "__init__.py"):
+        assert (pkg / name).exists(), f"{name} が無い"
+    # 旧 singularity ファイルは残さない
+    assert not (pkg.parent / "decision_trace.py").exists(), "単一ファイル版が残っている"
+    # 各モジュールは自分の責務だけを持つ
+    obs = (pkg / "observation.py").read_text(encoding="utf-8")
+    dec = (pkg / "decision.py").read_text(encoding="utf-8")
+    act = (pkg / "action.py").read_text(encoding="utf-8")
+    assert "def read_own" in obs and "def read_enemies" in obs and "def read_threat" in obs
+    assert "def read_turn" in act and "def read_speed" in act and "def read_target" in act
+    assert "can_fire" in dec and "off_nose" in dec
+    # 行動の判定（撃てるか）は判断側、観測は派生しない
+    assert "can_fire" not in obs
+
+
+def test_decision_trace_splits_observation_decision_action():
+    trace = _decision_module()
+    logs = sorted(REPO_ROOT.glob("workspace/results*/**/log_*.json"))
+    if not logs:
+        pytest.skip("実ログが無い環境ではスキップ")
+    cfg = json.loads((REPO_ROOT / "agent" / "config.json").read_text(encoding="utf-8"))
+    out = trace.build_frame(logs[0], 0, cfg)
+    assert out["frames"] >= 1
+    assert out["aircraft"], "機体の情報が無い"
+    ac = out["aircraft"][0]
+    # 観測: 自機・敵・脅威（ログが持つ値）
+    assert set(ac["observation"]) == {"own", "enemies", "threat"}
+    assert "ammo" in ac["observation"]["own"]
+    # 判断: 標的・照準・機首ずれ・撃てるか
+    assert set(ac["decision"]) >= {"target", "aim", "off_nose", "can_fire"}
+    # 行動: turn / speed / target を項目ごとに
+    assert set(ac["action"]) == {"turn", "speed", "target"}
+    assert set(ac["action"]["turn"]) == {"index", "value", "unit", "table"}
+    assert ac["action"]["turn"]["table"] == "turnTable"
+    assert ac["action"]["speed"]["table"] == "speedTable"
+
+
 def test_index_has_verify_tab_with_hypothesis_selector():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     # 「検証」タブが追加されている
     assert 'id="tab-verify"' in html
     assert '<div id="verify"></div>' in html
@@ -335,12 +467,28 @@ def test_index_has_verify_tab_with_hypothesis_selector():
     end = html.index("const GIT_INSTRUCTIONS")
     block = html[start:end]
     assert 'id="verify-hyp"' in block
-    assert "withHypothesis(val.command2" in block
+    # 選択した仮説 id を --hypothesis として各コマンドに差し込む
+    assert "--hypothesis ${sel}" in block
     assert "--hypothesis" in html
-    # 1〜3 に分割せず、ペア評価+記録を1コマンドに集約する
-    assert "cmdRow([runPair, recPair]" in block
-    assert 'join(" ; ")' in block
-    assert "steps.forEach" not in block
+    # 検証フローは 6 行（①実装 ②デプロイ ③ゲート ④ペア評価 ⑤validate ⑥record）。
+    # すべてコピーボタン付き(cmdRow)で、①にも実装依頼のコピーボタンを置く
+    steps = (
+        "① 実装",
+        "② ビルド＆デプロイ",
+        "③ 1戦ゲート",
+        "④ seed固定ペア評価",
+        "⑤ 仮説IDと紐付け消化",
+        "⑥ record",
+    )
+    for step in steps:
+        assert step in block, f"検証タブに {step} が無い"
+    assert block.count("cmdRow(") >= 6, "各ステップにコピーボタン（cmdRow）が無い"
+    assert 'INTENT_IMPL' in block, "①実装行にコピーボタンの指示（INTENT_IMPL）が無い"
+    assert "python scripts/build_submission.py --deploy" in block
+    assert "validate.py --youth 1 --num-validation 1" in block
+    assert "run_eval_paired.py" in block
+    assert "improvement_session.py validate" in block
+    assert "improvement_session.py record" in block
     # 検証タブにはカード（対象 specialist / 検証する仮説 / 現在地）を出さない
     assert "cards(" not in block
     assert "現在地" not in block
@@ -350,13 +498,11 @@ def test_index_has_verify_tab_with_hypothesis_selector():
     assert "verified" not in block
     assert "検証済み" in block  # 全件検証済みのときのメッセージ
     assert 'bindCopy(document.getElementById("verify"))' in block
-    # 仮説が無いときはコマンドを描画しない（早期 return 後に1コマンドを描く）
-    assert block.index("cmdRow([runPair, recPair]") > block.index("return;")
 
 
 def test_index_hypothesis_tab_hides_registered_fact_cards():
     # 「仮説登録」タブは登録済み（過去の検証）を材料にした事実カードを出さない
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     start = html.index("function renderHypothesis")
     end = html.index("function renderSession")
     block = html[start:end]
@@ -366,7 +512,7 @@ def test_index_hypothesis_tab_hides_registered_fact_cards():
 
 
 def test_handled_materials_sink_and_clear():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     assert "opencode-handled-materials" not in html
     assert "data-handled-key" not in html
     assert "sortByHandled" in html
@@ -406,7 +552,7 @@ def test_session_exposes_recorded_materials():
 
 def test_index_improvement_cycle_tab_unchanged():
     # 「改善サイクル」タブ（renderSteps）は読み取り専用のまま。コマンドは描画しない
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     start = html.index("function renderSteps")
     end = html.index("function renderFact")
     assert "cmdRow" not in html[start:end]
@@ -425,7 +571,7 @@ def test_fact_cards_have_phrase_for_the_hypothesis_builder():
 
 
 def test_hypothesis_builder_has_inputs_and_one_copy_button():
-    html = INDEX_PATH.read_text(encoding="utf-8")
+    html = dashboard_source()
     for key in ("fact", "cause", "change", "variable", "metric", "judge", "source"):
         assert f'data-hy="{key}"' in html
     assert 'id="hypho-text"' in html
@@ -439,8 +585,13 @@ def test_hypothesis_builder_has_inputs_and_one_copy_button():
 
 HARNESS_JS = r"""
 const fs = require("fs");
+const path = require("path");
 const html = fs.readFileSync(process.argv[2], "utf-8");
-const js = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join("\n");
+const baseDir = path.dirname(process.argv[2]);
+const external = [...html.matchAll(/<script src="js\/([^"]+)"/g)]
+  .map(m => fs.readFileSync(path.join(baseDir, "js", m[1]), "utf-8"));
+const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+const js = external.concat(inline).join("\n");
 const payload = JSON.parse(fs.readFileSync(process.argv[3], "utf-8"));
 function stubEl() {
   return {
@@ -583,8 +734,16 @@ def test_http_endpoints():
             "rules",
             "commands",
             "custom_metrics",
+            "agents",
         }
         assert {"target", "submitted", "steps", "evidence"} <= set(payload["session"].keys())
+        # エージェント（提出パッケージ）の中身
+        agents = payload["agents"]
+        assert agents["specialist"] == (agents["args"] or {}).get("specialist")
+        assert agents["files"], "agent/ 配下のファイルが列挙されていない"
+        assert any(f["path"] == "strategy/agents/escort_hunter.py" for f in agents["files"])
+        assert any(sp["name"] == "default" and sp["active"] for sp in agents["specialists"])
+        assert all(f["lines"] > 0 for f in agents["files"])
 
         with urllib.request.urlopen(f"{base}/api/replays", timeout=180) as res:
             replays = json.loads(res.read().decode("utf-8"))

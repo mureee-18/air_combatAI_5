@@ -53,6 +53,9 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 - 勝者のスコアは `0.6 + 0.3 * hit_rate + time_bonus`、敗者は `1 - 勝者のスコア`、TIMEUP は双方 0.5。
 - `numAlives` は陣営ごと戦闘機4機 + 護衛対象機1機の計5が初期値。
 - 終了理由: `ELIMINATION`（どちらかの護衛対象機が撃墜）/ `TIMEUP`（1800 tick = 1800 s）。
+- `details[].hit_rate` は `1 - wastedMissiles[winner]/launchedMissiles[winner]` だが、引き分け（`winner='Draw'`）
+  では `winner` が陣営名でないため**必ず 0.0 が記録される**（実際の命中率ではない。`fight.py:473`）。
+  引き分け戦の hit_rate 比較は無効。命中率は勝敗が付いた戦 or ログ側の発射・命中数から数えること。
 
 ## 3. log_{n}.json
 
@@ -64,8 +67,14 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 }
 ```
 
-- `data` のキーは自陣営の機体番号（`"1"`〜`"4"`）。S方式なので1機に1エージェント。
-- 死亡した機体は以降のエントリから消える（観測が無い）。エントリ数 = その機体が生きていたステップ数。
+- `data` のキーは**死亡機を除いた生存機の詰め直し番号（`"1"`〜`"N"`）で、死亡のたびに付け替えられる**
+  （`fight.py` の `get_data` が生存する `Fighter` だけを順に `1,2,...` で振り直す）。
+  したがってキー番号は固定の機体番号ではない。死亡を境に別の機体が同じキーを引き継ぐため、
+  **キー単位でフレーム間の機体を追跡してはいけない**（死亡時はキー数が減る事実のみ使える。
+  例: `{1..4}→{1..3}` の遷移フレームが機体の死亡時刻）。
+  `observations` と `actions` は同じ `get_data` による振り直しを受けるため、**同一フレーム内では両者のキーは一致**
+  （obs/act の機体取り違えは発生しない。`key_align.py` で確認済み）。
+- 死亡した機体は以降のエントリから消える（観測が無い）。エントリ数 = その機体が生きていたステップ数（キー振り直しのため機体別エントリ数は不可）。
 - `infos` は現状ほぼ `null`。観測と行動の組で挙動を追う。
 - **baseline（`BasicAACRuleBasedAgent01`）を相手にしたログは observation の payload がスカラー（int）で、
   `actions` の payload が `null` になる。** 3.1/3.2 の dict 構造が現れるのは自作 Agent のログだけ。
