@@ -1,0 +1,113 @@
+{
+ "candidate": {
+  "args": {
+   "breakRangeKm": 35.0,
+   "deepXKm": -20,
+   "defPolicy": "ma",
+   "escortFireKm": 40,
+   "evadeCrankDeg": 0.0,
+   "fireRangeKm": 50.0,
+   "flankXKm": 10,
+   "flankYKmDet": 50,
+   "guardCount": 2,
+   "marginKm": 25.0,
+   "redArgs": {
+    "deepXKm": 0,
+    "flankXKm": 30
+   },
+   "specialist": "hosyan_h9redtune",
+   "type": "Fixed"
+  },
+  "args_sha256": "f1f78098c57b9940f3cb65e9e9631a7fc05ca16252f585f88b6f223e113f0956",
+  "code_sha256": "6c09749a11f3aad6efbb0894a00888222ab519474b962b99cd010859ce905f65",
+  "name": "hosyan_h9redtune_guard",
+  "specialist": "hosyan_h9redtune"
+ },
+ "created_at": "2026-10-25T05:14:35.429515+00:00",
+ "finished_at": "2026-10-25T07:10:50.099787+00:00",
+ "games_sha256": "59c959b9ad7771c590d3603837aa1a08e985ec4fef4bbfd7bfe90d1d1e848f06",
+ "git": {
+  "branch": "exp/hosyan/h9-red-tune",
+  "dirty": true,
+  "sha": "4168e475816e18d8d6c1ee4fb42ecb06b0325f95"
+ },
+ "imported": false,
+ "n_games": 120,
+ "notes": "H9 guard full pool part B Red: O_RUSH,EH,O_GUARD s21-60",
+ "opponents": [
+  {
+   "args_sha256": "ec829d582cd7ab9d0a89656f7283964707d4d4e1707fe3fa2b9b192ee915a273",
+   "code_sha256": "e7917ef881a135ea2064fd18477bdb8612a5d9fa6d95dc9aab956d319f47821b",
+   "commit": "cb5cdae0fc0a8802c53587c89e1eaaee2262cb87",
+   "name": "O_RUSH"
+  },
+  {
+   "args_sha256": "265ab9c370ec1b0d8c41a164b7246ee2f6efd1efac60f81d7365dbf71b422bf9",
+   "code_sha256": "233e7401b9dbcbfe77ef6defe5068c210e22de050d469f3355c633415eea2f95",
+   "commit": "e7de27dac7748e0a821436e8b0c823f1fe176613",
+   "name": "EH"
+  },
+  {
+   "args_sha256": "7a448d50ea2d42344b714904d557cd030cfadc34c0c5084f51a70e031f49cf0e",
+   "code_sha256": "57d76d5dca4cf33f64d37c6b541281705e7dad96704ae6e8940c2b5930f37666",
+   "commit": "cb5cdae0fc0a8802c53587c89e1eaaee2262cb87",
+   "name": "O_GUARD"
+  }
+ ],
+ "protocol": {
+  "colors": [
+   "Red"
+  ],
+  "make_log": false,
+  "opponent_set": "O_RUSH,EH,O_GUARD",
+  "seeds": [
+   21,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   33,
+   34,
+   35,
+   36,
+   37,
+   38,
+   39,
+   40,
+   41,
+   42,
+   43,
+   44,
+   45,
+   46,
+   47,
+   48,
+   49,
+   50,
+   51,
+   52,
+   53,
+   54,
+   55,
+   56,
+   57,
+   58,
+   59,
+   60
+  ],
+  "shard": null,
+  "youth": true
+ },
+ "run_id": "20261025T051435Z-box-4168e47-phsap8",
+ "schema": 1,
+ "source": null,
+ "status": "complete",
+ "worker": "box"
+}
