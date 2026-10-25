@@ -1180,10 +1180,9 @@ def _pending_hypothesis_ids(target_session: dict) -> list:
     }
 
     def _is_tried_noise(h):
-        v = (h.get("variable") or "").strip()
-        if not v or v in protected_vars:
-            return False
-        return v in tv or v in dir_ids or v in validated_vars
+        # 未検証の仮説は、試験済み/検証済み変数でも pending に残す。
+        # 後段の dedup で同一変数の最新 1 件だけを表示する。
+        return False
 
     pending = [
         h

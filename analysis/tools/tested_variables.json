@@ -321,6 +321,38 @@
         "O-187",
         "N-193"
       ]
+    },
+    "avoidance-width-period": {
+      "values": "15",
+      "result": "paired 4勝2分0敗 avg_score0.62 avg_our_alive3.67 avg_enemy_alive3.5 hit_rate0.065",
+      "refs": [
+        "N-196",
+        "avoidance_width_period.json"
+      ]
+    },
+    "first_shot_distance": {
+      "values": "30",
+      "result": "paired 3勝3分0敗 avg_score0.59 avg_our_alive3.5 avg_enemy_alive4.5 hit_rate0.091",
+      "refs": [
+        "N-195",
+        "first_shot_distance.json"
+      ]
+    },
+    "struct-spread-with-cover": {
+      "values": "1",
+      "result": "paired 2勝4分0敗 avg_score0.557 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.049",
+      "refs": [
+        "N-197",
+        "struct-spread-with-cover.json"
+      ]
+    },
+    "struct-firing-track": {
+      "values": "3",
+      "result": "paired 2勝4分0敗 avg_score0.557 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.049",
+      "refs": [
+        "N-194",
+        "struct-firing-track.json"
+      ]
     }
   }
 }
