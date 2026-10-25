@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-10-26
+
+### PR のコメント・レビューを Discord に通知
+
+- `.github/workflows/discord-pr-comments.yml` を追加: `issue_comment`（PR のみ）・`pull_request_review`・`pull_request_review_comment` で Discord Webhook に投稿（権限は `contents: read` のみ）
+- `scripts/discord_pr_notify.py`: 「〇〇 さんが PR #N「タイトル」にコメントしました」＋本文先頭300文字＋リンクを組み立て。ボット・本文なしコメントレビューは除外、メンション無効、`DISCORD_WEBHOOK_URL` 未設定なら何もせず成功
+- `docs/dev/discord-notify.md`: Webhook の作り方と Secret の登録手順
+- tests: `test_discord_pr_notify.py`（9件）
+
 ## 2026-10-17
 
 ### 護衛対象機の速度識別＋弾温存で ELIMINATION 勝利（default specialist）
