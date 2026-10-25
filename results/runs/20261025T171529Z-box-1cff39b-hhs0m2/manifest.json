@@ -1,0 +1,93 @@
+{
+ "candidate": {
+  "args": {
+   "breakRangeKm": 35.0,
+   "deepXKm": -20,
+   "defPolicy": "ma",
+   "escortFireKm": 40,
+   "evadeCrankDeg": 0.0,
+   "fireRangeKm": 50.0,
+   "flankXKm": 10,
+   "flankYKmDet": 50,
+   "guardCount": 2,
+   "marginKm": 25.0,
+   "redArgs": {
+    "deepXKm": 0,
+    "flankXKm": 30
+   },
+   "specialist": "hosyan_h9redtune",
+   "type": "Fixed"
+  },
+  "args_sha256": "f1f78098c57b9940f3cb65e9e9631a7fc05ca16252f585f88b6f223e113f0956",
+  "code_sha256": "6c09749a11f3aad6efbb0894a00888222ab519474b962b99cd010859ce905f65",
+  "name": "hosyan_h9redtune_guard",
+  "specialist": "hosyan_h9redtune"
+ },
+ "created_at": "2026-10-25T17:15:29.655819+00:00",
+ "finished_at": "2026-10-25T17:17:33.225428+00:00",
+ "games_sha256": "28516e7818a6281b258db8d5cd689b8e167724bd251316c2a21bf3799c2fcb51",
+ "git": {
+  "branch": "HEAD",
+  "dirty": true,
+  "sha": "1cff39b47c696368ceedd4b9aa47fb6cc5f21724"
+ },
+ "imported": false,
+ "n_games": 12,
+ "notes": "H9 guard ext Blue spot-check s61-62 (identity vs V6)",
+ "opponents": [
+  {
+   "args_sha256": "e0968d07d33b0e7384fba7eacf021c4fac42ff30b6ac55e83b85230415532b11",
+   "code_sha256": "3f59c0a7d5919da9910b40f3f66441e5c5737a4ec3b1ceb2c7656dc56fdceb9c",
+   "commit": null,
+   "name": "BenchMark"
+  },
+  {
+   "args_sha256": "57e75cf3fdf80985c1f182f78d33641be6237754d38ce15c6c578a6f2b995f2d",
+   "code_sha256": "af291c7a1c7102da028c72c77f3024cf87ac27acf11f92d825293826e1838ae2",
+   "commit": "6866d8e1683a40745dfa5ddcef9181d934ca8c2c",
+   "name": "MA"
+  },
+  {
+   "args_sha256": "265ab9c370ec1b0d8c41a164b7246ee2f6efd1efac60f81d7365dbf71b422bf9",
+   "code_sha256": "233e7401b9dbcbfe77ef6defe5068c210e22de050d469f3355c633415eea2f95",
+   "commit": "e7de27dac7748e0a821436e8b0c823f1fe176613",
+   "name": "EH"
+  },
+  {
+   "args_sha256": "ec829d582cd7ab9d0a89656f7283964707d4d4e1707fe3fa2b9b192ee915a273",
+   "code_sha256": "e7917ef881a135ea2064fd18477bdb8612a5d9fa6d95dc9aab956d319f47821b",
+   "commit": "cb5cdae0fc0a8802c53587c89e1eaaee2262cb87",
+   "name": "O_RUSH"
+  },
+  {
+   "args_sha256": "7a448d50ea2d42344b714904d557cd030cfadc34c0c5084f51a70e031f49cf0e",
+   "code_sha256": "57d76d5dca4cf33f64d37c6b541281705e7dad96704ae6e8940c2b5930f37666",
+   "commit": "cb5cdae0fc0a8802c53587c89e1eaaee2262cb87",
+   "name": "O_GUARD"
+  },
+  {
+   "args_sha256": "e0968d07d33b0e7384fba7eacf021c4fac42ff30b6ac55e83b85230415532b11",
+   "code_sha256": "f1b6798912605e9adbd6159c7711ff1da87e18925cf67844623c5990f07fa260",
+   "commit": null,
+   "name": "O_BMAGG"
+  }
+ ],
+ "protocol": {
+  "colors": [
+   "Blue"
+  ],
+  "make_log": false,
+  "opponent_set": "BenchMark,MA,EH,O_RUSH,O_GUARD,O_BMAGG",
+  "seeds": [
+   61,
+   62
+  ],
+  "shard": null,
+  "youth": true
+ },
+ "run_id": "20261025T171529Z-box-1cff39b-hhs0m2",
+ "schema": 1,
+ "source": null,
+ "status": "complete",
+ "worker": "box"
+}
