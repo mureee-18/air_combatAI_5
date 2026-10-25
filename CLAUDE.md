@@ -28,6 +28,10 @@ x86 CPU・Linux 上で初期行動判断モデル（BenchMark）と対戦させ�
    軌跡は `tools/battle_analyzer/trajectory.py` の復元式
    （`enemy = own + dist·(cos bearing, sin bearing)`、陣営座標系 x=+ が敵陣方向）を正とする。
 
+## Documentation vs. code
+
+When a repository's documentation and its existing code disagree, follow the conventions used in the existing code, and in your final reply point out each inconsistency you found between the documentation and the code.
+
 ## Environment
 
 | 役割 | 内容 |
