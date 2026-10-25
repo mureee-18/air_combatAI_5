@@ -1,0 +1,95 @@
+{
+ "seeds1-10": {
+  "baseline": {
+   "n": 20,
+   "avg_score": 0.4,
+   "se": 0.031,
+   "W/D/L": "0/13/7",
+   "our_alive": 1.15,
+   "enemy_alive": 3.2,
+   "launched/match": 17.9,
+   "hit_rate": 0.114,
+   "enemy_escort_kills": 0,
+   "our_escort_lost": 7,
+   "errors": 0
+  },
+  "new": {
+   "n": 20,
+   "avg_score": 0.547,
+   "se": 0.053,
+   "W/D/L": "10/4/6",
+   "our_alive": 1.5,
+   "enemy_alive": 3.75,
+   "launched/match": 6.2,
+   "hit_rate": 0.202,
+   "enemy_escort_kills": 10,
+   "our_escort_lost": 6,
+   "errors": 0
+  },
+  "paired_diff": 0.146,
+  "paired_se": 0.06,
+  "exceeds_2SE": true
+ },
+ "seeds11-20(holdout)": {
+  "baseline": {
+   "n": 20,
+   "avg_score": 0.331,
+   "se": 0.036,
+   "W/D/L": "1/6/13",
+   "our_alive": 0.65,
+   "enemy_alive": 3.5,
+   "launched/match": 17.0,
+   "hit_rate": 0.091,
+   "enemy_escort_kills": 1,
+   "our_escort_lost": 13,
+   "errors": 0
+  },
+  "new": {
+   "n": 20,
+   "avg_score": 0.617,
+   "se": 0.043,
+   "W/D/L": "13/4/3",
+   "our_alive": 1.8,
+   "enemy_alive": 3.2,
+   "launched/match": 7.3,
+   "hit_rate": 0.252,
+   "enemy_escort_kills": 13,
+   "our_escort_lost": 3,
+   "errors": 0
+  },
+  "paired_diff": 0.286,
+  "paired_se": 0.063,
+  "exceeds_2SE": true
+ },
+ "all1-20": {
+  "baseline": {
+   "n": 40,
+   "avg_score": 0.366,
+   "se": 0.024,
+   "W/D/L": "1/19/20",
+   "our_alive": 0.9,
+   "enemy_alive": 3.35,
+   "launched/match": 17.5,
+   "hit_rate": 0.103,
+   "enemy_escort_kills": 1,
+   "our_escort_lost": 20,
+   "errors": 0
+  },
+  "new": {
+   "n": 40,
+   "avg_score": 0.582,
+   "se": 0.034,
+   "W/D/L": "23/8/9",
+   "our_alive": 1.65,
+   "enemy_alive": 3.48,
+   "launched/match": 6.8,
+   "hit_rate": 0.229,
+   "enemy_escort_kills": 23,
+   "our_escort_lost": 9,
+   "errors": 0
+  },
+  "paired_diff": 0.216,
+  "paired_se": 0.044,
+  "exceeds_2SE": true
+ }
+}

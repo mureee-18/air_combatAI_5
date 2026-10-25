@@ -6,6 +6,7 @@ from ASRCAISim1.core import (
     Track2D,
     Track3D,
 )
+from math import sqrt
 
 
 class ObservationMixin:
@@ -16,8 +17,10 @@ class ObservationMixin:
         threat = np.zeros([2], dtype=np.float32)
         self.lastTrackInfo = []
 
+        escort = np.zeros([6], dtype=np.float32)
+
         if not parent.isAlive():
-            return {"own": own, "enemy": enemy, "threat": threat}
+            return self._packObs(own, enemy, threat, escort)
 
         myMotion = MotionState(parent.observables["motion"]).transformTo(self.getLocalCRS())
         pos = self.teamOrigin.relPtoB(myMotion.pos())
@@ -60,4 +63,43 @@ class ObservationMixin:
                 threat[1] = degrees(atan2(d[1], d[0]))
                 break
 
-        return {"own": own, "enemy": enemy, "threat": threat}
+        if self.useIrstEscortId:
+            self._updateEscort(pos, enemy, escort, order[: self.maxEnemyNum], tracks)
+
+        return self._packObs(own, enemy, threat, escort)
+
+    def _packObs(self, own, enemy, threat, escort):
+        obs = {"own": own, "enemy": enemy, "threat": threat}
+        if self.useIrstEscortId:
+            obs["escort"] = escort
+        return obs
+
+    def _updateEscort(self, pos, enemy, escort, rows, tracks):
+        parent = self.parent
+        crs = self.getLocalCRS()
+        t = float(self.manager.getElapsedTime())
+        irst = []
+        if parent.observables.contains_p("/sensor/irst/track"):
+            for tObs in parent.observables.at_p("/sensor/irst/track"):
+                try:
+                    d = self.teamOrigin.relPtoB(Track2D(tObs).transformTo(crs).dir())
+                    irst.append((str(tObs["truth"]()), degrees(atan2(d[1], d[0]))))
+                except Exception:
+                    continue
+        radar = []
+        for i in rows:
+            tp = self.teamOrigin.relPtoB(tracks[i].pos())
+            tv = self.teamOrigin.relPtoB(tracks[i].vel())
+            radar.append((tp[0] / 1000.0, tp[1] / 1000.0, float(tv[0]), float(tv[1])))
+        self.escortId.update(t, pos[0] / 1000.0, pos[1] / 1000.0, irst, radar)
+        pred = self.escortId.predicted(t)
+        if pred is None or pred["age"] > 120.0:
+            return
+        escort[:] = [1.0, pred["x"], pred["y"], pred["vy"], pred["src"], pred["age"]]
+        best = None
+        for row, (x, y, _vx, _vy) in enumerate(radar):
+            dd = sqrt((x - pred["x"]) ** 2 + (y - pred["y"]) ** 2)
+            if dd <= self.escortMatchKm and (best is None or dd < best[0]):
+                best = (dd, row)
+        if best is not None:
+            enemy[best[1], 4] = 1.0

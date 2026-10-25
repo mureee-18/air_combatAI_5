@@ -43,3 +43,28 @@ def test_accepts_confirmation_in_command_string():
 def test_accepts_confirmation_via_env():
     result = _run("signate submit --path=submission/submit.zip", env_confirm=True)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def _build(*extra: str):
+    subprocess.run([sys.executable, str(BUILD), *extra], cwd=str(REPO_ROOT), check=True, capture_output=True)
+
+
+def test_accepts_hybrid_v6_preset_zip():
+    try:
+        _build("--args", "agent/presets/hybrid_v6.json")
+        result = _run("signate submit --path=submission/submit.zip", env_confirm=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+    finally:
+        _build()
+
+
+def test_blocks_zip_with_local_only_specialist(tmp_path):
+    preset = tmp_path / "escort_hunt.json"
+    preset.write_text('{"type": "Fixed", "specialist": "escort_hunt"}', encoding="utf-8")
+    try:
+        _build("--args", str(preset))
+        result = _run("signate submit --path=submission/submit.zip", env_confirm=True)
+        assert result.returncode == 1
+        assert "escort_hunt" in result.stdout
+    finally:
+        _build()

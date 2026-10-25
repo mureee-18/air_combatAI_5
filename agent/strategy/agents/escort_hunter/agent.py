@@ -12,6 +12,7 @@ from BasicAgentUtility.util import TeamOrigin
 from .control import ControlMixin
 from .deploy import DeployMixin
 from .observation import ObservationMixin
+from ..escort_id import EscortIdentifier
 
 
 class EscortHunterAgent(ObservationMixin, DeployMixin, ControlMixin, SingleAssetAgent):
@@ -34,6 +35,10 @@ class EscortHunterAgent(ObservationMixin, DeployMixin, ControlMixin, SingleAsset
         self.altMin = getValueFromJsonKRD(mc, "altMin", self.randomGen, 2000.0)
         self.altMax = getValueFromJsonKRD(mc, "altMax", self.randomGen, 15000.0)
         self.altitudeKeeper = AltitudeKeeper(mc().get("altitudeKeeper", {}))
+        # IRST/レーダによる敵護衛対象機の識別（既定OFF。OFF のとき観測・挙動は従来と同一）
+        self.useIrstEscortId = bool(getValueFromJsonKRD(mc, "useIrstEscortId", self.randomGen, False))
+        self.escortId = EscortIdentifier() if self.useIrstEscortId else None
+        self.escortMatchKm = float(getValueFromJsonKRD(mc, "escortMatchKm", self.randomGen, 6.0))
 
         self.lastTrackInfo = []
         self.dstDir = np.array([1.0, 0.0, 0.0], dtype=np.float64)

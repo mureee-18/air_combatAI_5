@@ -1,0 +1,2 @@
+source /workspace/simvenv/bin/activate
+export LD_LIBRARY_PATH=/home/box/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib
