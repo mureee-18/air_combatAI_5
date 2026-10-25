@@ -67,6 +67,8 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 | 提出 | `ATLA5_SUBMIT_CONFIRM=1 python tools/signate/cli.py submit submission/submit.zip --memo "..."` |
 | テスト / lint | `pytest tests/ -q` / `ruff check agent/ tools/ tests/ scripts/ analysis/` |
 
+コミット前に Ruff を自動で掛けたい場合は、任意で Lefthook を導入できる（`uv sync && uv run lefthook install`。一度だけ飛ばすときは `LEFTHOOK=0 git commit`）。詳細は [docs/dev/lefthook.md](docs/dev/lefthook.md)。
+
 評価は**勝率ではなく挙動指標**（`avg_score` / `avg_our_alive` / `avg_enemy_alive`）で判定する。
 同一 seed 群での A/B 比較ができるので、改善は必ずペア評価で確認する。
 

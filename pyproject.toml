@@ -7,6 +7,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "lefthook>=2.2.2",
     "pytest>=8",
     "ruff>=0.15.22",
 ]
@@ -18,6 +19,11 @@ exclude = [
     "workspace",
     "submission",
     ".venv",
+]
+# PR / 実験の証跡として残している使い捨てスクリプト（lint・整形の対象外）
+extend-exclude = [
+    "docs/pr",
+    "docs/exp",
 ]
 
 [tool.ruff.lint]
