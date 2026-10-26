@@ -62,6 +62,25 @@ docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --
 ```
 
 
+## ベースラインロック（効果検証の前提）
+
+validate の前に必ず実行する。
+
+```bash
+python analysis/tools/baseline_check.py --check --strict
+```
+
+- 0 変数: 変更なし。validate しても前回と同一結果になるだけ
+- 1 変数: 検証可能
+- 2 変数以上: 即 revert してから 1 変数ずつ試す
+
+採用済みベースラインを更新するときだけ `--lock` を使う。
+
+```bash
+python analysis/tools/baseline_check.py --lock
+```
+
+
 ## 深掘りと仮説の対応（CRITICAL — 深掘りの結論から仮説を逆算する）
 
 深掘り（`deepen`）は事実カードの `summary` を具体的な分析結果に更新する。

@@ -1,11 +1,11 @@
 {
     "type": "Fixed",
     "specialist": "default",
-    "fireRangeKm": 30.0,
+    "fireRangeKm": 50.0,
     "breakRangeKm": 35.0,
-    "evadeCrankDeg": 15.0,
+    "evadeCrankDeg": 15,
     "marginKm": 25.0,
-    "trackConfirmFrames": 3,
+    "trackConfirmFrames": 0,
     "targetSpread": 0,
     "escortSeekDistKm": 150,
     "escortForwardXKm": 110,
@@ -20,7 +20,7 @@
     "beamHoldFrames": 0,
     "fireAlignDeg": 0,
     "launchIntervalFrames": 0,
-    "roleSplit": 1,
-    "escortFlankDeg": 15.0,
-    "threatEvadeMaxFrames": 30
+    "roleSplit": 0,
+    "escortFlankDeg": 0.0,
+    "threatEvadeMaxFrames": 0
 }

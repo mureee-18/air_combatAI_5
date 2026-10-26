@@ -2105,3 +2105,53 @@
 - 検証: 1戦ゲート Draw; paired seeds1-3 both colors: 1勝3分2敗 avg_score0.482 avg_our_alive1.67 avg_enemy_alive4.83 hit_rate0.238
 - 指標: {"avg_score": 0.482, "avg_our_alive": 1.67, "avg_enemy_alive": 4.83, "games": 6}
 - 次の一手: ログで回避方向・生存・命中を確認し、必要ならrevert
+
+## O-210 [observation/log] 2026-10-26T19:06:25
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 追跡安定度ベース発封E
+- 仮説: N-207
+- 変更: args.json trackConfirmFrames=3
+- 検証: 1戦ゲート Blue勝ち; paired seeds1-3 both colors: 3勝3分0敗 avg_score0.574 avg_our_alive3.17 avg_enemy_alive4.5 hit_rate0.031
+- 指標: {"avg_score": 0.574, "avg_our_alive": 3.17, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-211 [observation/log] 2026-10-26T19:18:12
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 回避機動・脁E��回避タイミング
+- 仮説: N-208
+- 変更: args.json evadeCrankDeg=15.0
+- 検証: 1戦ゲート Blue勝ち; paired seeds1-3 both colors: 1勝3分2敗 avg_score0.482 avg_our_alive1.67 avg_enemy_alive4.83 hit_rate0.238
+- 指標: {"avg_score": 0.557, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-212 [observation/log] 2026-10-26T21:59:34
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機の役割刁E��
+- 仮説: N-209
+- 変更: args.json roleSplit=1
+- 検証: 1戦ゲート Draw; paired seeds1-3 both colors: 1勝3分2敗 avg_score0.482 avg_our_alive1.67 avg_enemy_alive4.83 hit_rate0.238
+- 指標: {"avg_score": 0.557, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-213 [observation/log] 2026-10-26T22:46:59
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機の役割刁E��
+- 仮説: N-210
+- 変更: args.json roleSplit=1
+- 検証: 1戦ゲート Draw; paired seeds1-3 both colors: 4勝2分0敗 avg_score0.632 avg_our_alive3.17 avg_enemy_alive4.0 hit_rate0.09
+- 指標: {"avg_score": 0.632, "avg_our_alive": 3.17, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-214 [observation/log] 2026-10-26T22:56:14
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 回避機動・脁E��回避タイミング
+- 仮説: N-211
+- 変更: args.json evadeCrankDeg=15
+- 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 4勝2分0敗 avg_score0.62 avg_our_alive3.67 avg_enemy_alive3.5 hit_rate0.065
+- 指標: {"avg_score": 0.62, "avg_our_alive": 3.67, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert

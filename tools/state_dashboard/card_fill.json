@@ -41,10 +41,10 @@
       "phrase": "命中0の正体：照準点は発射時の位置固定で22秒後に5.0〜5.6kmずれ、護衛アセット半径5kmを毎回わずかに外す",
       "variable": "追跡安定度ベース発封E",
       "variable_name": "struct-firing-track",
-      "variable_status": "direction",
+      "variable_status": "none",
       "judge": "hit_count / avg_score / avg_our_alive",
       "prediction": "追跡安定度を1変数で検証し、burst_first_hit_rate を見る",
-      "reason": "",
+      "reason": "照準点の古さは物理・誘導制約で1変数では解けない。命中は接近・識別・生存改善の副次指標として見る",
       "hypothesis": "同じ目標を連続Nフレーム追跡できた時だけ発封E��、バースト�E弾を減らす"
     },
     "metric:burst_role_split": {
