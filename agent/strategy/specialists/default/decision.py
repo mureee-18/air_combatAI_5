@@ -157,13 +157,26 @@ def decide(policy, observation, reward, done, info, agent_full_name, observation
             and not breaking
             and best_dist > policy.beam_range_km
         ):
-            desired_az = enemy[escort_candidate, 1]
+            flank = 0.0
+            if policy._flankDeg != 0.0 and policy.flankFullDistKm > 0.0:
+                dist = float(enemy[escort_candidate, 2])
+                factor = min(max(dist / policy.flankFullDistKm, 0.0), 1.0)
+                flank = policy._flankDeg * factor
+            desired_az = enemy[escort_candidate, 1] + flank
     else:
         desired_az = 0.0
         policy._last_target_xy = None
         policy._track_count = 0
 
-    if threat[0] > 0.5:
+    threat_detected = bool(threat[0] > 0.5)
+    if threat_detected:
+        frames = policy._threat_evade_frames.get(name, 0) + 1
+        policy._threat_evade_frames[name] = frames
+        evading = policy.threat_evade_max_frames <= 0 or frames <= policy.threat_evade_max_frames
+    else:
+        policy._threat_evade_frames[name] = 0
+        evading = False
+    if threat_detected and evading:
         desired_az = threat[1] + 180.0 + policy.evade_crank_deg
         target_index = 0
 

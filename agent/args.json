@@ -21,6 +21,6 @@
     "fireAlignDeg": 0,
     "launchIntervalFrames": 0,
     "roleSplit": 1,
-    "burstHeadAlignDeg": 15.0,
-    "maxSimulShot": 1
+    "escortFlankDeg": 15.0,
+    "threatEvadeMaxFrames": 30
 }

@@ -20,6 +20,7 @@
 ## 必ず守ること
 
 1. **1変数だけ**。同時に 2 つ変えると、悪化時に原因を切り分けられない。
+2. **毎回ベースラインへ戻す**。前回の変更を残したまま次の変数を足さない。
 2. **数値予測を書く**。「何を何倍にするか」が書けないなら変更しない。
 3. **出所を付ける**。`--source` は「どこから見たか」（log / analysis / code / official）。
 4. **判定はペア評価**。`avg_score` / `avg_our_alive` / `avg_enemy_alive` と win-draw-loss だけで見る。
@@ -29,6 +30,37 @@
 6. **ログ構造を調べ直さない**。`tools/battle_analyzer/BATTLELOG_FORMAT.md` に既知の制約がある。
 7. **測れないものは推測しない**。できないことを `assumption`（`--source code`）として残す。
 8. **外したら理由を書く**。`record` の `--verification` に実測値と外れた理由を書く。
+
+## 改訂サイクル（1変数・ベースライン復帰・ホールドアウト）
+
+1 変数ずつ試す。複数変数を積み増さない。前回の変更が残ったまま次の変数を足さない。
+
+1. **ベースラインへ戻す**（毎サイクルの最初）
+   - args.json を採用済みベースライン（escortFireMinKm=35.0, fireRangeKm=50.0, trackConfirmFrames=0, roleSplit=0, evadeCrankDeg=0.0, escortFlankDeg=0.0, threatEvadeMaxFrames=0）に戻す
+   - `python scripts/build_submission.py --deploy`
+2. **1 変数だけ実装する**（args.json の値 1 つ、またはコード修正 1 箇所）
+3. **1 戦ゲート**
+   - `docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --num-validation 1 --visualize 0"`
+4. **seed 固定ペア評価**（seeds 1-3 × 両面）
+   - `docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --label <label> --out /workspace/paired/<label>.json"`
+5. **ホールドアウト**（未見 seed 4-6 × 両面）
+   - `docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 4,5,6 --colors both --label <label>_ho --out /workspace/paired/<label>_ho.json"`
+6. **判定**
+   - seeds 1-3 と 4-6 の両方で `avg_score` / `avg_our_alive` / `avg_enemy_alive` を比較する
+   - どちらかで悪化したら即 revert し、採用しない
+7. **記録**
+   - `python analysis/tools/improvement_session.py validate --specialist default --paired /workspace/paired/<label>.json`
+   - `python analysis/tools/improvement_session.py record ...`
+
+改善しない変数は args.json とコードの両方をベースラインへ完全に巻き戻す。
+試験済みの軸は「検証済みの変数軸」表へ 1 行足す。
+
+```
+# 例: ベースラインへ戻して 1 変数だけ試す
+python scripts/build_submission.py --deploy
+docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --num-validation 1 --visualize 0"
+```
+
 
 ## 深掘りと仮説の対応（CRITICAL — 深掘りの結論から仮説を逆算する）
 

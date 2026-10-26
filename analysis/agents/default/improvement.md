@@ -1975,3 +1975,133 @@
 - 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 2勝4分0敗 avg_score0.595 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.175
 - 指標: {"avg_score": 0.595, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
 - 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-197 [observation/log] 2026-10-25T12:57:08
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛接近距離
+- 仮説: N-176
+- 変更: args.json escortSeekDistKm=150
+- 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 2勝4分0敗 avg_score0.595 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.175
+- 指標: {"avg_score": 0.595, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-198 [observation/log] 2026-10-25T13:00:20
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛先行排除
+- 仮説: N-169
+- 変更: 方向カード winpath-escort のため未実装
+- 検証: ペア評価ファイル winpath_escort.json なしのため未検証
+- 指標: {"avg_score": 0.595, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
+- 次の一手: winpath-escort を1変数に分解して実装
+
+## O-199 [observation/log] 2026-10-25T13:37:12
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 追跡安定度
+- 仮説: N-199
+- 変更: args.json trackConfirmFrames=3
+- 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 6勝0分0敗 avg_score0.662 avg_our_alive3.17 avg_enemy_alive3.33 hit_rate0.073
+- 指標: {"avg_score": 0.662, "avg_our_alive": 3.17, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-200 [observation/log] 2026-10-26T00:02:30
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 初発距離
+- 仮説: N-200
+- 変更: args.json fireRangeKm=30.0
+- 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 4勝2分0敗 avg_score0.606 avg_our_alive3.17 avg_enemy_alive4.33 hit_rate0.04
+- 指標: {"avg_score": 0.606, "avg_our_alive": 3.17, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-201 [observation/log] 2026-10-26T00:17:29
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 追跡安定度
+- 仮説: N-201
+- 変更: args.json trackConfirmFrames=3
+- 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 6勝0分0敗 avg_score0.662 avg_our_alive3.17 avg_enemy_alive3.33 hit_rate0.073
+- 指標: {"avg_score": 0.662, "avg_our_alive": 3.17, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-202 [observation/log] 2026-10-26T00:39:15
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 役割分担
+- 仮説: N-202
+- 変更: args.json roleSplit=1
+- 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 3勝3分0敗 avg_score0.574 avg_our_alive3.17 avg_enemy_alive4.5 hit_rate0.031
+- 指標: {"avg_score": 0.557, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-203 [observation/log] 2026-10-26T15:37:40
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 追跡安定度
+- 仮説: N-203
+- 変更: args.json trackConfirmFrames=3
+- 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 3勝3分0敗 avg_score0.574 avg_our_alive3.17 avg_enemy_alive4.5 hit_rate0.031
+- 指標: {"avg_score": 0.574, "avg_our_alive": 3.17, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-204 [observation/log] 2026-10-26T16:15:09
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 回避機動・脁E��回避タイミング
+- 仮説: N-205
+- 変更: args.json evadeCrankDeg=15.0
+- 検証: 1戦ゲート Draw; paired seeds1-3 both colors: 2勝4分0敗 avg_score0.557 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.049
+- 指標: {"avg_score": 0.557, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-205 [observation/log] 2026-10-26T16:20:56
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 回避機動・脁E��回避タイミング
+- 仮説: N-205
+- 変更: args.json evadeCrankDeg=15.0
+- 検証: 1戦ゲート Draw; paired seeds1-3 both colors: 2勝4分0敗 avg_score0.557 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.049
+- 指標: {"avg_score": 0.557, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-206 [observation/log] 2026-10-26T16:54:18
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 回避機動・脁E��回避タイミング
+- 仮説: N-205
+- 変更: args.json evadeCrankDeg=15.0
+- 検証: 1戦ゲート Draw; paired seeds1-3 both colors: 2勝4分0敗 avg_score0.557 avg_our_alive3.5 avg_enemy_alive4.67 hit_rate0.049
+- 指標: {"avg_score": 0.557, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-207 [observation/log] 2026-10-26T17:58:29
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛対象機への接近路を側方オフセットに変える
+- 仮説: N-167
+- 変更: args.json escortFlankDeg=15.0; policy.py _flankDeg/flankFullDistKm; decision.py escort approach desired_az += _flankDeg*(dist/150, clamp 0..1)
+- 検証: 1戦ゲート Red win; paired seeds1-3 both colors: 3勝3分0敗 avg_score0.596 avg_our_alive3.5 avg_enemy_alive4.5 hit_rate0.095
+- 指標: {"avg_score": 0.596, "avg_our_alive": 3.5, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-208 [observation/log] 2026-10-26T18:20:57
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 回避機動・脁E��回避タイミング
+- 仮説: N-206
+- 変更: args.json evadeCrankDeg=15.0
+- 検証: 1戦ゲート Draw; paired seeds1-3 both colors: 3勝3分0敗 avg_score0.596 avg_our_alive3.5 avg_enemy_alive4.5 hit_rate0.095
+- 指標: {"avg_score": 0.557, "avg_our_alive": 3.5, "avg_enemy_alive": 4.67, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-209 [observation/log] 2026-10-26T18:42:28
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: threat回避の継続を連続30フレームに制限
+- 仮説: N-163
+- 変更: args.json threatEvadeMaxFrames=30; policy.py parse threat_evade_max_frames and _threat_evade_frames; decision.py evading unified for threat override/fire gate/escort tracking
+- 検証: 1戦ゲート Draw; paired seeds1-3 both colors: 1勝3分2敗 avg_score0.482 avg_our_alive1.67 avg_enemy_alive4.83 hit_rate0.238
+- 指標: {"avg_score": 0.482, "avg_our_alive": 1.67, "avg_enemy_alive": 4.83, "games": 6}
+- 次の一手: ログで回避方向・生存・命中を確認し、必要ならrevert

@@ -38,7 +38,11 @@ class DefaultPolicy(StandalonePolicy):
         self.fire_align_deg = float(args.get("fireAlignDeg", 0.0))
         self.burst_head_align_deg = float(args.get("burstHeadAlignDeg", 0.0))
         self.evade_crank_deg = float(args.get("evadeCrankDeg", 0.0))
+        self.threat_evade_max_frames = int(args.get("threatEvadeMaxFrames", 0))
+        self._flankDeg = float(args.get("escortFlankDeg", 0.0))
+        self.flankFullDistKm = float(args.get("flankFullDistKm", 150.0))
         self._beam_hold_start = {}
+        self._threat_evade_frames = {}
         self._last_target_xy = None
         self._track_count = 0
 
