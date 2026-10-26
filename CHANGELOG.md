@@ -12,13 +12,14 @@
 
 - `CLAUDE.md` に「Documentation vs. code」節を追加: ドキュメントと既存コードが食い違うときは既存コードの慣習に従い、最終返信で見つけた食い違いを1件ずつ挙げる
 
+### PR のコメント・レビューを Discord に通知
+
+- `.github/workflows/discord-pr-comments.yml` を追加: `issue_comment`（PR のみ）・`pull_request_review`・`pull_request_review_comment` で Discord Webhook に投稿（権限は `contents: read` のみ）
+- `scripts/discord_pr_notify.py`: 「〇〇 さんが PR #N「タイトル」にコメントしました」＋本文先頭300文字＋リンクを組み立て。ボット・本文なしコメントレビューは除外、メンション無効、`DISCORD_WEBHOOK_URL` 未設定なら何もせず成功
+- `docs/dev/discord-notify.md`: Webhook の作り方と Secret の登録手順
+- tests: `test_discord_pr_notify.py`（9件）
+
 ## 2026-10-25
-
-### コミット前チェック（Lefthook + Ruff、任意導入）
-
-- `lefthook.yml` を追加: pre-commit でステージした `*.py` に `ruff check`、新規追加した `*.py` に `ruff format --check` を並列実行
-- `pyproject.toml`: dev 依存に `lefthook` を追加、Ruff の exclude に `docs/pr`・`docs/exp`（証跡スクリプト）を追加。ルールは従来どおり `E`, `F`
-- `docs/dev/lefthook.md`: 導入（`uv run lefthook install`）と飛ばし方（`LEFTHOOK=0` / `--no-verify`）
 
 ## 2026-10-17
 
