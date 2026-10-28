@@ -1,4 +1,4 @@
-"""敵護衛対象機の IRST 識別（agent/strategy/agents/escort_id.py）の回帰テスト.
+"""敵護衛対象機の IRST 識別（agent/strategy/observation/escort_id.py）の回帰テスト.
 
 fixture は実シミュレータ（ASRCAISim1 v1.1.0 ユース部門、BenchMark 相手）で記録した
 自機1機分の IRST 方位列（最初の約300秒）と、真値の護衛対象機位置。
@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "tests" / "fixtures" / "irst_escort_sample.json"
 
-_spec = importlib.util.spec_from_file_location("escort_id", ROOT / "agent" / "strategy" / "agents" / "escort_id.py")
+_spec = importlib.util.spec_from_file_location("escort_id", ROOT / "agent" / "strategy" / "observation" / "escort_id.py")
 escort_id = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(escort_id)
 

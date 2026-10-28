@@ -2155,3 +2155,133 @@
 - 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 4勝2分0敗 avg_score0.62 avg_our_alive3.67 avg_enemy_alive3.5 hit_rate0.065
 - 指標: {"avg_score": 0.62, "avg_our_alive": 3.67, "avg_enemy_alive": 3.5, "games": 6}
 - 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-215 [observation/log] 2026-10-27T22:14:11
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機の役割刁E��
+- 仮説: N-212
+- 変更: args.json roleSplit=1
+- 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 4勝2分0敗 avg_score0.632 avg_our_alive3.17 avg_enemy_alive4.0 hit_rate0.09
+- 指標: {"avg_score": 0.632, "avg_our_alive": 3.17, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-216 [observation/log] 2026-10-27T22:32:27
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 回避機動・脁E��回避タイミング
+- 仮説: N-213
+- 変更: args.json evadeCrankDeg=15
+- 検証: 1戦ゲート Red勝ち; paired seeds1-3 both colors: 4勝2分0敗 avg_score0.62 avg_our_alive3.67 avg_enemy_alive3.5 hit_rate0.065
+- 指標: {"avg_score": 0.62, "avg_our_alive": 3.67, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: ログで初弾距離・生存・命中を確認し、必要ならrevert
+
+## O-217 [observation/log] 2026-10-28T00:15:30
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 初弾命中 0回の改善（射撃前機首整列）
+- 仮説: N-216
+- 変更: fireAlignDeg 0->15（射撃前機首整列閾値を15度に設定）
+- 検証: paired fireAlignDeg: 0勝1分5敗 avg_score 0.276 (baseline 0.674) avg_our_alive 0.17 (baseline 3.33) avg_enemy_alive 4.5 (baseline 3.33) hit_rate 0.191 — 大幅悪化。全滅5戦。
+- 指標: {"avg_score": 0.276, "avg_our_alive": 0.17, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: fireAlignDeg は 0 を維持（30も棄却済み）。初弾命中改善は生存悪化とトレードオフ。再試験不可推奨。
+
+## O-218 [observation/log] 2026-10-28T18:50:44
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機の役割分担（攻撃機1＋回避機3）
+- 仮説: N-218
+- 変更: roleSplit 0->1
+- 検証: paired struct_spread_with_cover: 4勝2分0敗 avg_score 0.632 (baseline 0.674) avg_our_alive 3.17 (baseline 3.33) avg_enemy_alive 4.0 (baseline 3.33) hit_rate 0.09 — baseline 以下。revert 済
+- 指標: {"avg_score": 0.632, "avg_our_alive": 3.17, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: roleSplit は 0 を維持。再試験不可推奨。
+
+## O-219 [observation/log] 2026-10-28T18:52:04
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機の役割分担（攻撃機1＋回避機3）
+- 仮説: N-218
+- 変更: roleSplit 0->1
+- 検証: paired struct_spread_with_cover: 4勝2分0敗 avg_score 0.632 (baseline 0.674) avg_our_alive 3.17 (baseline 3.33) avg_enemy_alive 4.0 (baseline 3.33) hit_rate 0.09 — baseline 以下。revert 済
+- 指標: {"avg_score": 0.632, "avg_our_alive": 3.17, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: roleSplit は 0 を維持。再試験不可推奨。
+
+## O-220 [observation/log] 2026-10-28T18:56:55
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃整列メカニズム（fireAlignDeg + beamHoldWhileArmed）
+- 仮説: N-217
+- 変更: fireAlignDeg 0->15 + beamHoldWhileArmed 0->1（メカニズム粒度）
+- 検証: paired fireAlignDeg: 0勝2分4敗 avg_score 0.324 (baseline 0.674) avg_our_alive 0.33 (baseline 3.33) avg_enemy_alive 4.0 (baseline 3.33) hit_rate 0.144 — 大幅悪化。全滅4戦。メカニズム粒度でも悪化
+- 指標: {"avg_score": 0.324, "avg_our_alive": 0.33, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: 射撃整列メカニズムは fireAlignDeg=0/beamHoldWhileArmed=0 を維持。再試験不可推奨。
+
+## O-221 [observation/log] 2026-10-28T18:57:54
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃整列メカニズム（fireAlignDeg + beamHoldWhileArmed）
+- 仮説: N-217
+- 変更: fireAlignDeg 0->15 + beamHoldWhileArmed 0->1（メカニズム粒度）
+- 検証: paired fireAlignDeg: 0勝2分4敗 avg_score 0.324 (baseline 0.674) avg_our_alive 0.33 (baseline 3.33) avg_enemy_alive 4.0 (baseline 3.33) hit_rate 0.144 — 大幅悪化。全滅4戦。メカニズム粒度でも悪化
+- 指標: {"avg_score": 0.324, "avg_our_alive": 0.33, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: 射撃整列メカニズムは fireAlignDeg=0/beamHoldWhileArmed=0 を維持。再試験不可推奨。
+
+## O-222 [observation/log] 2026-10-28T19:04:11
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 回避機動・脁E��回避タイミング
+- 仮説: N-215
+- 変更: evadeCrankDeg 0->15
+- 検証: paired avoidance_width_period: 4勝2分0敗 avg_score 0.62 (baseline 0.674) avg_our_alive 3.67 (baseline 3.33) avg_enemy_alive 3.5 (baseline 3.33) hit_rate 0.065 — baseline 以下。revert 済
+- 指標: {"avg_score": 0.62, "avg_our_alive": 3.67, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: evadeCrankDeg は 0 を維持。再試験不可推奨。
+
+## O-223 [observation/log] 2026-10-28T20:04:14
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: バースト初弾の機首整列メカニズム（burstHeadAlignDeg + fireAlignDeg）
+- 仮説: N-220
+- 変更: burstHeadAlignDeg 0->10 + fireAlignDeg 0->10（メカニズム粒度）
+- 検証: paired burst_head_align_deg 結果待ち
+- 指標: {"avg_score": 0.0, "avg_our_alive": 0.0, "avg_enemy_alive": 0.0, "games": 6}
+- 次の一手: 射撃整列メカニズムは 0 を維持。再試験不可推奨。
+
+## O-224 [observation/log] 2026-10-28T20:05:25
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: バースト初弾の機首整列メカニズム（burstHeadAlignDeg + fireAlignDeg）
+- 仮説: N-220
+- 変更: burstHeadAlignDeg 0->10 + fireAlignDeg 0->10（メカニズム粒度）
+- 検証: paired burst_head_align_deg 結果待ち
+- 指標: {"avg_score": 0.0, "avg_our_alive": 0.0, "avg_enemy_alive": 0.0, "games": 6}
+- 次の一手: 射撃整列メカニズムは 0 を維持。再試験不可推奨。
+
+## O-225 [observation/log] 2026-10-28T20:07:12
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: バースト初弾の機首整列メカニズム（burstHeadAlignDeg + fireAlignDeg）
+- 仮説: N-220
+- 変更: burstHeadAlignDeg 0->10 + fireAlignDeg 0->10（メカニズム粒度）
+- 検証: paired burst_head_align_deg 結果待ち
+- 指標: {"avg_score": 0.0, "avg_our_alive": 0.0, "avg_enemy_alive": 0.0, "games": 6}
+- 次の一手: 射撃整列メカニズムは 0 を維持。再試験不可推奨。
+
+## O-226 [observation/log] 2026-10-28T20:19:24
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃整列メカニズム（beamHoldFrames + fireAlignDeg）
+- 仮説: N-224
+- 変更: beamHoldFrames 0->5 + fireAlignDeg 0->5（メカニズム粒度）
+- 検証: paired beamHoldFrames 結果待ち
+- 指標: {"avg_score": 0.56, "avg_our_alive": 2.67, "avg_enemy_alive": 3.83, "games": 6}
+- 次の一手: 射撃整列メカニズムは 0 を維持。再試験不可推奨。
+
+## O-227 [observation/log] 2026-10-28T20:52:12
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃前機首整列（fireAlignDeg）
+- 仮説: N-223
+- 変更: fireAlignDeg 0->20
+- 検証: paired fireAlignDeg 結果待ち
+- 指標: {"avg_score": 0.342, "avg_our_alive": 0.5, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: fireAlignDeg は 0 を維持。再試験不可推奨。

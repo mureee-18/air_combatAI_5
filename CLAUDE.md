@@ -22,7 +22,7 @@ x86 CPU・Linux 上で初期行動判断モデル（BenchMark）と対戦させ�
    方針は `agent/strategy/specialists/`、`active.py` は switchboard として薄く保つ。
 4. **ログ構造を毎回調べ直さない。** 改善セッション開始時に
    `tools/battle_analyzer/BATTLELOG_FORMAT.md` を必ず読む。
-5. **改善は1変数ずつ。** 複数の変更を同時に入れたら、悪化時に原因を切り分けられない。
+5. **改善は1因果メカニズムずつ。** 同一メカニズムに属する複数ノブの同時変更は可（例: 射撃整列 = fireAlignDeg + beamHoldWhileArmed）。無関係なメカニズムを同時に変えると、悪化時に原因を切り分けられない。
 6. **可視化はログ再構築のみ。** 公式ビューア（`visualize=1`）は headless で画像/GIFを
    生成せず、`env.manager` の生状態は `getEntityByName` で core dump するため使わない。
    軌跡は `tools/battle_analyzer/trajectory.py` の復元式
@@ -169,7 +169,7 @@ tools/
    - この段階は**登録のみ**。実装しない。pending に仮説が積まれるだけ。
 2. **仮説 → 検証**（検証タブで仮説を選ぶと生成される一連コマンド）
    - **実装はこの指示に含める**。順序:
-     ①`args.json`/`default.py` に対象変数を**1変数だけ実装** →
+     ①`args.json`/`default.py` に対象メカニズムを**1つだけ実装**（同一メカニズム内の複数ノブを含めてよい） →
      ②`build_submission.py --deploy` →
      ③1戦ゲート（`validate.py --num-validation 1`。悪化なら即 revert）→
      ④seed固定ペア評価（`run_eval_paired.py --label <変数label>`）→

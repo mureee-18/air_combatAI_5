@@ -1,5 +1,9 @@
-import numpy as np
-from gymnasium import spaces
+"""Agent (observation + execution layers).
+
+Observation: ObservationMixin (strategy/observation/mixin.py)
+Execution:   DeployMixin (strategy/execution/deploy.py) + ControlMixin (strategy/execution/control.py)
+Judgment:    delegated to DefaultPolicy (strategy/judgment/judgment.py)
+"""
 
 from ASRCAISim1.core import (
     AltitudeKeeper,
@@ -9,10 +13,13 @@ from ASRCAISim1.core import (
 )
 from BasicAgentUtility.util import TeamOrigin
 
-from .control import ControlMixin
-from .deploy import DeployMixin
-from .observation import ObservationMixin
-from ..escort_id import EscortIdentifier
+import numpy as np
+from gymnasium import spaces
+
+from ...execution import ControlMixin
+from ...execution import DeployMixin
+from ...observation import ObservationMixin
+from ...observation import EscortIdentifier
 
 
 class EscortHunterAgent(ObservationMixin, DeployMixin, ControlMixin, SingleAssetAgent):

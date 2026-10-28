@@ -470,16 +470,14 @@ def test_index_has_verify_tab_with_hypothesis_selector():
     # 選択した仮説 id を --hypothesis として各コマンドに差し込む
     assert "--hypothesis ${sel}" in block
     assert "--hypothesis" in html
-    # 検証フローは 3 行（①一括検証 ②validate ③record）。
-    # すべてコピーボタン付き(cmdRow)
+    # 検証フローは 1 行に統合（verify_cycle → validate → record を && で連結）。
+    # コピーボタン付き(cmdRow) は 1 つ
     steps = (
         "① 一括検証",
-        "② 仮説IDと紐付け消化",
-        "③ record",
     )
     for step in steps:
         assert step in block, f"検証タブに {step} が無い"
-    assert block.count("cmdRow(") >= 3, "各ステップにコピーボタン（cmdRow）が無い"
+    assert block.count("cmdRow(") >= 1, "コピーボタン（cmdRow）が無い"
     assert 'INTENT_IMPL' in block, "①実装行にコピーボタンの指示（INTENT_IMPL）が無い"
     assert "verify_cycle.py" in block
     assert "improvement_session.py validate" in block

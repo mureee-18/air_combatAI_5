@@ -3,7 +3,7 @@
     "specialist": "default",
     "fireRangeKm": 50.0,
     "breakRangeKm": 35.0,
-    "evadeCrankDeg": 15,
+    "evadeCrankDeg": 0,
     "marginKm": 25.0,
     "trackConfirmFrames": 0,
     "targetSpread": 0,
@@ -22,5 +22,6 @@
     "launchIntervalFrames": 0,
     "roleSplit": 0,
     "escortFlankDeg": 0.0,
-    "threatEvadeMaxFrames": 0
+    "threatEvadeMaxFrames": 0,
+    "burstHeadAlignDeg": 0
 }

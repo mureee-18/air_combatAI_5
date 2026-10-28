@@ -1,12 +1,18 @@
-import numpy as np
-from math import atan2, degrees
+"""Observation layer (観測層) for the escort hunter agent.
+
+Gathers sensor data, builds the structured observation, and manages track
+history / escort identification.  Produces the world model consumed by the
+judgment layer.
+"""
 
 from ASRCAISim1.core import (
     MotionState,
     Track2D,
     Track3D,
 )
-from math import sqrt
+
+import numpy as np
+from math import atan2, degrees, sqrt
 
 
 class ObservationMixin:

@@ -1,9 +1,21 @@
 
+"""Policy (orchestrator) for the default specialist.
+
+Wires the three layers together:
+  1. Observation  → produced by ObservationMixin.makeObs() (strategy/observation/)
+  2. Judgment     → judge() in strategy/judgment/judgment.py
+  3. Execution    → execute() in strategy/execution/execution.py
+
+Holds policy state (args, counters, track history) and delegates step()
+to the judgment + execution layers.
+"""
+
 from ASRCAISim1.policy import StandalonePolicy
 
 from ...agents.escort_hunter import EscortHunterAgent
 from .config import get_model_config as load_model_config
-from .decision import decide
+from ...execution import execute
+from ...judgment import judge
 
 
 class DefaultPolicy(StandalonePolicy):
@@ -47,7 +59,9 @@ class DefaultPolicy(StandalonePolicy):
         self._track_count = 0
 
     def step(self, observation, reward, done, info, agent_full_name, observation_space, action_space):
-        return decide(self, observation, reward, done, info, agent_full_name, observation_space, action_space)
+        judgment = judge(self, observation, reward, done, info, agent_full_name,
+                         observation_space, action_space)
+        return execute(self, judgment, action_space)
 
 
 def get_agent_class(args={}):

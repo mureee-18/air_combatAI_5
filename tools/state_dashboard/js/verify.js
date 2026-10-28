@@ -38,16 +38,10 @@ function renderVerify(d) {
   const tgt = s.target || "default";
   const varName = (cur && cur.variable) || "";
   const label = (varName || "hyp").replace(/[^A-Za-z0-9_]/g, "_");
-  h += '<p class="meta">実装後に 1 コマンドで baseline check → build → 1戦ゲート → paired評価まで実行します。</p>';
+  h += '<p class="meta">実装後に 1 コマンドで baseline check → build → 1戦ゲート → paired評価 → validate → record まで実行します。</p>';
   h += cmdRow(
-    `python analysis/tools/verify_cycle.py --specialist ${tgt} --label ${label} --set <変数>=<値>`,
-    "① 一括検証（baseline check → build → 1戦ゲート → paired評価）", INTENT_IMPL);
-  h += cmdRow(
-    `python analysis/tools/improvement_session.py validate --specialist ${tgt} --paired workspace/paired/${label}.json --hypothesis ${sel}`,
-    "② 仮説IDと紐付け消化（validate。これで pending から消える）");
-  h += cmdRow(
-    `python analysis/tools/improvement_session.py record --specialist ${tgt} --kind observation --source log --hypothesis ${sel} --direction "<方向>" --changes "<実装した内容>" --verification "<ペア評価の判定>" --next-steps "<次>"`,
-    "③ record で記録（<> を埋めて実行）。採用なら revert せず、不採用なら実装を revert");
+    `python analysis/tools/verify_cycle.py --specialist ${tgt} --label ${label} --set <変数>=<値> && python analysis/tools/improvement_session.py validate --specialist ${tgt} --paired workspace/paired/${label}.json --hypothesis ${sel} && python analysis/tools/improvement_session.py record --specialist ${tgt} --kind observation --source log --hypothesis ${sel} --direction "<方向>" --changes "<実装した内容>" --verification "<ペア評価の判定>" --next-steps "<次>"`,
+    "① 一括検証（baseline check → build → 1戦ゲート → paired評価 → validate → record）", INTENT_IMPL);
   document.getElementById("verify").innerHTML = h;
   const pick = document.getElementById("verify-hyp");
   if (pick) {

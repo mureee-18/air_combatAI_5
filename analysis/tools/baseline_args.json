@@ -22,5 +22,6 @@
   "launchIntervalFrames": 0,
   "roleSplit": 0,
   "escortFlankDeg": 0.0,
-  "threatEvadeMaxFrames": 0
+  "threatEvadeMaxFrames": 0,
+  "burstHeadAlignDeg": 0.0
 }

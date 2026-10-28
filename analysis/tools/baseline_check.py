@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 ARGS = ROOT / "agent" / "args.json"
 BASELINE = ROOT / "analysis" / "tools" / "baseline_args.json"
+MECHANISMS = ROOT / "analysis" / "tools" / "mechanisms.json"
 
 DEFAULT_BASELINE = {
     "fireRangeKm": 50.0,
@@ -29,6 +30,7 @@ DEFAULT_BASELINE = {
     "roleSplit": 0,
     "escortFlankDeg": 0.0,
     "threatEvadeMaxFrames": 0,
+    "burstHeadAlignDeg": 0.0,
 }
 
 
@@ -36,6 +38,20 @@ def load_baseline():
     if BASELINE.exists():
         return json.loads(BASELINE.read_text(encoding="utf-8"))
     return DEFAULT_BASELINE
+
+
+def load_mechanisms():
+    if MECHANISMS.exists():
+        data = json.loads(MECHANISMS.read_text(encoding="utf-8"))
+        return data.get("mechanisms", {})
+    return {}
+
+
+def key_to_mechanism(key, mechanisms):
+    for mech, keys in mechanisms.items():
+        if key in keys:
+            return mech
+    return key  # unregistered key = its own mechanism
 
 
 def main():
@@ -60,16 +76,26 @@ def main():
         if baseline.get(key) != current.get(key):
             changed.append((key, baseline.get(key), current.get(key)))
 
-    print(f"changed variables: {len(changed)}")
+    print(f"changed keys: {len(changed)}")
     for key, old, new in changed:
         print(f"  {key}: {old} -> {new}")
+
+    mechanisms = load_mechanisms()
+    mech_groups = {}
+    for key, old, new in changed:
+        mech = key_to_mechanism(key, mechanisms)
+        mech_groups.setdefault(mech, []).append(key)
+
+    print(f"changed mechanisms: {len(mech_groups)}")
+    for mech, keys in mech_groups.items():
+        print(f"  {mech}: {', '.join(keys)}")
 
     if args.strict:
         if len(changed) == 0:
             print("ERROR: no variable changed; validate is meaningless")
             return 2
-        if len(changed) > 1:
-            print("ERROR: more than one variable changed; isolate before validate")
+        if len(mech_groups) > 1:
+            print("ERROR: more than one mechanism changed; isolate before validate")
             return 1
     return 0
 

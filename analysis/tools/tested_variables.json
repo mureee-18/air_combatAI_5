@@ -167,11 +167,12 @@
       ]
     },
     "fireAlignDeg": {
-      "values": "0/30",
-      "result": "30 は命中 0→0.12 だが生存・敵生存数が悪化（avg_score 0.364・our_alive 1.33・enemy 4.0）。0 を維持",
+      "values": "0/30/15",
+      "result": "0/15/30 すべて生存悪化。0 を維持（15: avg_score 0.276 our_alive 0.17、30: 0.364 our_alive 1.33）",
       "refs": [
         "N-142",
-        "fad30.json"
+        "fad30.json",
+        "N-216"
       ]
     },
     "escortMaxSpeedKmps": {
