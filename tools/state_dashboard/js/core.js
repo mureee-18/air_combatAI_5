@@ -1,5 +1,5 @@
 const TABS = [
-  ["env", "環境"], ["sub", "提出"], ["agents", "エージェント"], ["decision", "観測・判断・行動"], ["eval", "評価"], ["logs", "ログ"],
+  ["env", "環境"], ["sub", "提出"], ["agents", "エージェント"], ["impl", "実装状態"], ["eval", "評価"], ["logs", "ログ"],
   ["hyp", "仮説登録"], ["session", "改善サイクル"], ["verify", "検証"], ["git", "git"], ["cmd", "コマンド"], ["rules", "ルール"],
   ["traj", "自機視点"], ["battle", "戦場俯瞰"],
 ];
@@ -152,7 +152,7 @@ async function load(force) {
     if (stampEl.classList) stampEl.classList.toggle("warn", !!stale);
     // Compute evidence diffs before rendering
     markEvidenceDiffs(data);
-    renderEnv(data); renderSub(data); renderAgents(data); renderDecision(data); renderEval(data); renderLogs(data);
+    renderEnv(data); renderSub(data); renderAgents(data); renderImpl(data); renderEval(data); renderLogs(data);
     renderHypothesis(data); renderSession(data); renderVerify(data); renderGit(data); renderCmd(data); renderRules(data);
   } catch (err) {
     document.getElementById("stamp").textContent = "読み込み失敗: " + err;

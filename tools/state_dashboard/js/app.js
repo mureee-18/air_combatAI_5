@@ -21,7 +21,7 @@ async function load(force) {
     if (stampEl.classList) stampEl.classList.toggle("warn", !!stale);
     // Compute evidence diffs before rendering
     markEvidenceDiffs(data);
-    renderEnv(data); renderSub(data); renderAgents(data); renderDecision(data); renderEval(data); renderLogs(data);
+    renderEnv(data); renderSub(data); renderAgents(data); renderImpl(data); renderEval(data); renderLogs(data);
     renderHypothesis(data); renderSession(data); renderVerify(data); renderGit(data); renderCmd(data); renderRules(data);
   } catch (err) {
     document.getElementById("stamp").textContent = "読み込み失敗: " + err;

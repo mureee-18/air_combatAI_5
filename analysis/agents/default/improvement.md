@@ -2285,3 +2285,53 @@
 - 検証: paired fireAlignDeg 結果待ち
 - 指標: {"avg_score": 0.342, "avg_our_alive": 0.5, "avg_enemy_alive": 4.0, "games": 6}
 - 次の一手: fireAlignDeg は 0 を維持。再試験不可推奨。
+
+## O-228 [observation/log] 2026-10-28T20:59:29
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 死蔵弾数削減（護衛用予備）
+- 仮説: N-222
+- 変更: escortReserveMsls 3->2
+- 検証: paired escortReserveMsls 結果待ち
+- 指標: {"avg_score": 0.677, "avg_our_alive": 3.5, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: escortReserveMsls は 3 を維持。再試験不可推奨。
+
+## O-229 [observation/log] 2026-10-28T21:15:10
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 最大進出距離改善（marginKm）
+- 仮説: N-221
+- 変更: marginKm 25->15
+- 検証: paired marginKm 結果待ち
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: marginKm は 25 を維持。再試験不可推奨。
+
+## O-230 [observation/log] 2026-10-28T21:22:04
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機の役割分担（攻撃機1＋回避機3）
+- 仮説: N-219
+- 変更: roleSplit 0->1
+- 検証: paired struct_spread_with_cover 結果待ち
+- 指標: {"avg_score": 0.632, "avg_our_alive": 3.17, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: roleSplit は 0 を維持。再試験不可推奨。
+
+## O-231 [observation/log] 2026-10-28T21:25:30
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機の役割分担（攻撃機1＋回避機3）
+- 仮説: N-219
+- 変更: roleSplit 0->1
+- 検証: paired struct_spread_with_cover 結果待ち
+- 指標: {"avg_score": 0.632, "avg_our_alive": 3.17, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: roleSplit は 0 を維持。再試験不可推奨。
+
+## O-232 [observation/log] 2026-10-28T21:38:01
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛戦闘機の先行排除（護衛対象機射程内まで発射保留）
+- 仮説: N-214
+- 変更: escortAmmoHold 0->1
+- 検証: paired winpath_escort 結果待ち
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: escortAmmoHold は 0 を維持。再試験不可推奨。
