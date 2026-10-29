@@ -13,7 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "tests" / "fixtures" / "irst_escort_sample.json"
 
-_spec = importlib.util.spec_from_file_location("escort_id", ROOT / "agent" / "strategy" / "observation" / "escort_id.py")
+_spec = importlib.util.spec_from_file_location(
+    "escort_id", ROOT / "agent" / "strategy" / "observation" / "escort_id.py")
 escort_id = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(escort_id)
 
