@@ -1,7 +1,12 @@
-import numpy as np
-from math import atan2, cos, sin, sqrt
+"""Execution layer (実行層) for the escort hunter agent.
 
+Sends motion and weapon commands to the framework based on the deployed
+action.  Does not make decisions — that is the judgment layer's responsibility.
+"""
+
+import numpy as np
 from ASRCAISim1.core import MotionState
+from math import atan2, cos, sin, sqrt
 
 
 class ControlMixin:

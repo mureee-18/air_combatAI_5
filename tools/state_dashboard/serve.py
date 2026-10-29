@@ -1449,15 +1449,10 @@ def _known_constraints() -> list[dict]:
 # 「検証済みの変数軸（再試験禁止）」表にある変数を引いた残りを事実カードにする。
 # 閉鎖済み軸の条件指標カードは仮説にならないため、生きている材料はここだけになる。
 # 軸を試験したら policy の表へ 1 行足せば、このカードは自動で消える。
-_AGENT_AXES = (
-    "fireRangeKm",
-    "maxSimulShot",
-    "breakRangeKm",
-    "beamRangeKm",
-    "targetMode",
-    "evadeCrankDeg",
-    "marginKm",
-)
+def _agent_axes() -> tuple:
+    """args.json の全キーを返す（実装状態に連動）."""
+    args = load_json(REPO_ROOT / "agent" / "args.json") or {}
+    return tuple(sorted(k for k in args if k not in ("type", "specialist")))
 
 _AXIS_META = {
     "marginKm": {
@@ -1500,29 +1495,64 @@ def _tested_axes() -> set:
 
 
 def _axis_cards() -> list[dict]:
-    """未試験の軸を事実カードにする（生きている仮説材料）."""
+    """実装状態を反映した事実カードを生成する（生きている仮説材料）.
 
+    未試験の軸（closed でない変数）に加え、ベースラインから値が変わった変数も
+    カード化する。これにより、実装状態の変更が fact card に反映される。
+    """
     tested = _tested_axes()
     args = load_json(REPO_ROOT / "agent" / "args.json") or {}
+    baseline_args = load_json(REPO_ROOT / "analysis" / "tools" / "baseline_args.json") or {}
+    mechanisms = (load_json(REPO_ROOT / "analysis" / "tools" / "mechanisms.json") or {}).get("mechanisms", {})
+    var_to_mech = {}
+    for mech, keys in mechanisms.items():
+        for key in keys:
+            var_to_mech[key] = mech
     out = []
-    for var in _AGENT_AXES:
-        if var in tested:
+    for var in _agent_axes():
+        cur = _scalar(args.get(var))
+        if cur is None:
             continue
+        base = _scalar(baseline_args.get(var))
+        changed_from_baseline = (base is not None and cur != base)
+        is_tested = var in tested
+
+        # 未試験の変数 → 通常の axis card
+        # テスト済みだが値がベースラインから変わった変数 → retest card
+        if is_tested and not changed_from_baseline:
+            continue
+
         meta = _AXIS_META.get(var)
         if meta is None:
-            continue
+            mech = var_to_mech.get(var, "未分類")
+            meta = {
+                "label": var,
+                "unit": "",
+                "digits": 0 if isinstance(cur, int) else 1,
+                "current": cur,
+                "propose": cur,
+                "text": f"{mech} メカニズムの変数。",
+                "judge": "",
+                "hypothesis": f"{var} を変更して効果を検証する。",
+            }
         cur = meta["current"]
         if _scalar(args.get(var)) is not None:
             cur = _scalar(args.get(var))
         unit = meta["unit"]
         digits = int(meta["digits"])
+        if changed_from_baseline:
+            title = f"実装変更: {meta['label']} {var} = {cur:g}{unit}（baseline {base:g}{unit} から変更）"
+            phrase = f"実装変更 {meta['label']}({var}) は {cur:g}{unit}（baseline {base:g}{unit}）"
+        else:
+            title = f"未試験の軸: {meta['label']} {var} = {cur:g}{unit}（1変数で試せる残り）"
+            phrase = f"未試験の軸 {meta['label']}({var}) は {cur:g}{unit}（1変数で試せる残り）"
+        if len(phrase) > 120:
+            phrase = phrase[:117] + "..."
         out.append({
             "id": f"axis:{var}",
             "kind": "observation",
             "source": "code",
-            "title": (
-                f"未試験の軸: {meta['label']} {var} = {cur:g}{unit}（1変数で試せる残り）"
-            ),
+            "title": title,
             "summary": (
                 f"{meta['text']} 閉鎖済み軸（policy の表）の補集合として残った"
                 "1 変数のノブ。この軸を試験したら policy の表へ足すとカードが消える。"
@@ -1532,7 +1562,7 @@ def _axis_cards() -> list[dict]:
                 {"label": "提案値", "value": meta["propose"], "num": True, "digits": digits},
             ],
             "hypothesis": meta["hypothesis"],
-            "phrase": f"未試験の軸 {meta['label']}({var}) は {cur:g}{unit}（1変数で試せる残り）",
+            "phrase": phrase,
             "metric": meta["judge"],
             "from_tab": "コード",
             "from_path": "agent/args.json, agent/strategy/specialists/default.py",
@@ -1981,14 +2011,17 @@ def _metric_cards(
     for card in out:
         if card.get("id") == "metric:ammo_reserve":
             card["hypothesis"] = (
-                "残弾を増やす方向（温存）は逆効果（N-028 で棄却済み）。"
-                "残弾量は勝敗と無相関のため、この数値から立てる新規仮説はない。別軸へ。"
+                "残弾を増やす方向（温存）は逆効果（N-028 で確認済み）。"
+                "残弾量は護衛対象機の撃墜（ELIMINATION）に必要（stranded_ammo）。"
+                "護衛戦闘機の先行排除（winpath-escort）で生存を延長し、"
+                "死蔵弾を削減する方向で再分析する。"
             )
     for card in out:
         if card.get("id") == "metric:fire_orders":
             card["hypothesis"] = (
-                "射撃指示の増加は命中・勝敗を動かさない（N-018・N-025 で閉鎖）。"
-                "参考値としてのみ見る。"
+                "射撃指示は多数あるが命中・勝敗に直結しない（N-018・N-025 で確認済み）。"
+                "問題は発射数ではなく、射撃指示を出すトリガーの合理性。"
+                "距離・角度・追跡安定の条件が揃った時点でのみ指示を出す構造変更が必要。"
             )
     for card in out:
         if card.get("id") == "metric:min_dist_km":
@@ -2000,8 +2033,10 @@ def _metric_cards(
     for card in out:
         if card.get("id") == "metric:launch_count":
             card["hypothesis"] = (
-                "発射数の増加は命中・勝敗を動かさない（N-018・N-025 で閉鎖）。"
-                "量でなく生存の軸へ。"
+                "発射数が目標の33%（10/30）。射撃ゲート条件（track_ok, interval_ok, align_ok等）の"
+                "いずれかが律速。ログの fire_orders vs launches 比較で主因を特定し、"
+                "該当ゲートを1メカニズム単位で調整する。"
+                "N-018・N-025 で発射数増加の効果は確認済み（命中・勝敗不変）。"
             )
     return out
 
@@ -2125,7 +2160,7 @@ def _escort_branch_hypothesis(dist) -> str | None:
     """護衛対象機への最短距離から分岐ガイド文を作る.
 
     到達（20km 以内）は必要条件に過ぎず、勝ちには命中・撃墜が要る。
-    未到達はシナリオ支配で変数なし（N-029 で閉鎖）。
+    未到達はシナリオ支配で変数なし（N-029 で確認済み）。
     """
     if dist is None:
         return None
@@ -2135,8 +2170,9 @@ def _escort_branch_hypothesis(dist) -> str | None:
             "（ELIMINATION 成立）が条件。発射・命中軸で見る。"
         )
     return (
-        "未到達。接近はシナリオ支配で変数なし（N-029 で閉鎖）。"
+        "未到達。接近はシナリオ支配で変数なし（N-029 で確認済み）。"
         "到達しても命中が無ければ勝てない。"
+        "winpath-escort（護衛戦闘機の先行排除）で生存を延長し、到達率を上げる。"
     )
 
 
@@ -2167,7 +2203,9 @@ def _trigger_cards(
                 ],
                 "hypothesis": (
                     "深追いしても命中が無ければ意味がない。"
-                    "到達時の発射・命中軸で見る（温存は N-028 で棄却済み）。"
+                    "到達時の発射・命中軸で見る。"
+                    "護衛戦闘機の先行排除（winpath-escort）で生存を延長し、"
+                    "残弾を護衛対象機まで持ち帰る方向で再分析する。"
                 ),
                 "phrase": f"深追いしたが残弾が尽きていた（x={max_x:g} / 残弾 {reserve:g}）",
                 "metric": "最大進出 x と最終残弾（目標ボード）",

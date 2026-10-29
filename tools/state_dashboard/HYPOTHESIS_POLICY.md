@@ -1,7 +1,7 @@
 # 仮説の書き方（立案方針）
 
 ダッシュボードの「改善セッション」タブはこの方針を毎回表示し、事実カードと「いま実行するコマンド」の
-間に置く。仮説は 1 行で書き、数値を 1 つだけ入れる。
+間に置く。仮説は 1 行で書き、1つの因果メカニズムに限定する（同じメカニズムに属する複数ノブの同時変更は可）。
 
 ## 書き方の型
 
@@ -14,12 +14,13 @@
 
 - 事実: 事実カードから 1 つ選ぶ（出典が隣にある）
 - 原因: 変更前に決める。ログで裏を取りたいものは assumption として別途登録
-- 変数: 1 つだけ
+- 変数: 1つの因果メカニズム（args.json の値 or コード修正が複数ノブでも、同一メカニズムなら1変数扱い）
 - 予測: 2 つ（挙動指標 1 つ、判定指標 1 つ）
 
 ## 必ず守ること
 
-1. **1変数だけ**。同時に 2 つ変えると、悪化時に原因を切り分けられない。
+1. **1因果メカニズムだけ**。無関係なメカニズムを同時に変えると、悪化時に原因を切り分けられない。同一メカニズムに属する複数ノブの同時変更は許可する（例: 射撃整列 = fireAlignDeg + beamHoldWhileArmed）。
+2. **毎回ベースラインへ戻す**。前回の変更を残したまま次の変数を足さない。
 2. **数値予測を書く**。「何を何倍にするか」が書けないなら変更しない。
 3. **出所を付ける**。`--source` は「どこから見たか」（log / analysis / code / official）。
 4. **判定はペア評価**。`avg_score` / `avg_our_alive` / `avg_enemy_alive` と win-draw-loss だけで見る。
@@ -29,6 +30,59 @@
 6. **ログ構造を調べ直さない**。`tools/battle_analyzer/BATTLELOG_FORMAT.md` に既知の制約がある。
 7. **測れないものは推測しない**。できないことを `assumption`（`--source code`）として残す。
 8. **外したら理由を書く**。`record` の `--verification` に実測値と外れた理由を書く。
+
+## 改訂サイクル（1因果メカニズム・ベースライン復帰・ホールドアウト）
+
+1 因果メカニズムずつ試す。無関係なメカニズムを積み増さない。前回の変更が残ったまま次のメカニズムを足さない。同一メカニズム内の複数ノブは同時変更可。
+
+1. **ベースラインへ戻す**（毎サイクルの最初）
+   - args.json を採用済みベースライン（escortFireMinKm=35.0, fireRangeKm=50.0, trackConfirmFrames=0, roleSplit=0, evadeCrankDeg=0.0, escortFlankDeg=0.0, threatEvadeMaxFrames=0）に戻す
+   - `python scripts/build_submission.py --deploy`
+2. **1 因果メカニズムだけ実装する**（同一メカニズムに属する複数ノブ・複数箇所のコード修正を含めてよい）
+3. **1 戦ゲート**
+   - `docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --num-validation 1 --visualize 0"`
+4. **seed 固定ペア評価**（seeds 1-3 × 両面）
+   - `docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --label <label> --out /workspace/paired/<label>.json"`
+5. **ホールドアウト**（未見 seed 4-6 × 両面）
+   - `docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 4,5,6 --colors both --label <label>_ho --out /workspace/paired/<label>_ho.json"`
+6. **判定**
+   - seeds 1-3 と 4-6 の両方で `avg_score` / `avg_our_alive` / `avg_enemy_alive` を比較する
+   - どちらかで悪化したら即 revert し、採用しない
+7. **記録**
+   - `python analysis/tools/improvement_session.py validate --specialist default --paired /workspace/paired/<label>.json`
+   - `python analysis/tools/improvement_session.py record ...`
+
+改善しないメカニズムは args.json とコードの両方をベースラインへ完全に巻き戻す。
+試験済みの軸は「検証済みの変数軸」表へ 1 行足す。
+
+```
+# 例: ベースラインへ戻して 1 変数だけ試す
+python scripts/build_submission.py --deploy
+docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --num-validation 1 --visualize 0"
+```
+
+
+## ベースラインロック（効果検証の前提）
+
+validate の前に必ず実行する。
+
+```bash
+python analysis/tools/baseline_check.py --check --strict
+```
+
+- 0 メカニズム: 変更なし。validate しても前回と同一結果になるだけ
+- 1 メカニズム: 検証可能（同一メカニズム内の複数ノブ変更を含む）
+- 2 メカニズム以上: 即 revert してから 1 メカニズムずつ試す
+
+メカニズムの定義は `analysis/tools/mechanisms.json` で管理する。
+同一メカニズムに属するノブの同時変更は `--strict` でも 1 メカニズムとしてカウントする。
+
+採用済みベースラインを更新するときだけ `--lock` を使う。
+
+```bash
+python analysis/tools/baseline_check.py --lock
+```
+
 
 ## 深掘りと仮説の対応（CRITICAL — 深掘りの結論から仮説を逆算する）
 
@@ -77,7 +131,7 @@
   ②不在自体が③のトリガー。でっち上げは禁止。
 - 毎報告で①②③の少なくとも1つに実質変化。
 - commit は対象一覧＋文案を提示（明示指示時は提示後即実行）。マージは明示指示のみ。
-- コピー釦経由の指示は確認なしで即実行。改善は1変数ずつ。
+- コピー釦経由の指示は確認なしで即実行。改善は1因果メカニズムずつ。
 
 ## 検証済みの変数軸（再試験禁止）
 
@@ -96,8 +150,8 @@
 
 ## 未試験の軸（ここが材料）
 
-閉鎖済み軸（上の表）の補集合。1 変数で試せる残りのノブだけを事実カード
-（`仮説登録`タブ「事実カード」）に出す。軸を試験したら上の
+閉鎖済み軸（上の表）の補集合。1 因果メカニズムで試せる残りのノブだけを事実カード
+（`仮説登録`タブ「事実カード」）に出す。メカニズムを試験したら上の
 「検証済みの変数軸」表へ 1 行足すと、カードから自動で消える（`serve.py::_axis_cards`）。
 
 - 現在なし。`marginKm` は O-091/O-092（seeds1-3・4-6 ×両面=12戦が完全一致）で

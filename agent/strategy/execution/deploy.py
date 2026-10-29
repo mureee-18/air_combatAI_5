@@ -1,3 +1,8 @@
+"""Execution layer (実行層) for the escort hunter agent.
+
+Converts action indices into movement commands and missile launches.
+Does not make decisions — that is the judgment layer's responsibility.
+"""
 import numpy as np
 from ASRCAISim1.core import Track3D
 from math import cos, radians, sin

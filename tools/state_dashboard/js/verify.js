@@ -38,22 +38,10 @@ function renderVerify(d) {
   const tgt = s.target || "default";
   const varName = (cur && cur.variable) || "";
   const label = (varName || "hyp").replace(/[^A-Za-z0-9_]/g, "_");
+  h += '<p class="meta">実装後に 1 コマンドで baseline check → build → 1戦ゲート → paired評価 → validate → record まで実行します。</p>';
   h += cmdRow(
-    `変数 ${varName || "（仮説に未設定）"} を agent/args.json / agent/strategy/specialists/default.py に 1変数だけ実装する（他変数は据置、悪化時に原因を切り分けられるよう同時変更しない）。実装後に②build_submission→③1戦ゲート→④ペア評価→⑤validate へ進む。`,
-    "① 実装（1変数）", INTENT_IMPL);
-  h += cmdRow("python scripts/build_submission.py --deploy", "② ビルド＆デプロイ");
-  h += cmdRow(
-    'docker exec atla5-cpu bash -lc "cd /workspace && python validate.py --youth 1 --num-validation 1 --visualize 0"',
-    "③ 1戦ゲート（悪化なら即 revert・以降の実行を中止）");
-  h += cmdRow(
-    `docker exec atla5-cpu bash -lc "cd /workspace && python /repo/local_test/run_eval_paired.py --seeds 1,2,3 --colors both --label ${label} --out /workspace/paired/${label}.json"`,
-    `④ seed固定ペア評価（label=${label}）`);
-  h += cmdRow(
-    `python analysis/tools/improvement_session.py validate --specialist ${tgt} --paired workspace/paired/${label}.json --hypothesis ${sel}`,
-    "⑤ 仮説IDと紐付け消化（validate。これで pending から消える）");
-  h += cmdRow(
-    `python analysis/tools/improvement_session.py record --specialist ${tgt} --kind observation --source log --hypothesis ${sel} --direction "<方向>" --changes "<①で実装した内容>" --verification "<ペア評価の判定>" --next-steps "<次>"`,
-    "⑥ record で記録（<> を埋めて実行）。採用なら revert せず、不採用なら ① の変更を revert");
+    `python analysis/tools/verify_cycle.py --specialist ${tgt} --label ${label} --set <変数>=<値> && python analysis/tools/improvement_session.py validate --specialist ${tgt} --paired workspace/paired/${label}.json --hypothesis ${sel} && python analysis/tools/improvement_session.py record --specialist ${tgt} --kind observation --source log --hypothesis ${sel} --direction "<方向>" --changes "<実装した内容>" --verification "<ペア評価の判定>" --next-steps "<次>"`,
+    "① 一括検証（baseline check → build → 1戦ゲート → paired評価 → validate → record）", INTENT_IMPL);
   document.getElementById("verify").innerHTML = h;
   const pick = document.getElementById("verify-hyp");
   if (pick) {

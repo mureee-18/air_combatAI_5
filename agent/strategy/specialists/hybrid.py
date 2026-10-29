@@ -18,7 +18,8 @@ from .ma_default import DefaultPolicy
 MA_ARGS = {
     "fireRangeKm": 50.0, "breakRangeKm": 35.0, "evadeCrankDeg": 0.0, "marginKm": 25.0,
     "trackConfirmFrames": 0, "targetSpread": 0, "escortSeekDistKm": 150, "escortForwardXKm": 110,
-    "escortFireMode": 1, "escortMaxSpeedKmps": 0.0, "escortAmmoHold": 0, "escortNoBeam": 1,
+    "escortFireEnable": 1, "escortFireMaxDistKm": 0.0, "escortMaxSpeedKmps": 0.0,
+    "escortAmmoHold": 0, "escortNoBeam": 1,
     "escortIgnoreBreak": 1, "escortReserveMsls": 3, "beamHoldWhileArmed": 0, "beamHoldFrames": 0,
     "fireAlignDeg": 0, "launchIntervalFrames": 0,
 }

@@ -41,8 +41,8 @@ def dashboard_source() -> str:
         parts.append(path.read_text(encoding="utf-8"))
     return "\n".join(parts)
 
-TABS = ["環境", "提出", "エージェント", "観測・判断・行動", "評価", "ログ", "仮説登録",
-        "改善サイクル", "git", "コマンド", "コンペルール", "自機視点", "戦場俯瞰"]
+TABS = ["環境", "提出", "エージェント", "実装状態", "評価", "ログ", "仮説登録",
+        "改善サイクル", "検証", "git", "コマンド", "ルール", "自機視点", "戦場俯瞰"]
 
 
 def load_serve():
@@ -382,78 +382,16 @@ def test_index_has_agents_tab_showing_package_contents():
     assert "renderAgents(data)" in html
 
 
-def test_index_has_decision_tab_splitting_observation_decision_action():
+def test_index_has_impl_tab_showing_implementation_state():
     html = dashboard_source()
-    assert 'id="tab-decision"' in html
-    assert '<div id="decision"></div>' in html
-    assert '["decision", "観測・判断・行動"]' in html
-    # 観測・判断・行動 の描画は独立した関数（1つの関数に埋め込まない）
-    for fn in ("renderObservationHtml", "renderDecisionHtml", "renderActionHtml", "renderAircraft"):
-        assert f"function {fn}(" in html, f"{fn} が独立していない"
-
-    def fn_block(name):
-        s = html.index(f"function {name}(")
-        e = html.index("\nfunction ", s + 10)
-        return html[s:e]
-
-    # 観測の中 Villain 入れない: 観測だけ应是ログの値
-    assert "can_fire" not in fn_block("renderObservationHtml")
-    assert "off_nose" not in fn_block("renderObservationHtml")
-    # 行動の中は判定しない
-    assert "can_fire" not in fn_block("renderActionHtml")
-    assert "off_nose" not in fn_block("renderActionHtml")
-    # 判断だけが撃てるかの判定を持つ
-    assert "can_fire" in fn_block("renderDecisionHtml")
-    # renderDecision は機体ごとの描画を renderAircraft に委譲する
-    rdec = fn_block("renderDecision")
-    assert "renderAircraft(ac)" in rdec
-    for label in ("観測: 自機", "判断: 標的", "行動: 機首"):
-        assert label not in rdec, f"{label} の描画が renderDecision に残っている"
-    # ログ選択とフレーム移動
-    assert "/api/decision" in rdec
-    assert "/api/replays" in rdec
-    assert "renderDecision(data)" in html
-
-
-def test_decision_trace_is_split_into_separate_modules():
-    pkg = REPO_ROOT / "tools" / "battle_analyzer" / "decision_trace"
-    # 観測・判断・行動 はそれぞれ別ファイル
-    assert pkg.is_dir(), "decision_trace はディレクトリ（パッケージ）であるべき"
-    for name in ("observation.py", "decision.py", "action.py", "__init__.py"):
-        assert (pkg / name).exists(), f"{name} が無い"
-    # 旧 singularity ファイルは残さない
-    assert not (pkg.parent / "decision_trace.py").exists(), "単一ファイル版が残っている"
-    # 各モジュールは自分の責務だけを持つ
-    obs = (pkg / "observation.py").read_text(encoding="utf-8")
-    dec = (pkg / "decision.py").read_text(encoding="utf-8")
-    act = (pkg / "action.py").read_text(encoding="utf-8")
-    assert "def read_own" in obs and "def read_enemies" in obs and "def read_threat" in obs
-    assert "def read_turn" in act and "def read_speed" in act and "def read_target" in act
-    assert "can_fire" in dec and "off_nose" in dec
-    # 行動の判定（撃てるか）は判断側、観測は派生しない
-    assert "can_fire" not in obs
-
-
-def test_decision_trace_splits_observation_decision_action():
-    trace = _decision_module()
-    logs = sorted(REPO_ROOT.glob("workspace/results*/**/log_*.json"))
-    if not logs:
-        pytest.skip("実ログが無い環境ではスキップ")
-    cfg = json.loads((REPO_ROOT / "agent" / "config.json").read_text(encoding="utf-8"))
-    out = trace.build_frame(logs[0], 0, cfg)
-    assert out["frames"] >= 1
-    assert out["aircraft"], "機体の情報が無い"
-    ac = out["aircraft"][0]
-    # 観測: 自機・敵・脅威（ログが持つ値）
-    assert set(ac["observation"]) == {"own", "enemies", "threat"}
-    assert "ammo" in ac["observation"]["own"]
-    # 判断: 標的・照準・機首ずれ・撃てるか
-    assert set(ac["decision"]) >= {"target", "aim", "off_nose", "can_fire"}
-    # 行動: turn / speed / target を項目ごとに
-    assert set(ac["action"]) == {"turn", "speed", "target"}
-    assert set(ac["action"]["turn"]) == {"index", "value", "unit", "table"}
-    assert ac["action"]["turn"]["table"] == "turnTable"
-    assert ac["action"]["speed"]["table"] == "speedTable"
+    assert 'id="tab-impl"' in html
+    assert '<div id="impl"></div>' in html
+    assert '"impl", "実装状態"' in html
+    start = html.index("function renderImpl")
+    end = html.index("function renderEval") if "function renderEval" in html else len(html)
+    block = html[start:end]
+    assert "renderImpl(data)" in html
+    assert 'bindCopy(document.getElementById("impl"))' in block
 
 
 def test_index_has_verify_tab_with_hypothesis_selector():
@@ -470,23 +408,16 @@ def test_index_has_verify_tab_with_hypothesis_selector():
     # 選択した仮説 id を --hypothesis として各コマンドに差し込む
     assert "--hypothesis ${sel}" in block
     assert "--hypothesis" in html
-    # 検証フローは 6 行（①実装 ②デプロイ ③ゲート ④ペア評価 ⑤validate ⑥record）。
-    # すべてコピーボタン付き(cmdRow)で、①にも実装依頼のコピーボタンを置く
+    # 検証フローは 1 行に統合（verify_cycle → validate → record を && で連結）。
+    # コピーボタン付き(cmdRow) は 1 つ
     steps = (
-        "① 実装",
-        "② ビルド＆デプロイ",
-        "③ 1戦ゲート",
-        "④ seed固定ペア評価",
-        "⑤ 仮説IDと紐付け消化",
-        "⑥ record",
+        "① 一括検証",
     )
     for step in steps:
         assert step in block, f"検証タブに {step} が無い"
-    assert block.count("cmdRow(") >= 6, "各ステップにコピーボタン（cmdRow）が無い"
+    assert block.count("cmdRow(") >= 1, "コピーボタン（cmdRow）が無い"
     assert 'INTENT_IMPL' in block, "①実装行にコピーボタンの指示（INTENT_IMPL）が無い"
-    assert "python scripts/build_submission.py --deploy" in block
-    assert "validate.py --youth 1 --num-validation 1" in block
-    assert "run_eval_paired.py" in block
+    assert "verify_cycle.py" in block
     assert "improvement_session.py validate" in block
     assert "improvement_session.py record" in block
     # 検証タブにはカード（対象 specialist / 検証する仮説 / 現在地）を出さない

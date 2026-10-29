@@ -51,7 +51,14 @@ function renderAgents(d) {
     { k: "プリセット", v: (a.presets || []).length + " 個" },
   ]);
 
-  h += "<h2>Specialist（方針）— 提出で使われる実装</h2>";
+  h += "<h2>3層アーキテクチャ（観測・判断・実行）</h2>";
+  h += table([{label:"層"},{label:"ディレクトリ"},{label:"ファイル"},{label:"責務"}], [
+    ["観測層 (Observation)", "strategy/observation/", "mixin.py (ObservationMixin), escort_id.py (EscortIdentifier)", "センサデータ収集・観測構築・トラック管理・護衛識別"],
+    ["判断層 (Judgment)", "strategy/judgment/", "judgment.py (judge→Judgment), target_selection.py, threat_assessment.py, track_history.py, fire_decision.py, navigation.py", "目標選択・脅威評価・回避・航法・射撃判断"],
+    ["実行層 (Execution)", "strategy/execution/", "execution.py (execute), deploy.py (DeployMixin), control.py (ControlMixin)", "判断→アクションインデックス変換・ミサイル発射・運動指令"],
+    ["統合 (Orchestrator)", "strategy/specialists/default/", "policy.py (step = judge → execute)", "3層を連結"],
+  ]);
+  h += '<p class="meta">agent.py: ObservationMixin(strategy/observation/) / DeployMixin+ControlMixin(strategy/execution/) で層を分離。判断は DefaultPolicy(strategy/judgment/) に委譲。</p>';
   h += table([{label:"名前"},{label:"状態"},{label:"クラス"},{label:"説明"},{label:"行"}],
     (a.specialists || []).map(sp => [
       esc(sp.name),

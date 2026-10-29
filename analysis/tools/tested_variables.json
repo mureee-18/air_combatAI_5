@@ -142,14 +142,6 @@
         "ffx110.json"
       ]
     },
-    "escortFireMode": {
-      "values": "0/1",
-      "result": "1 は護衛候補への発射が射程内フレームの77%で成立するが avg_score 0.500 据置（hit_rate 0）。当時0を維持、現行 args は 1",
-      "refs": [
-        "N-139",
-        "efm1.json"
-      ]
-    },
     "beamHoldWhileArmed": {
       "values": "0/1",
       "result": "1 は命中率 0→0.184 だが beam 喪失で全滅（avg_score 0.278・our_alive 0.33）。0 を維持",
@@ -167,11 +159,12 @@
       ]
     },
     "fireAlignDeg": {
-      "values": "0/30",
-      "result": "30 は命中 0→0.12 だが生存・敵生存数が悪化（avg_score 0.364・our_alive 1.33・enemy 4.0）。0 を維持",
+      "values": "0/30/15",
+      "result": "0/15/30 すべて生存悪化。0 を維持（15: avg_score 0.276 our_alive 0.17、30: 0.364 our_alive 1.33）",
       "refs": [
         "N-142",
-        "fad30.json"
+        "fad30.json",
+        "N-216"
       ]
     },
     "escortMaxSpeedKmps": {
@@ -353,6 +346,29 @@
         "N-194",
         "struct-firing-track.json"
       ]
+    },
+    "escortFireEnable": {
+      "values": "0/1",
+      "result": "escortFireMode の後継。1 は護衛候補への発射を有効化する。escortFireMode と同等の挙動。",
+      "refs": [
+        "N-139",
+        "efm1.json"
+      ]
+    },
+    "escortFireMaxDistKm": {
+      "values": "0",
+      "result": "0 は fireRangeKm を使用（デフォルト）。新規変数。",
+      "refs": []
+    },
+    "attackRoleEnable": {
+      "values": "0/1",
+      "result": "新規変数。0=全機攻撃（roleSplit=0同等）、1=roleSplit有効",
+      "refs": []
+    },
+    "attackerSlotMask": {
+      "values": "15",
+      "result": "新規変数。bitmask で攻撃可能スロットを指定（15=全機、1=slot0のみ）",
+      "refs": []
     }
   }
 }

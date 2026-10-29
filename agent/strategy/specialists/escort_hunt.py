@@ -16,7 +16,7 @@ import numpy as np
 from ASRCAISim1.policy import StandalonePolicy
 
 from ..agents.escort_hunter import EscortHunterAgent
-from ..agents.escort_id import racetrack_intercept
+from ..observation import racetrack_intercept
 
 
 def get_agent_class(args={}):
