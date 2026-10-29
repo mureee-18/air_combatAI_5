@@ -1,5 +1,71 @@
 {
   "version": 1,
   "note": "事実カードごとの仮説用フィールド。variable_status: open=未試験の数値ノブ / direction=方向カード（構造変更）/ closed=検証済み軸（再試験禁止）/ none=仮説対象外（理由を reason に書く）。open・direction は prediction を必須とする。",
-  "cards": {}
+  "cards": {
+    "paired": {
+      "cause": "評価の要約カード（個別の原因ではない）",
+      "variable": "",
+      "variable_status": "none",
+      "judge": "avg_score / avg_our_alive / avg_enemy_alive",
+      "reason": "ペア評価の基準値。仮説の変数ではない"
+    },
+    "constraints": {
+      "cause": "既知の制約（前提）",
+      "variable": "",
+      "variable_status": "none",
+      "judge": "",
+      "reason": "前提（assumption）カード。仮説の対象外"
+    },
+    "metric:stranded_ammo": {
+      "cause": "＝護衛用予備 escortReserveMsls(3) × 護衛対象機到達前に撃墜された機数（線形。実測 r2_4=6 / r4_4=12 / r5_4=15 ＝ 予備値×撃墜3機、rs1=9/rs2B=6/rs4=9）。旧原因（一斉射撃の撃ち残し）は解消済み",
+      "variable": "護衛戦闘機の先行排除（構造変更）",
+      "variable_name": "winpath-escort",
+      "variable_status": "direction",
+      "direction_id": "winpath-escort",
+      "judge": "stranded_ammo / avg_our_alive",
+      "prediction": "方向カード winpath-escort の 1 変数に分解して着手する（早期撃墜を減らせば予備が護衛対象機へ届く）。予備値そのものは 2/3/4/5 試験済みで 3 が最良",
+      "reason": ""
+    },
+    "metric:escort_min_dist_km": {
+      "cause": "護衛対象機は 150km 以上に留まり、接近の途中で護衛戦闘機に阻まれる",
+      "variable": "護衛戦闘機の先行排除（構造変更）",
+      "variable_name": "winpath-escort",
+      "variable_status": "direction",
+      "direction_id": "winpath-escort",
+      "judge": "escort_min_dist_km / avg_enemy_alive",
+      "prediction": "方向カード winpath-escort の 1 変数に分解して着手する（数値ノブでは試験不能）",
+      "reason": ""
+    },
+    "metric:hit_count": {
+      "cause": "一斉射撃（4 フレーム間隔で 2〜3 発を同じ目標へ連続発射）で、1 発目の結果前に次を撃ち、24 発中命中 0。再検証で外れ量の正体を特定：照準点は『発射時の標的位置』固定。護衛対象機（速度0.24km/s）への3発は飛行時間22秒のあいだ護衛対象機が5.0〜5.6km動く＝照準点の古さ。護衛対象機はアセット半径5kmの巡回体（mission config radius 5000m）なので5.02〜5.60kmの外れは毎回ほぼ半径外。弾は10km以遠では発射時航跡で誘導される（O-164）ため先読みは効かない",
+      "phrase": "命中0の正体：照準点は発射時の位置固定で22秒後に5.0〜5.6kmずれ、護衛アセット半径5kmを毎回わずかに外す",
+      "variable": "追跡安定度ベース発封E",
+      "variable_name": "struct-firing-track",
+      "variable_status": "none",
+      "judge": "hit_count / avg_score / avg_our_alive",
+      "prediction": "追跡安定度を1変数で検証し、burst_first_hit_rate を見る",
+      "reason": "照準点の古さは物理・誘導制約で1変数では解けない。命中は接近・識別・生存改善の副次指標として見る",
+      "hypothesis": "同じ目標を連続Nフレーム追跡できた時だけ発封E��、バースト�E弾を減らす"
+    },
+    "metric:burst_role_split": {
+      "cause": "4機を攻撃機1機＋回避機3機などに役割分担し、攻撃機のみ発射・回避機は発射せず beam/break を優先することで、バーストを防ぎ生存と命中を両立する",
+      "variable": "4機の役割刁E��",
+      "variable_name": "struct-spread-with-cover",
+      "variable_status": "direction",
+      "judge": "avg_our_alive / avg_score / burst_first_hit_rate",
+      "prediction": "役割刁E��を1変数で検証し、avg_our_alive と命中率を見る",
+      "reason": "",
+      "hypothesis": "攻撁E��と回避機に役割刁E��し、回避機の発封E��止で生存と命中を両立する"
+    },
+    "metric:movement_evasion": {
+      "cause": "threat回避・beam/breakの切り替えタイミング、回避機動の挙動。脅威検知時にどの方向へ回避するか、beam/breakをいつ使うかが生存を左右する",
+      "variable": "回避機動・脁E��回避タイミング",
+      "variable_name": "avoidance-width-period",
+      "variable_status": "direction",
+      "judge": "avg_our_alive / avg_enemy_alive / avg_score",
+      "prediction": "回避パラメータを1変数で検証し、avg_our_alive を見る",
+      "reason": "",
+      "hypothesis": "回避幅・周期と回避中発封E��を調整し、生存を上げる"
+    }
+  }
 }

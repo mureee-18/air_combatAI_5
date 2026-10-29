@@ -27,7 +27,7 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
     else:
         slot = sum(ord(c) for c in name) % 4
         attack_role = bool(policy.attacker_slot_mask & (1 << slot))
-    track_ok = policy.track_confirm_frames <= 0 or policy._track_count >= policy.track_confirm_frames
+    track_ok = (policy.track_confirm_frames <= 0 and policy._track_count >= 1) or policy._track_count >= policy.track_confirm_frames
 
     fire_target = best
     if policy.escort_fire_enable > 0 and escort_candidate is not None:
@@ -52,7 +52,7 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
     )
 
     burst_head = name not in policy._last_fire or tick - policy._last_fire[name] > 4
-    align_ok = policy.fire_align_deg <= 0.0 or off_nose <= policy.fire_align_deg
+    align_ok = (policy.fire_align_deg <= 0.0 and off_nose <= 90.0) or off_nose <= policy.fire_align_deg
     if policy.burst_head_align_deg > 0.0 and burst_head:
         align_ok = align_ok and off_nose <= policy.burst_head_align_deg
 

@@ -23,7 +23,10 @@
       "escortForwardXKm",
       "escortMaxSpeedKmps",
       "escortFlankDeg",
-      "flankFullDistKm"
+      "flankFullDistKm",
+      "escortUseForwardX",
+      "escortUseSeekDist",
+      "escortFlankEnable"
     ],
     "escort-fire-control": [
       "escortAmmoHold",

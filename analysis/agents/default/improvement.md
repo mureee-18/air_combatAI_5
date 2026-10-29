@@ -2335,3 +2335,93 @@
 - 検証: paired winpath_escort 結果待ち
 - 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
 - 次の一手: escortAmmoHold は 0 を維持。再試験不可推奨。
+
+## O-233 [observation/log] 2026-10-29T18:07:24
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: トラッキングメカニズム（trackConfirmFrames）
+- 仮説: N-225
+- 変更: trackConfirmFrames 0->2
+- 検証: paired trackConfirmFrames 結果待ち
+- 指標: {"avg_score": 0.663, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: trackConfirmFrames は 0 を維持。再試験不可推奨。
+
+## O-234 [observation/log] 2026-10-29T18:35:27
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃前機首整列（fireAlignDeg）
+- 仮説: N-226
+- 変更: fireAlignDeg 0->10
+- 検証: paired fireAlignDeg 結果待ち
+- 指標: {"avg_score": 0.422, "avg_our_alive": 1.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: fireAlignDeg は 0 を維持。再試験不可推奨。
+
+## O-235 [observation/log] 2026-10-29T18:59:35
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: バースト初弾の機首整列（burstHeadAlignDeg）
+- 仮説: N-228
+- 変更: burstHeadAlignDeg 0->10
+- 検証: paired burstHeadAlignDeg 結果待ち
+- 指標: {"avg_score": 0.64, "avg_our_alive": 3.17, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: burstHeadAlignDeg は 0 を維持。再試験不可推奨。
+
+## O-236 [observation/log] 2026-10-29T19:19:36
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 死蔵弾数削減（護衛用予備）
+- 仮説: N-229
+- 変更: escortAmmoHold 0->1
+- 検証: paired escortAmmoHold 結果待ち
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: escortAmmoHold は 0 を維持。再試験不可推奨。
+
+## O-237 [observation/log] 2026-10-29T19:27:21
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: トラッキングメカニズム（trackConfirmFrames）
+- 仮説: N-230
+- 変更: trackConfirmFrames 0->2
+- 検証: paired trackConfirmFrames 結果待ち
+- 指標: {"avg_score": 0.663, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: trackConfirmFrames は 0 を維持。再試験不可推奨。
+
+## O-238 [observation/log] 2026-10-29T19:33:02
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 死蔵弾数削減（護衛用予備）
+- 仮説: N-227
+- 変更: escortReserveMsls 3->2
+- 検証: paired escortReserveMsls 結果待ち
+- 指標: {"avg_score": 0.677, "avg_our_alive": 3.5, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: escortReserveMsls は 3 を維持。再試験不可推奨。
+
+## O-239 [observation/log] 2026-10-29T19:50:21
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛識別メカニズム（escortUseForwardX + escortUseSeekDist）
+- 仮説: N-231
+- 変更: escortUseForwardX 1->0
+- 検証: paired escortUseForwardX 結果待ち
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: escortUseForwardX は 1 を維持。再試験不可推奨。
+
+## O-240 [observation/log] 2026-10-29T19:56:21
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛戦闘機の先行排除（護衛対象機射程内まで発射保留）
+- 仮説: N-232
+- 変更: escortAmmoHold 0->1
+- 検証: paired winpath_escort 結果待ち
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: escortAmmoHold は 0 を維持。再試験不可推奨。
+
+## O-241 [observation/log] 2026-10-29T20:03:31
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: トラッキングメカニズム（trackConfirmFrames）
+- 仮説: N-233
+- 変更: trackConfirmFrames 0->2
+- 検証: paired trackConfirmFrames 結果待ち
+- 指標: {"avg_score": 0.663, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: trackConfirmFrames は 0 を維持。再試験不可推奨。
