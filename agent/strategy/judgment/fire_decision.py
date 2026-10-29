@@ -27,7 +27,10 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
     else:
         slot = sum(ord(c) for c in name) % 4
         attack_role = bool(policy.attacker_slot_mask & (1 << slot))
-    track_ok = (policy.track_confirm_frames <= 0 and policy._track_count >= 1) or policy._track_count >= policy.track_confirm_frames
+    track_ok = (
+        (policy.track_confirm_frames <= 0 and policy._track_count >= 1)
+        or policy._track_count >= policy.track_confirm_frames
+    )
 
     fire_target = best
     if policy.escort_fire_enable > 0 and escort_candidate is not None:

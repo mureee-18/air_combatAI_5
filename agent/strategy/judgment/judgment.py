@@ -90,7 +90,8 @@ def judge(policy, observation, reward, done, info, agent_full_name,
         if (escort_candidate is not None and not breaking
                 and best_dist > policy.beam_range_km):
             flank = 0.0
-            if getattr(policy, "escort_flank_enable", 0) > 0 and policy._flankDeg != 0.0 and policy.flankFullDistKm > 0.0:
+            flank_enable = getattr(policy, "escort_flank_enable", 0) > 0
+            if flank_enable and policy._flankDeg != 0.0 and policy.flankFullDistKm > 0.0:
                 dist = float(enemy[escort_candidate, 2])
                 factor = min(max(dist / policy.flankFullDistKm, 0.0), 1.0)
                 flank = policy._flankDeg * factor
