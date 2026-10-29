@@ -26,8 +26,9 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
     track_ok = policy.track_confirm_frames <= 0 or policy._track_count >= policy.track_confirm_frames
 
     fire_target = best
-    if policy.escort_fire_mode > 0 and escort_candidate is not None:
-        if float(enemy[escort_candidate, 2]) <= policy.fire_range_km:
+    if policy.escort_fire_enable > 0 and escort_candidate is not None:
+        max_dist = policy.escort_fire_max_km if policy.escort_fire_max_km > 0.0 else policy.fire_range_km
+        if float(enemy[escort_candidate, 2]) <= max_dist:
             fire_target = escort_candidate
 
     ammo_hold_ok = (

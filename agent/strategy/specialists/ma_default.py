@@ -42,7 +42,8 @@ class DefaultPolicy(StandalonePolicy):
         self._lastFire = {}
         self.escortSeekDistKm = float(args.get("escortSeekDistKm", 0.0))
         self.escortForwardXKm = float(args.get("escortForwardXKm", 0.0))
-        self.escortFireMode = int(args.get("escortFireMode", 0))
+        self.escortFireEnable = int(args.get("escortFireEnable", 0))
+        self.escortFireMaxDistKm = float(args.get("escortFireMaxDistKm", 0.0))
         self.escortMaxSpeedKmps = float(args.get("escortMaxSpeedKmps", 0.0))
         self.escortAmmoHold = int(args.get("escortAmmoHold", 0))
         self.escortNoBeam = int(args.get("escortNoBeam", 0))
@@ -161,8 +162,9 @@ class DefaultPolicy(StandalonePolicy):
                 or tick - self._lastFire[name] >= self.launchIntervalFrames
             )
             fire_target = best
-            if self.escortFireMode > 0 and escort_candidate is not None:
-                if float(enemy[escort_candidate, 2]) <= self.fireRangeKm:
+            if self.escortFireEnable > 0 and escort_candidate is not None:
+                max_dist = self.escortFireMaxDistKm if self.escortFireMaxDistKm > 0.0 else self.fireRangeKm
+                if float(enemy[escort_candidate, 2]) <= max_dist:
                     fire_target = escort_candidate
             ammo_hold_ok = (
                 self.escortAmmoHold <= 0

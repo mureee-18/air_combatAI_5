@@ -3,10 +3,10 @@
   "note": "因果メカニズムの定義。同一メカニズムに属する args.json のキーは同時に変更しても「1メカニズム変更」とみなす。baseline_check.py --strict はメカニズム単位でカウントする。編集可。",
   "mechanisms": {
     "firing-alignment": ["fireAlignDeg", "beamHoldWhileArmed", "beamHoldFrames", "burstHeadAlignDeg"],
-    "firing-range": ["fireRangeKm", "escortFireMinKm", "escortFireMode"],
+    "firing-range": ["fireRangeKm", "escortFireMinKm", "escortFireMaxDistKm", "escortFireMode"],
     "evasion": ["evadeCrankDeg", "threatEvadeMaxFrames"],
     "escort-approach": ["escortSeekDistKm", "escortForwardXKm", "escortMaxSpeedKmps", "escortFlankDeg", "flankFullDistKm"],
-    "escort-fire-control": ["escortAmmoHold", "escortNoBeam", "escortIgnoreBreak", "escortReserveMsls"],
+    "escort-fire-control": ["escortAmmoHold", "escortNoBeam", "escortIgnoreBreak", "escortReserveMsls", "escortFireEnable"],
     "tracking": ["trackConfirmFrames", "trackPosToleranceKm", "targetSpread"],
     "break-beam-margin": ["breakRangeKm", "beamRangeKm", "marginKm", "marginAzDeg"],
     "firing-control": ["maxSimulShot", "launchIntervalFrames", "roleSplit", "engageRangeKm"]

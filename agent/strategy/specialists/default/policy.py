@@ -52,7 +52,8 @@ class DefaultPolicy(StandalonePolicy):
         # --- Escort (護衛) ---
         self.escort_seek_dist_km = float(args.get("escortSeekDistKm", 0.0))
         self.escort_forward_x_km = float(args.get("escortForwardXKm", 0.0))
-        self.escort_fire_mode = int(args.get("escortFireMode", 0))
+        self.escort_fire_enable = int(args.get("escortFireEnable", 0))
+        self.escort_fire_max_km = float(args.get("escortFireMaxDistKm", 0.0))
         self.escort_max_speed_kmps = float(args.get("escortMaxSpeedKmps", 0.0))
         self.escort_ammo_hold = int(args.get("escortAmmoHold", 0))
         self.escort_no_beam = int(args.get("escortNoBeam", 0))

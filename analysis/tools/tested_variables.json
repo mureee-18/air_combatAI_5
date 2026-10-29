@@ -142,14 +142,6 @@
         "ffx110.json"
       ]
     },
-    "escortFireMode": {
-      "values": "0/1",
-      "result": "1 は護衛候補への発射が射程内フレームの77%で成立するが avg_score 0.500 据置（hit_rate 0）。当時0を維持、現行 args は 1",
-      "refs": [
-        "N-139",
-        "efm1.json"
-      ]
-    },
     "beamHoldWhileArmed": {
       "values": "0/1",
       "result": "1 は命中率 0→0.184 だが beam 喪失で全滅（avg_score 0.278・our_alive 0.33）。0 を維持",
@@ -354,6 +346,19 @@
         "N-194",
         "struct-firing-track.json"
       ]
+    },
+    "escortFireEnable": {
+      "values": "0/1",
+      "result": "escortFireMode の後継。1 は護衛候補への発射を有効化する。escortFireMode と同等の挙動。",
+      "refs": [
+        "N-139",
+        "efm1.json"
+      ]
+    },
+    "escortFireMaxDistKm": {
+      "values": "0",
+      "result": "0 は fireRangeKm を使用（デフォルト）。新規変数。",
+      "refs": []
     }
   }
 }
