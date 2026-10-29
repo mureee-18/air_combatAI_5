@@ -4,10 +4,12 @@ function renderImpl(d) {
   const baseline = {
     "fireRangeKm": 50.0, "breakRangeKm": 35.0, "evadeCrankDeg": 0.0, "marginKm": 25.0,
     "trackConfirmFrames": 0, "targetSpread": 0, "escortSeekDistKm": 150, "escortForwardXKm": 110,
+    "escortUseForwardX": 1, "escortUseSeekDist": 0,
     "escortFireEnable": 1, "escortFireMaxDistKm": 0.0, "escortMaxSpeedKmps": 0.3, "escortAmmoHold": 0, "escortNoBeam": 1,
-    "escortIgnoreBreak": 1, "escortReserveMsls": 3, "escortFireMinKm": 35.0, "beamHoldWhileArmed": 0,
+    "escortIgnoreBreak": 1, "escortReserveMsls": 3, "escortFireMinKm": 35.0, "escortFlankEnable": 0, "escortFlankDeg": 0.0,
+    "beamHoldWhileArmed": 0,
     "beamHoldFrames": 0, "fireAlignDeg": 0, "launchIntervalFrames": 0, "attackRoleEnable": 0, "attackerSlotMask": 15,
-    "escortFlankDeg": 0.0, "threatEvadeMaxFrames": 0, "burstHeadAlignDeg": 0.0,
+    "threatEvadeMaxFrames": 0, "burstHeadAlignDeg": 0.0,
   };
   const desc = {
     "fireRangeKm": "射撃開始距離(km)。遠いほど早く撃てるが弾浪費リスク",
@@ -33,6 +35,9 @@ function renderImpl(d) {
     "attackRoleEnable": "役割分担有効化(0=全機攻撃, 1=攻撃機のみ発射)",
     "attackerSlotMask": "攻撃可能スロット bitmask(15=全機, 1=slot0のみ)",
     "escortFlankDeg": "護衛接近の側方オフセット角度(度)",
+    "escortFlankEnable": "護衛接近の側方オフセット有効化(0=無効, 1=有効)",
+    "escortUseForwardX": "護衛識別: forward-x 方式の有効化(0=無効, 1=有効)",
+    "escortUseSeekDist": "護衛識別: seek-dist 方式の有効化(0=無効, 1=有効)",
     "threatEvadeMaxFrames": "脅威回避の最大フレーム数。0=無制限",
     "burstHeadAlignDeg": "バースト初弾の機首整列角度(度)",
   };

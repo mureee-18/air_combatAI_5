@@ -52,6 +52,8 @@ class DefaultPolicy(StandalonePolicy):
         # --- Escort (護衛) ---
         self.escort_seek_dist_km = float(args.get("escortSeekDistKm", 0.0))
         self.escort_forward_x_km = float(args.get("escortForwardXKm", 0.0))
+        self.escort_use_forward_x = int(args.get("escortUseForwardX", 0))
+        self.escort_use_seek_dist = int(args.get("escortUseSeekDist", 0))
         self.escort_fire_enable = int(args.get("escortFireEnable", 0))
         self.escort_fire_max_km = float(args.get("escortFireMaxDistKm", 0.0))
         self.escort_max_speed_kmps = float(args.get("escortMaxSpeedKmps", 0.0))
@@ -60,6 +62,7 @@ class DefaultPolicy(StandalonePolicy):
         self.escort_ignore_break = int(args.get("escortIgnoreBreak", 0))
         self.escort_reserve_msls = int(args.get("escortReserveMsls", 0))
         self.escort_fire_min_km = float(args.get("escortFireMinKm", 0.0))
+        self.escort_flank_enable = int(args.get("escortFlankEnable", 0))
         self._flankDeg = float(args.get("escortFlankDeg", 0.0))
         self.flankFullDistKm = float(args.get("flankFullDistKm", 150.0))
 

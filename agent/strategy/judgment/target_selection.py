@@ -8,7 +8,14 @@ import numpy as np
 
 
 def select_escort_candidate(policy, enemy, detected, own):
-    """Identify the escort (high-value) target among detected enemies."""
+    """Identify the escort (high-value) target among detected enemies.
+
+    Uses independent enable flags instead of implicit either/or:
+      - escortUseForwardX: enable forward-x based identification
+      - escortUseSeekDist: enable seek-dist based identification
+    When both enabled, forward-x takes priority (existing behavior).
+    When neither enabled, falls back to threshold-based (original behavior).
+    """
     if not detected:
         return None
     eligible = detected
@@ -16,7 +23,12 @@ def select_escort_candidate(policy, enemy, detected, own):
         eligible = [i for i in detected if float(enemy[i, 5]) <= policy.escort_max_speed_kmps]
     if not eligible:
         return None
-    if policy.escort_forward_x_km > 0.0:
+
+    use_fwd = getattr(policy, "escort_use_forward_x", 1)
+    use_seek = getattr(policy, "escort_use_seek_dist", 0)
+
+    # Forward-x based identification (independent enable)
+    if use_fwd > 0 and policy.escort_forward_x_km > 0.0:
         fwd = [
             (i, own[0] + enemy[i, 2] * np.cos(np.radians(enemy[i, 1])))
             for i in eligible
@@ -24,11 +36,28 @@ def select_escort_candidate(policy, enemy, detected, own):
         cand_i, cand_x = max(fwd, key=lambda t: t[1])
         if cand_x >= policy.escort_forward_x_km:
             return cand_i
-        return None
-    if policy.escort_seek_dist_km > 0:
+
+    # Seek-dist based identification (independent enable)
+    if use_seek > 0 and policy.escort_seek_dist_km > 0:
         far = [i for i in eligible if enemy[i, 2] >= policy.escort_seek_dist_km]
         if far:
             return max(far, key=lambda i: enemy[i, 2])
+
+    # Fallback: original either/or when neither enable flag is set
+    if use_fwd == 0 and use_seek == 0:
+        if policy.escort_forward_x_km > 0.0:
+            fwd = [
+                (i, own[0] + enemy[i, 2] * np.cos(np.radians(enemy[i, 1])))
+                for i in eligible
+            ]
+            cand_i, cand_x = max(fwd, key=lambda t: t[1])
+            if cand_x >= policy.escort_forward_x_km:
+                return cand_i
+        if policy.escort_seek_dist_km > 0:
+            far = [i for i in eligible if enemy[i, 2] >= policy.escort_seek_dist_km]
+            if far:
+                return max(far, key=lambda i: enemy[i, 2])
+
     return None
 
 
