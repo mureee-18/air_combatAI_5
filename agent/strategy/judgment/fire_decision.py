@@ -22,7 +22,11 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
         or name not in policy._last_fire
         or tick - policy._last_fire[name] >= policy.launch_interval_frames
     )
-    attack_role = policy.role_split <= 0 or (sum(ord(c) for c in name) % 4 == 0)
+    if policy.attack_role_enable <= 0:
+        attack_role = True
+    else:
+        slot = sum(ord(c) for c in name) % 4
+        attack_role = bool(policy.attacker_slot_mask & (1 << slot))
     track_ok = policy.track_confirm_frames <= 0 or policy._track_count >= policy.track_confirm_frames
 
     fire_target = best

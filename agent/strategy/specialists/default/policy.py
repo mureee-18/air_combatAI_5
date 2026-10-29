@@ -12,7 +12,7 @@ Parameters are grouped by purpose:
   - Firing (射撃): fire range, beam/break, alignment, launch control, tracking
   - Evasion (回避): crank, threat evade, margin
   - Escort (護衛): seek, approach, fire control, flank
-  - Role (役割): role split
+  - Role (役割): attack role enable, attacker slot mask
 """
 
 from ASRCAISim1.policy import StandalonePolicy
@@ -64,7 +64,8 @@ class DefaultPolicy(StandalonePolicy):
         self.flankFullDistKm = float(args.get("flankFullDistKm", 150.0))
 
         # --- Role (役割) ---
-        self.role_split = int(args.get("roleSplit", 0))
+        self.attack_role_enable = int(args.get("attackRoleEnable", 0))
+        self.attacker_slot_mask = int(args.get("attackerSlotMask", 15))
 
         # --- Internal state ---
         self._tick = {}

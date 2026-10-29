@@ -359,6 +359,16 @@
       "values": "0",
       "result": "0 は fireRangeKm を使用（デフォルト）。新規変数。",
       "refs": []
+    },
+    "attackRoleEnable": {
+      "values": "0/1",
+      "result": "新規変数。0=全機攻撃（roleSplit=0同等）、1=roleSplit有効",
+      "refs": []
+    },
+    "attackerSlotMask": {
+      "values": "15",
+      "result": "新規変数。bitmask で攻撃可能スロットを指定（15=全機、1=slot0のみ）",
+      "refs": []
     }
   }
 }

@@ -23,7 +23,8 @@ DEFAULT_BASELINE = {
     "marginKm": 25.0,
     "escortSeekDistKm": 150,
     "escortForwardXKm": 110,
-    "escortFireMode": 1,
+    "escortFireEnable": 1,
+    "escortFireMaxDistKm": 0.0,
     "escortMaxSpeedKmps": 0.3,
     "escortAmmoHold": 0,
     "escortNoBeam": 1,
@@ -31,7 +32,8 @@ DEFAULT_BASELINE = {
     "escortReserveMsls": 3,
     "escortFireMinKm": 35.0,
     "escortFlankDeg": 0.0,
-    "roleSplit": 0,
+    "attackRoleEnable": 0,
+    "attackerSlotMask": 15,
 }
 
 
