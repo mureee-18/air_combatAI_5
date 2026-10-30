@@ -8,7 +8,7 @@ function renderImpl(d) {
     "escortFireEnable": 1, "escortFireMaxDistKm": 0.0, "escortMaxSpeedKmps": 0.3, "escortAmmoHold": 0, "escortNoBeam": 1,
     "escortIgnoreBreak": 1, "escortReserveMsls": 3, "escortFireMinKm": 35.0, "escortFlankEnable": 0, "escortFlankDeg": 0.0,
     "beamHoldWhileArmed": 0,
-    "beamHoldFrames": 0, "fireAlignDeg": 0, "launchIntervalFrames": 0, "attackRoleEnable": 0, "attackerSlotMask": 15,
+    "beamHoldFrames": 0, "fireAlignDeg": 0, "launchIntervalFrames": 0,
     "threatEvadeMaxFrames": 0, "burstHeadAlignDeg": 0.0,
   };
   const desc = {
@@ -32,8 +32,6 @@ function renderImpl(d) {
     "beamHoldFrames": "ビーム保持フレーム数。射撃前の整列待ち",
     "fireAlignDeg": "射撃前機首整列角度(度)。この角度以内で発射可",
     "launchIntervalFrames": "発射間隔フレーム数。0=同時発射",
-    "attackRoleEnable": "役割分担有効化(0=全機攻撃, 1=攻撃機のみ発射)",
-    "attackerSlotMask": "攻撃可能スロット bitmask(15=全機, 1=slot0のみ)",
     "escortFlankDeg": "護衛接近の側方オフセット角度(度)",
     "escortFlankEnable": "護衛接近の側方オフセット有効化(0=無効, 1=有効)",
     "escortUseForwardX": "護衛識別: forward-x 方式の有効化(0=無効, 1=有効)",

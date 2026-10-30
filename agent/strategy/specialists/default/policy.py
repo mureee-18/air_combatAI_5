@@ -67,8 +67,8 @@ class DefaultPolicy(StandalonePolicy):
         self.flankFullDistKm = float(args.get("flankFullDistKm", 150.0))
 
         # --- Role (役割) ---
-        self.attack_role_enable = int(args.get("attackRoleEnable", 0))
-        self.attacker_slot_mask = int(args.get("attackerSlotMask", 15))
+        # Role assignment is emergent from other variables (escortAmmoHold, etc.).
+        # No dedicated mode switch; all aircraft can fire by default.
 
         # --- Internal state ---
         self._tick = {}

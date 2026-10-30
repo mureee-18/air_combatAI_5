@@ -32,8 +32,9 @@ DEFAULT_BASELINE = {
     "escortReserveMsls": 3,
     "escortFireMinKm": 35.0,
     "escortFlankDeg": 0.0,
-    "attackRoleEnable": 0,
-    "attackerSlotMask": 15,
+    "escortFlankEnable": 0,
+    "escortUseForwardX": 1,
+    "escortUseSeekDist": 0,
 }
 
 

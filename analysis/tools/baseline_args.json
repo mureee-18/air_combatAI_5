@@ -27,7 +27,5 @@
   "escortReserveMsls": 3,
   "escortFireMinKm": 35.0,
   "escortFlankEnable": 0,
-  "escortFlankDeg": 0.0,
-  "attackRoleEnable": 0,
-  "attackerSlotMask": 15
+  "escortFlankDeg": 0.0
 }

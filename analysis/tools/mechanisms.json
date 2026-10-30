@@ -49,9 +49,7 @@
     "firing-control": [
       "maxSimulShot",
       "launchIntervalFrames",
-      "engageRangeKm",
-      "attackRoleEnable",
-      "attackerSlotMask"
+      "engageRangeKm"
     ]
   }
 }

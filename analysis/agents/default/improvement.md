@@ -2425,3 +2425,13 @@
 - 検証: paired trackConfirmFrames 結果待ち
 - 指標: {"avg_score": 0.663, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: trackConfirmFrames は 0 を維持。再試験不可推奨。
+
+## O-242 [observation/log] 2026-10-29T21:38:13
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機の役割分担（攻撃機1＋回避機3）
+- 仮説: N-235
+- 変更: roleSplit 0->1
+- 検証: paired struct_spread_with_cover 結果待ち
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: roleSplit は 0 を維持。再試験不可推奨。
