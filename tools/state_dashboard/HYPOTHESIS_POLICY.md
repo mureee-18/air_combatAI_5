@@ -36,7 +36,7 @@
 1 因果メカニズムずつ試す。無関係なメカニズムを積み増さない。前回の変更が残ったまま次のメカニズムを足さない。同一メカニズム内の複数ノブは同時変更可。
 
 1. **ベースラインへ戻す**（毎サイクルの最初）
-   - args.json を採用済みベースライン（escortFireMinKm=35.0, fireRangeKm=50.0, trackConfirmFrames=0, roleSplit=0, evadeCrankDeg=0.0, escortFlankDeg=0.0, threatEvadeMaxFrames=0）に戻す
+   - args.json を採用済みベースライン（escortFireMinKm=35.0, fireRangeKm=50.0, trackConfirmFrames=0, evadeCrankDeg=0.0, escortFlankDeg=0.0）に戻す
    - `python scripts/build_submission.py --deploy`
 2. **1 因果メカニズムだけ実装する**（同一メカニズムに属する複数ノブ・複数箇所のコード修正を含めてよい）
 3. **1 戦ゲート**

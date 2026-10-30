@@ -16,7 +16,8 @@
     ],
     "evasion": [
       "evadeCrankDeg",
-      "threatEvadeMaxFrames"
+      "evadeCrankThreatRelative",
+      "evadeCrankByAircraft"
     ],
     "escort-approach": [
       "escortSeekDistKm",

@@ -124,7 +124,17 @@ def judge(policy, observation, reward, done, info, agent_full_name,
     j.threat_detected = threat_detected
     j.evading = evading
     if threat_detected and evading:
-        j.desired_heading_deg = threat[1] + 180.0 + policy.evade_crank_deg
+        base_az = threat[1] + 180.0
+        crank = policy.evade_crank_deg
+        if getattr(policy, "evade_crank_threat_relative", 0) > 0:
+            # Crank away from threat based on which side it is on
+            rel_bearing = (threat[1] - own[4] + 180.0) % 360.0 - 180.0
+            crank_sign = 1.0 if rel_bearing >= 0 else -1.0
+            crank = crank_sign * abs(crank)
+        if getattr(policy, "evade_crank_by_aircraft", 0) > 0:
+            slot = sum(ord(c) for c in name) % 4
+            crank = crank + slot * 5.0
+        j.desired_heading_deg = base_az + crank
         j.fire_target_slot = None
 
     # --- margin adjustments ---

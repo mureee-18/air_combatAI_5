@@ -2,19 +2,21 @@ function renderImpl(d) {
   const a = d.agents || {};
   const args = a.args || {};
   const baseline = {
-    "fireRangeKm": 50.0, "breakRangeKm": 35.0, "evadeCrankDeg": 0.0, "marginKm": 25.0,
+    "fireRangeKm": 50.0, "breakRangeKm": 35.0, "evadeCrankDeg": 0.0, "evadeCrankThreatRelative": 0, "evadeCrankByAircraft": 0, "marginKm": 25.0,
     "trackConfirmFrames": 0, "targetSpread": 0, "escortSeekDistKm": 150, "escortForwardXKm": 110,
     "escortUseForwardX": 1, "escortUseSeekDist": 0,
     "escortFireEnable": 1, "escortFireMaxDistKm": 0.0, "escortMaxSpeedKmps": 0.3, "escortAmmoHold": 0, "escortNoBeam": 1,
     "escortIgnoreBreak": 1, "escortReserveMsls": 3, "escortFireMinKm": 35.0, "escortFlankEnable": 0, "escortFlankDeg": 0.0,
     "beamHoldWhileArmed": 0,
     "beamHoldFrames": 0, "fireAlignDeg": 0, "launchIntervalFrames": 0,
-    "threatEvadeMaxFrames": 0, "burstHeadAlignDeg": 0.0,
+    "burstHeadAlignDeg": 0.0,
   };
   const desc = {
     "fireRangeKm": "射撃開始距離(km)。遠いほど早く撃てるが弾浪費リスク",
     "breakRangeKm": "ブレイク(離脱)開始距離(km)。近いほど交戦持続",
     "evadeCrankDeg": "回避時の機首ずらし角度(度)。0=真後ろ退避",
+    "evadeCrankThreatRelative": "脅威方位基準のクランク(0=固定, 1=脅威側に応じて左右クランク)",
+    "evadeCrankByAircraft": "機体別クランク変動(0=固定, 1=機体スロットでクランク角度を変動)",
     "marginKm": "境界回避マージン(km)。小さいほど深く進出",
     "trackConfirmFrames": "射撃前に必要な連続トラックフレーム数。高いほど安定射撃",
     "targetSpread": "目標分散(0=集中射撃)。味方の射撃先を分散する",
@@ -36,7 +38,6 @@ function renderImpl(d) {
     "escortFlankEnable": "護衛接近の側方オフセット有効化(0=無効, 1=有効)",
     "escortUseForwardX": "護衛識別: forward-x 方式の有効化(0=無効, 1=有効)",
     "escortUseSeekDist": "護衛識別: seek-dist 方式の有効化(0=無効, 1=有効)",
-    "threatEvadeMaxFrames": "脅威回避の最大フレーム数。0=無制限",
     "burstHeadAlignDeg": "バースト初弾の機首整列角度(度)",
   };
   const keys = Object.keys(args).filter(k => k !== "type" && k !== "specialist").sort();

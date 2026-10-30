@@ -46,7 +46,10 @@ class DefaultPolicy(StandalonePolicy):
 
         # --- Evasion (回避) ---
         self.evade_crank_deg = float(args.get("evadeCrankDeg", 0.0))
-        self.threat_evade_max_frames = int(args.get("threatEvadeMaxFrames", 0))
+        self.evade_crank_threat_relative = int(args.get("evadeCrankThreatRelative", 0))
+        self.evade_crank_by_aircraft = int(args.get("evadeCrankByAircraft", 0))
+        self.evade_crank_threat_relative = int(args.get("evadeCrankThreatRelative", 0))
+        self.evade_crank_by_aircraft = int(args.get("evadeCrankByAircraft", 0))
         self.margin_km = float(args.get("marginKm", 25.0))
 
         # --- Escort (護衛) ---
