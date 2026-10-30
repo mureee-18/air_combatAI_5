@@ -25,7 +25,6 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
     # Role assignment is now emergent from other variables (escortAmmoHold, etc.).
     # All aircraft can fire by default; role split is achieved by combining
     # per-behavior toggles rather than a dedicated mode switch.
-    attack_role = True
     track_ok = (
         (policy.track_confirm_frames <= 0 and policy._track_count >= 1)
         or policy._track_count >= policy.track_confirm_frames
