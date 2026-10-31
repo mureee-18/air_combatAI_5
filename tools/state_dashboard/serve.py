@@ -1119,6 +1119,7 @@ def collect_session(paired: dict | None = None) -> dict:
         "hypotheses": target_session.get("hypotheses", []),
         "cycles": target_session.get("cycles", []),
         "pending": _pending_hypothesis_ids(target_session),
+        "recordable": _recordable_hypothesis_ids(target_session),
         "open_work": _open_work(target, target_session),
         "paired": paired,
         "metric_sources": METRIC_SOURCES,
@@ -1154,6 +1155,34 @@ def _validated_hypothesis_ids(target_session: dict) -> set:
     return ids
 
 
+def load_tested_variables() -> dict:
+    path = REPO_ROOT / "analysis" / "tools" / "tested_variables.json"
+    return load_json(path) or {}
+    """card_fill.json の open/direction カードが検証入口として立てる変数名."""
+    path = Path(__file__).with_name("card_fill.json")
+    try:
+        cards = (load_json(path) or {}).get("cards", {})
+    except (OSError, ValueError):
+        return set()
+    return {
+        (c.get("variable_name") or "").strip()
+        for c in cards.values()
+        if c.get("variable_status") in ("open", "direction") and (c.get("variable_name") or "").strip()
+    }
+def _card_fill_open_direction_vars() -> set:
+    """card_fill.json の open/direction カードが検証入口として立てる変数名."""
+    path = Path(__file__).with_name("card_fill.json")
+    try:
+        cards = (load_json(path) or {}).get("cards", {})
+    except (OSError, ValueError):
+        return set()
+    return {
+        (c.get("variable_name") or "").strip()
+        for c in cards.values()
+        if c.get("variable_status") in ("open", "direction") and (c.get("variable_name") or "").strip()
+    }
+
+
 def _pending_hypothesis_ids(target_session: dict) -> list:
     """まだ検証が必要な仮説 id（登録順）。
 
@@ -1162,23 +1191,39 @@ def _pending_hypothesis_ids(target_session: dict) -> list:
     """
     validated = _validated_hypothesis_ids(target_session)
     hyps = target_session.get("hypotheses", [])
-    # 検証済み仮説と同じ変数を持つ仮説もまとめて外す（検証単位は「変数」＝旧重複を消す）
-    def _is_tried_noise(h):
-        return False
-
+    validated = _validated_hypothesis_ids(target_session)
+    hyps = target_session.get("hypotheses", [])
+    # 未検証の仮説をすべて表示（dedup なし、cap なし）。
+    # 既試軸の仮説もユーザーが明示的に登録したものは検証対象とする。
     pending = [
         h
         for h in hyps
-        if h.get("id") not in validated and not _is_tried_noise(h)
+        if h.get("id") not in validated
     ]
-    # 同一変数の再登録重複は最新1件のみ pending に残す（検証対象の曖昧さを防ぐ）
-    out: list = []
-    for h in pending:
-        v = (h.get("variable") or "").strip()
-        if v:
-            out = [x for x in out if (x.get("variable") or "").strip() != v]
-        out.append(h)
-    return [h.get("id") for h in out]
+    # 最新 20 件に制限（古い仮説の蓄積を防ぐ）
+    pending = pending[-20:]
+    return [h.get("id") for h in pending]
+
+
+def _recordable_hypothesis_ids(target_session: dict) -> list:
+    """検証済みだが記録未実行の仮説 id（登録順）.
+
+    verify タブで record ステップを実行する対象。
+    """
+    validated = _validated_hypothesis_ids(target_session)
+    recorded = {
+        r.get("hypothesis")
+        for r in target_session.get("records", [])
+        if r.get("hypothesis")
+    }
+    hyps = target_session.get("hypotheses", [])
+    recordable = [
+        h
+        for h in hyps
+        if h.get("id") in validated and h.get("id") not in recorded
+    ]
+    recordable = recordable[-20:]
+    return [h.get("id") for h in recordable]
 
 
 def _open_work(target: str, target_session: dict) -> dict:

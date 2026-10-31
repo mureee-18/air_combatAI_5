@@ -19,7 +19,7 @@
 
 ## 必ず守ること
 
-1. **1因果メカニズムだけ**。無関係なメカニズムを同時に変えると、悪化時に原因を切り分けられない。同一メカニズムに属する複数ノブの同時変更は許可する（例: 射撃整列 = fireAlignDeg + beamHoldWhileArmed）。
+1. **1因果メカニズムだけ**。無関係なメカニズムを同時に変えると、悪化時に原因を切り分けられない。同一メカニズムに属する複数ノブの同時変更は許可する（例: 射撃整列 = fireAlignDeg + beamHoldFrames）。
 2. **毎回ベースラインへ戻す**。前回の変更を残したまま次の変数を足さない。
 2. **数値予測を書く**。「何を何倍にするか」が書けないなら変更しない。
 3. **出所を付ける**。`--source` は「どこから見たか」（log / analysis / code / official）。
@@ -36,7 +36,7 @@
 1 因果メカニズムずつ試す。無関係なメカニズムを積み増さない。前回の変更が残ったまま次のメカニズムを足さない。同一メカニズム内の複数ノブは同時変更可。
 
 1. **ベースラインへ戻す**（毎サイクルの最初）
-   - args.json を採用済みベースライン（escortFireMinKm=35.0, fireRangeKm=50.0, trackConfirmFrames=0, roleSplit=0, evadeCrankDeg=0.0, escortFlankDeg=0.0, threatEvadeMaxFrames=0）に戻す
+   - args.json を採用済みベースライン（escortFireMinKm=35.0, fireRangeKm=50.0, trackConfirmFrames=0, evadeCrankDeg=0.0, escortFlankDeg=0.0）に戻す
    - `python scripts/build_submission.py --deploy`
 2. **1 因果メカニズムだけ実装する**（同一メカニズムに属する複数ノブ・複数箇所のコード修正を含めてよい）
 3. **1 戦ゲート**

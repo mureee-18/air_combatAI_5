@@ -142,14 +142,6 @@
         "ffx110.json"
       ]
     },
-    "beamHoldWhileArmed": {
-      "values": "0/1",
-      "result": "1 は命中率 0→0.184 だが beam 喪失で全滅（avg_score 0.278・our_alive 0.33）。0 を維持",
-      "refs": [
-        "N-140",
-        "bha1.json"
-      ]
-    },
     "beamHoldFrames": {
       "values": "0/10",
       "result": "10 は命中 0→0.076 だが生存・敵生存数が悪化（avg_score 0.41・our_alive 2.0・enemy 4.0）。0 を維持",
@@ -174,35 +166,12 @@
         "O-165"
       ]
     },
-    "escortAmmoHold": {
-      "values": "0,1",
-      "result": "ペア評価 win4/draw2/loss0 avg_score0.608 (v2の0.500から改善)。護衛対象機射程内到達時残弾0->6、ELIMINATION実現(O-166)",
-      "refs": [
-        "O-166"
-      ]
-    },
     "escortReserveMsls": {
       "values": "2/3/4/5",
       "result": "3 が最良（win9/draw5/loss0, avg_score 0.617, our_alive 3.21, enemy_alive 3.5）。4/5 は Blue4 が負けに転落、2 は 3 と同等。3 を採用",
       "refs": [
         "O-168",
         "rsrm.json"
-      ]
-    },
-    "escortNoBeam": {
-      "values": "0/1",
-      "result": "挙動は変化するが結果不変（nbi 0.615 ＝ ahm7 0.616 と同一＝中立）。1 を採用",
-      "refs": [
-        "O-167",
-        "nbi.json"
-      ]
-    },
-    "escortIgnoreBreak": {
-      "values": "0/1",
-      "result": "挙動は変化するが結果不変（nbi 0.615 ＝ 中立）。1 を採用",
-      "refs": [
-        "O-167",
-        "nbi.json"
       ]
     },
     "escortEngageFirstKm": {
@@ -240,14 +209,6 @@
       "refs": [
         "N-157",
         "rmax100_7.json"
-      ]
-    },
-    "threatEvadeMaxFrames": {
-      "values": "30",
-      "result": "30は棄却: 1戦Red4 draw 0.500 据置（our_alive1/enemy4/hit0.000、ベースラインと同値）。挙動は確かに変化し（f240で西行き固定が解け、f300-350は東向きで距離159.8kmまで15km戻した）が、拘束条件は生存で自機は f405 に全滅、迎撃は f760 頃まで必要で届かない。既定0（無制限=現行）を維持",
-      "refs": [
-        "N-162",
-        "results_thr30_r4"
       ]
     },
     "escortFlankDeg": {
@@ -347,27 +308,44 @@
         "struct-firing-track.json"
       ]
     },
-    "escortFireEnable": {
-      "values": "0/1",
-      "result": "escortFireMode の後継。1 は護衛候補への発射を有効化する。escortFireMode と同等の挙動。",
-      "refs": [
-        "N-139",
-        "efm1.json"
-      ]
-    },
     "escortFireMaxDistKm": {
       "values": "0",
       "result": "0 は fireRangeKm を使用（デフォルト）。新規変数。",
       "refs": []
     },
-    "attackRoleEnable": {
-      "values": "0/1",
-      "result": "新規変数。0=全機攻撃（roleSplit=0同等）、1=roleSplit有効",
+    "escortAmmoHoldDistKm": {
+      "values": "0",
+      "result": "新規変数。0=無効、>0=護衛対象機がこの距離以内になるまで発射保留",
       "refs": []
     },
-    "attackerSlotMask": {
-      "values": "15",
-      "result": "新規変数。bitmask で攻撃可能スロットを指定（15=全機、1=slot0のみ）",
+    "escortNoBeamDistKm": {
+      "values": "0",
+      "result": "新規変数。0=無効、>0=護衛対象機がこの距離以内でビーム抑制",
+      "refs": []
+    },
+    "escortIgnoreBreakDistKm": {
+      "values": "0",
+      "result": "新規変数。0=無効、>0=護衛対象機がこの距離以内でブレイク無視",
+      "refs": []
+    },
+    "evadeCrankBlend": {
+      "values": "0.0",
+      "result": "新規変数。0.0=固定クランク、1.0=脅威方位基準の完全クランク",
+      "refs": []
+    },
+    "minFireRangeKm": {
+      "values": "未テスト",
+      "result": "新規変数提案。最小射撃距離ゲート。目標がこの距離以内に入るまで発射しない。hit_count改善のための未試験軸。",
+      "refs": []
+    },
+    "evadeWeaveDeg": {
+      "values": "未テスト",
+      "result": "新規変数。回避時のウェーブ機動振幅（度）。0=無効（直線退避）、非0=正弦波ウェーブ。敵弾回避のための曲線軌道。",
+      "refs": []
+    },
+    "evadeWeavePeriod": {
+      "values": "未テスト",
+      "result": "新規変数。ウェーブ機動の周期（フレーム）。ウェーブの振動速度を制御。",
       "refs": []
     }
   }

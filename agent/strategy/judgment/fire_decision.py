@@ -22,24 +22,22 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
         or name not in policy._last_fire
         or tick - policy._last_fire[name] >= policy.launch_interval_frames
     )
-    if policy.attack_role_enable <= 0:
-        attack_role = True
-    else:
-        slot = sum(ord(c) for c in name) % 4
-        attack_role = bool(policy.attacker_slot_mask & (1 << slot))
+    # Role assignment is now emergent from other variables (escortAmmoHold, etc.).
+    # All aircraft can fire by default; role split is achieved by combining
+    # per-behavior toggles rather than a dedicated mode switch.
     track_ok = (
         (policy.track_confirm_frames <= 0 and policy._track_count >= 1)
         or policy._track_count >= policy.track_confirm_frames
     )
 
     fire_target = best
-    if policy.escort_fire_enable > 0 and escort_candidate is not None:
-        max_dist = policy.escort_fire_max_km if policy.escort_fire_max_km > 0.0 else policy.fire_range_km
+    if policy.escort_fire_max_km != 0.0 and escort_candidate is not None:
+        max_dist = abs(policy.escort_fire_max_km) if policy.escort_fire_max_km > 0.0 else policy.fire_range_km
         if float(enemy[escort_candidate, 2]) <= max_dist:
             fire_target = escort_candidate
 
     ammo_hold_ok = (
-        policy.escort_ammo_hold <= 0
+        policy.escort_ammo_hold_dist_km <= 0.0
         or (escort_candidate is not None and fire_target == escort_candidate)
     )
     if policy.escort_reserve_msls > 0 and not (
@@ -67,8 +65,7 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
         and interval_ok
         and align_ok
         and ammo_hold_ok
-        and attack_role
-    ):
+        ):
         policy._last_fire[name] = tick
         return fire_target
     return None

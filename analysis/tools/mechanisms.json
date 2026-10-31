@@ -4,36 +4,33 @@
   "mechanisms": {
     "firing-alignment": [
       "fireAlignDeg",
-      "beamHoldWhileArmed",
       "beamHoldFrames",
       "burstHeadAlignDeg"
     ],
     "firing-range": [
       "fireRangeKm",
       "escortFireMinKm",
-      "escortFireMaxDistKm",
-      "escortFireMode"
+      "escortFireMaxDistKm"
     ],
     "evasion": [
       "evadeCrankDeg",
-      "threatEvadeMaxFrames"
+      "evadeCrankBlend",
+      "evadeWeaveDeg",
+      "evadeWeavePeriod"
     ],
     "escort-approach": [
       "escortSeekDistKm",
       "escortForwardXKm",
       "escortMaxSpeedKmps",
       "escortFlankDeg",
-      "flankFullDistKm",
-      "escortUseForwardX",
-      "escortUseSeekDist",
-      "escortFlankEnable"
+      "flankFullDistKm"
     ],
     "escort-fire-control": [
-      "escortAmmoHold",
-      "escortNoBeam",
-      "escortIgnoreBreak",
+      "escortAmmoHoldDistKm",
+      "escortNoBeamDistKm",
+      "escortIgnoreBreakDistKm",
       "escortReserveMsls",
-      "escortFireEnable"
+      "escortFireMaxDistKm"
     ],
     "tracking": [
       "trackConfirmFrames",
@@ -49,9 +46,7 @@
     "firing-control": [
       "maxSimulShot",
       "launchIntervalFrames",
-      "engageRangeKm",
-      "attackRoleEnable",
-      "attackerSlotMask"
+      "engageRangeKm"
     ]
   }
 }

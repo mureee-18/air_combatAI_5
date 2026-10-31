@@ -8,32 +8,30 @@ BASELINE = ROOT / "analysis" / "tools" / "baseline_args.json"
 MECHANISMS = ROOT / "analysis" / "tools" / "mechanisms.json"
 
 DEFAULT_BASELINE = {
+    "type": "Fixed",
+    "specialist": "default",
     "fireRangeKm": 50.0,
     "breakRangeKm": 35.0,
     "fireAlignDeg": 0.0,
     "burstHeadAlignDeg": 0.0,
-    "beamHoldWhileArmed": 0,
     "beamHoldFrames": 0,
     "trackConfirmFrames": 0,
     "targetSpread": 0,
     "launchIntervalFrames": 0,
     "maxSimulShot": 4,
     "evadeCrankDeg": 0.0,
-    "threatEvadeMaxFrames": 0,
+    "evadeCrankBlend": 0.0,
     "marginKm": 25.0,
     "escortSeekDistKm": 150,
     "escortForwardXKm": 110,
-    "escortFireEnable": 1,
     "escortFireMaxDistKm": 0.0,
     "escortMaxSpeedKmps": 0.3,
-    "escortAmmoHold": 0,
-    "escortNoBeam": 1,
-    "escortIgnoreBreak": 1,
+    "escortAmmoHoldDistKm": 0.0,
+    "escortNoBeamDistKm": 0.0,
+    "escortIgnoreBreakDistKm": 0.0,
     "escortReserveMsls": 3,
     "escortFireMinKm": 35.0,
     "escortFlankDeg": 0.0,
-    "attackRoleEnable": 0,
-    "attackerSlotMask": 15,
 }
 
 
