@@ -66,23 +66,23 @@ def judge(policy, observation, reward, done, info, agent_full_name,
         off_nose = abs((own[4] - enemy[best, 1] + 180.0) % 360.0 - 180.0)
         beam_allowed = True
         if armed and policy.beam_range_km > 0.0 and best_dist <= policy.beam_range_km:
-            if policy.beam_hold_while_armed > 0:
-                beam_allowed = False
-            elif policy.beam_hold_frames > 0:
+            if policy.beam_hold_frames > 0:
                 start = policy._beam_hold_start.setdefault(name, policy._tick[name])
                 beam_allowed = (policy._tick[name] - start) >= policy.beam_hold_frames
             elif policy.fire_align_deg > 0.0:
                 beam_allowed = off_nose <= policy.fire_align_deg
         else:
             policy._beam_hold_start.pop(name, None)
-        if (policy.escort_no_beam > 0 and escort_candidate is not None
+        if (policy.escort_no_beam_dist_km > 0.0 and escort_candidate is not None
                 and best == escort_candidate and policy.beam_range_km > 0.0
-                and best_dist <= policy.fire_range_km):
+                and best_dist <= policy.fire_range_km
+                and float(enemy[escort_candidate, 2]) <= policy.escort_no_beam_dist_km):
             beam_allowed = False
 
         breaking = policy.break_range_km > 0.0 and best_dist <= policy.break_range_km
-        if (policy.escort_ignore_break > 0 and escort_candidate is not None
-                and best == escort_candidate and best_dist <= policy.fire_range_km):
+        if (policy.escort_ignore_break_dist_km > 0.0 and escort_candidate is not None
+                and best == escort_candidate and best_dist <= policy.fire_range_km
+                and float(enemy[escort_candidate, 2]) <= policy.escort_ignore_break_dist_km):
             breaking = False
         j.breaking = breaking
 
@@ -90,8 +90,7 @@ def judge(policy, observation, reward, done, info, agent_full_name,
         if (escort_candidate is not None and not breaking
                 and best_dist > policy.beam_range_km):
             flank = 0.0
-            flank_enable = getattr(policy, "escort_flank_enable", 0) > 0
-            if flank_enable and policy._flankDeg != 0.0 and policy.flankFullDistKm > 0.0:
+            if policy._flankDeg != 0.0 and policy.flankFullDistKm > 0.0:
                 dist = float(enemy[escort_candidate, 2])
                 factor = min(max(dist / policy.flankFullDistKm, 0.0), 1.0)
                 flank = policy._flankDeg * factor
@@ -126,14 +125,21 @@ def judge(policy, observation, reward, done, info, agent_full_name,
     if threat_detected and evading:
         base_az = threat[1] + 180.0
         crank = policy.evade_crank_deg
-        if getattr(policy, "evade_crank_threat_relative", 0) > 0:
-            # Crank away from threat based on which side it is on
+        blend = getattr(policy, "evade_crank_blend", 0.0)
+        if blend > 0.0:
             rel_bearing = (threat[1] - own[4] + 180.0) % 360.0 - 180.0
             crank_sign = 1.0 if rel_bearing >= 0 else -1.0
-            crank = crank_sign * abs(crank)
-        if getattr(policy, "evade_crank_by_aircraft", 0) > 0:
-            slot = sum(ord(c) for c in name) % 4
-            crank = crank + slot * 5.0
+            crank = (1.0 - blend) * crank + blend * (crank_sign * abs(crank))
+        # Weave: sinusoidal variation to create curved evasion path
+        weave = getattr(policy, "evade_weave_deg", 0.0)
+        if weave != 0.0:
+            import math
+            period = getattr(policy, "evade_weave_period", 20.0)
+            if period <= 0.0:
+                period = 20.0
+            tick = policy._tick.get(name, 0)
+            phase = 2.0 * math.pi * tick / period
+            crank += weave * math.sin(phase)
         j.desired_heading_deg = base_az + crank
         j.fire_target_slot = None
 

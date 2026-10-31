@@ -2435,3 +2435,83 @@
 - 検証: paired struct_spread_with_cover 結果待ち
 - 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: roleSplit は 0 を維持。再試験不可推奨。
+
+## O-243 [observation/log] 2026-10-30T18:29:57
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃整列メカニズム（beamHoldFrames）
+- 仮説: N-236
+- 変更: beamHoldFrames 0->5
+- 検証: paired beamHoldFrames 結果待ち
+- 指標: {"avg_score": 0.637, "avg_our_alive": 3.17, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: beamHoldFrames は 0 を維持。再試験不可推奨。
+
+## O-244 [observation/log] 2026-10-30T18:38:16
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛戦闘機の先行排除（護衛対象機射程内まで発射保留）
+- 仮説: N-234
+- 変更: escortAmmoHold 0->1
+- 検証: paired winpath_escort 結果待ち
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: escortAmmoHold は 0 を維持。再試験不可推奨。
+
+## O-245 [observation/analysis] 2026-10-30T23:41:57
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: binary 0/1 変数を continuous パラメータに分解したことで、deploy()制約だけでなく policy 側の射撃ゲート（beam suppression / break ignore / ammo hold）も距離閾値で制御可能になった。従来の on/off では不可能だった漸進的な制御が可能。射撃指示30回に対し発射4回のギャップの主因は deploy() の isLaunchableAt と飛行中ブロックだが、policy 側のゲートも距離閾値で最適化することで発射機会を増やせる可能性がある。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: binary変数をcontinuousに分解: escortAmmoHold→escortAmmoHoldDistKm, escortNoBeam→escortNoBeamDistKm, escortIgnoreBreak→escortIgnoreBreakDistKm, evadeCrankThreatRelative→evadeCrankBlend。新規仮説4本を登録。
+- 検証: deepen コマンドで trigger_orders_gap カードを深掘り。新規仮説4本を hypothesis コマンドで登録。
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: 各仮説を1変数ずつ検証: (1) escortNoBeamDistKm=30km, (2) escortIgnoreBreakDistKm=20km, (3) escortAmmoHoldDistKm=40km, (4) evadeCrankBlend=0.5
+
+## N-009 [inference/analysis] 2026-10-30T23:45:23
+- 種別: inference（仮説・推論）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: 命中数4発（目標10発・未達）の新規仮説: 最小射撃距離ゲート（minFireRangeKm）の導入。既存の単一変数（trackConfirmFrames, fireRangeKm, fireAlignDeg, burst_head_align_deg）では hit_rate 改善が見られなかった。新しい視点として、fireRangeKm=50km で発射を開始するのではなく、目標が特定距離（例: 30km）以内に入るまで発射しない最小距離ゲートを導入する。これにより 38-48km の遠距離射撃を避け、hit_rate が 0.0→0.2 以上に向上、hit_count が 4→10 に増加すると予測。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: 新規変数 minFireRangeKm の提案。tested_variables.json に登録。
+- 検証: 仮説登録: minFireRangeKm（未テスト）。既存の fireRangeKm/trackConfirmFrames/fireAlignDeg は全て効果なし。
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: minFireRangeKm を実装し、30km で1変数テスト。hit_count と avg_score を評価。
+
+## N-010 [inference/analysis] 2026-10-30T23:46:55
+- 種別: inference（仮説・推論）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: 発射転換率0.13（13%）の新規仮説: (1) 射撃協調設計変更（fireCoordination）- 機体間で射撃指示を時間分散し飛行中ブロックを減らす、(2) launchIntervalFrames を機体スロット別にずらす設計変更。binary→continuous分解で得た新しい制御軸と設計変更の組み合わせにより、deploy()制約下でも発射転換率を改善できる可能性がある。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: 新規仮説2本を登録: fireCoordination（新規設計変更）、launchIntervalFrames（タイミング分散設計変更）。
+- 検証: deepen コマンドで fire_conversion カードを深掘り。新規仮説2本を hypothesis コマンドで登録。
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: 各仮説を1変数ずつ検証: (1) launchIntervalFrames の機体別分散、(2) fireCoordination 設計変更。
+
+## O-246 [observation/analysis] 2026-10-30T23:49:39
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: trackConfirmFrames=0 は既に試験済み（0/3/4/5 を検証、hit max 0.042、avg_score 0.500 不変）。N-027 で包絡棄却型と判定済み。trackConfirmFrames を増やしても hit_rate は 0.042 以下に留まり、avg_score は 0.500 を維持するだけで改善しない。理由: 射撃距離 38-48km の遠距離射撃では目標の回避時間が十分あり、トラック安定性を高めても命中率は上がらない。律速要因は距離（包絡棄却）であり、トラック安定性ではない。この軸は閉鎖済み。別軸（射撃距離最適化: minFireRangeKm、生存・escort識別）へ。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: axis:trackConfirmFrames カードを深掘り。既存の試験結果を再検証し、閉鎖を確認。
+- 検証: deepen コマンドで axis:trackConfirmFrames カードを深掘り。N-027 の包絡棄却型判定を再確認。
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: trackConfirmFrames 軸は閉鎖。minFireRangeKm（最小射撃距離ゲート）など別軸を検証する。
+
+## O-247 [observation/analysis] 2026-10-30T23:50:43
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: targetSpread=0（集中射撃）は既に試験済み。targetSpread=4（目標分散）は N-131 で試験され、結果は 2.0 kills / 2 losses（悪化）。集中射撃（targetSpread=0）が分散射撃（targetSpread=4）より優れている。理由: 4機が同一目標に集中射撃することで、目標の回避を飽和させ命中率が向上する。分散射撃では各機が異なる目標を狙うため、個々の目標への火力が分散し命中率が低下する。中間値（1/2/3）は未試験だが、4 が悪化したため中間値でも改善は見込み薄。この軸は N-131 で実質的に閉鎖済み。別軸（射撃距離最適化: minFireRangeKm、生存・escort識別）へ。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: axis:targetSpread カードを深掘り。既存の試験結果を再検証し、閉鎖を確認。
+- 検証: deepen コマンドで axis:targetSpread カードを深掘り。N-131 の分散射撃悪化判定を再確認。
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: targetSpread 軸は閉鎖。minFireRangeKm（最小射撃距離ゲート）など別軸を検証する。
+
+## O-248 [observation/log] 2026-10-31T00:03:04
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機を攻撃機1機＋回避機3機に役割分担。攻撃機のみ発射、回避機は beam/break を優先。
+- 仮説: N-245
+- 変更: attackerCount=1 を args.json に設定。fire_decision.py に role distribution ロジック追加（slot > attacker_count なら発射しない）。
+- 検証: paired eval: avg_score 0.5（変化なし）、avg_our_alive 3.5（baseline 3.33 から微改善）、avg_enemy_alive 4.5（baseline 3.33 から悪化）、hit_rate 0.0（変化なし）。攻撃機が1機のみのため火力が不足し enemy_alive が悪化。生存は微改善したが火力不足が致命的。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.5, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: attackerCount を 4 に戻す（revert）。役割分担の代わりに、全機攻撃を維持しつつ beam/break タイミングを最適化する別軸を検証する。

@@ -4,37 +4,33 @@
   "mechanisms": {
     "firing-alignment": [
       "fireAlignDeg",
-      "beamHoldWhileArmed",
       "beamHoldFrames",
       "burstHeadAlignDeg"
     ],
     "firing-range": [
       "fireRangeKm",
       "escortFireMinKm",
-      "escortFireMaxDistKm",
-      "escortFireMode"
+      "escortFireMaxDistKm"
     ],
     "evasion": [
       "evadeCrankDeg",
-      "evadeCrankThreatRelative",
-      "evadeCrankByAircraft"
+      "evadeCrankBlend",
+      "evadeWeaveDeg",
+      "evadeWeavePeriod"
     ],
     "escort-approach": [
       "escortSeekDistKm",
       "escortForwardXKm",
       "escortMaxSpeedKmps",
       "escortFlankDeg",
-      "flankFullDistKm",
-      "escortUseForwardX",
-      "escortUseSeekDist",
-      "escortFlankEnable"
+      "flankFullDistKm"
     ],
     "escort-fire-control": [
-      "escortAmmoHold",
-      "escortNoBeam",
-      "escortIgnoreBreak",
+      "escortAmmoHoldDistKm",
+      "escortNoBeamDistKm",
+      "escortIgnoreBreakDistKm",
       "escortReserveMsls",
-      "escortFireEnable"
+      "escortFireMaxDistKm"
     ],
     "tracking": [
       "trackConfirmFrames",

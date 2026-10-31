@@ -31,13 +31,13 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
     )
 
     fire_target = best
-    if policy.escort_fire_enable > 0 and escort_candidate is not None:
-        max_dist = policy.escort_fire_max_km if policy.escort_fire_max_km > 0.0 else policy.fire_range_km
+    if policy.escort_fire_max_km != 0.0 and escort_candidate is not None:
+        max_dist = abs(policy.escort_fire_max_km) if policy.escort_fire_max_km > 0.0 else policy.fire_range_km
         if float(enemy[escort_candidate, 2]) <= max_dist:
             fire_target = escort_candidate
 
     ammo_hold_ok = (
-        policy.escort_ammo_hold <= 0
+        policy.escort_ammo_hold_dist_km <= 0.0
         or (escort_candidate is not None and fire_target == escort_candidate)
     )
     if policy.escort_reserve_msls > 0 and not (

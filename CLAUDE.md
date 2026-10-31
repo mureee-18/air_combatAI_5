@@ -22,7 +22,7 @@ x86 CPU・Linux 上で初期行動判断モデル（BenchMark）と対戦させ�
    方針は `agent/strategy/specialists/`、`active.py` は switchboard として薄く保つ。
 4. **ログ構造を毎回調べ直さない。** 改善セッション開始時に
    `tools/battle_analyzer/BATTLELOG_FORMAT.md` を必ず読む。
-5. **改善は1因果メカニズムずつ。** 同一メカニズムに属する複数ノブの同時変更は可（例: 射撃整列 = fireAlignDeg + beamHoldWhileArmed）。無関係なメカニズムを同時に変えると、悪化時に原因を切り分けられない。
+5. **改善は1因果メカニズムずつ。** 同一メカニズムに属する複数ノブの同時変更は可（例: 射撃整列 = fireAlignDeg + beamHoldFrames）。無関係なメカニズムを同時に変えると、悪化時に原因を切り分けられない。
 6. **可視化はログ再構築のみ。** 公式ビューア（`visualize=1`）は headless で画像/GIFを
    生成せず、`env.manager` の生状態は `getEntityByName` で core dump するため使わない。
    軌跡は `tools/battle_analyzer/trajectory.py` の復元式
