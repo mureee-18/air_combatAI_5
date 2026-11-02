@@ -51,8 +51,14 @@ def select_primary_target(policy, enemy, detected, name):
     pool = near if near else (escorted if escorted else detected)
     pool_sorted = sorted(pool, key=lambda i: enemy[i, 2])
     if policy.target_spread > 0 and name:
-        offset = sum(ord(c) for c in name) % policy.target_spread
-        pick_idx = offset % len(pool_sorted)
+        # Probabilistic target spread: higher value = more spread
+        import random
+        # Use target_spread as a probability weight
+        if random.random() < (policy.target_spread / 10.0):
+            offset = sum(ord(c) for c in name) % max(1, len(pool_sorted))
+            pick_idx = offset % len(pool_sorted)
+        else:
+            pick_idx = 0
     else:
         pick_idx = 0
     best = pool_sorted[pick_idx]

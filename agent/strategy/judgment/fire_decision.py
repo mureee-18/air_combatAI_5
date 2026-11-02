@@ -36,10 +36,24 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
         if float(enemy[escort_candidate, 2]) <= max_dist:
             fire_target = escort_candidate
 
-    ammo_hold_ok = (
-        policy.escort_ammo_hold_dist_km <= 0.0
-        or (escort_candidate is not None and fire_target == escort_candidate)
-    )
+    # Adaptive ammo hold: probability-based instead of binary
+    # When escort candidate is the target, always allow (escort priority)
+    # Otherwise, hold fire probabilistically based on distance to escort target
+    if escort_candidate is not None and fire_target == escort_candidate:
+        ammo_hold_ok = True
+    elif policy.escort_ammo_hold_dist_km <= 0.0:
+        ammo_hold_ok = True
+    else:
+        # Sigmoid: closer escort target = higher hold probability
+        if escort_candidate is not None:
+            dist_to_escort = float(enemy[escort_candidate, 2])
+            threshold = policy.escort_ammo_hold_dist_km
+            # Linear probability: hold if dist < threshold, with gradual transition
+            hold_prob = max(0.0, min(1.0, 1.0 - dist_to_escort / (threshold + 1.0)))
+            import random
+            ammo_hold_ok = random.random() > hold_prob
+        else:
+            ammo_hold_ok = True
     if policy.escort_reserve_msls > 0 and not (
         escort_candidate is not None and fire_target == escort_candidate
     ):
@@ -53,9 +67,19 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
     )
 
     burst_head = name not in policy._last_fire or tick - policy._last_fire[name] > 4
-    align_ok = (policy.fire_align_deg <= 0.0 and off_nose <= 90.0) or off_nose <= policy.fire_align_deg
+    # Adaptive fire alignment: looser at far range, stricter at close range
+    if policy.fire_align_deg <= 0.0:
+        effective_align = 90.0  # default: allow up to 90 deg off-nose
+    else:
+        # Scale alignment threshold with distance: farther = looser
+        dist_factor = 1.0 + float(enemy[fire_target, 2]) / 100.0
+        effective_align = policy.fire_align_deg * dist_factor
+    align_ok = off_nose <= effective_align
     if policy.burst_head_align_deg > 0.0 and burst_head:
-        align_ok = align_ok and off_nose <= policy.burst_head_align_deg
+        # Adaptive: looser at far range
+        dist_factor = 1.0 + float(enemy[fire_target, 2]) / 100.0
+        effective_burst_align = policy.burst_head_align_deg * dist_factor
+        align_ok = align_ok and off_nose <= effective_burst_align
 
     if (
         not breaking

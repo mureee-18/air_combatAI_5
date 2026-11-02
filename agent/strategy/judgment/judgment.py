@@ -73,17 +73,34 @@ def judge(policy, observation, reward, done, info, agent_full_name,
                 beam_allowed = off_nose <= policy.fire_align_deg
         else:
             policy._beam_hold_start.pop(name, None)
-        if (policy.escort_no_beam_dist_km > 0.0 and escort_candidate is not None
+        if (escort_candidate is not None
                 and best == escort_candidate and policy.beam_range_km > 0.0
                 and best_dist <= policy.fire_range_km
-                and float(enemy[escort_candidate, 2]) <= policy.escort_no_beam_dist_km):
-            beam_allowed = False
+                and getattr(policy, "escort_no_beam_dist_km", 0.0) > 0.0):
+            # Adaptive beam suppression: probability-based instead of binary
+            dist_to_escort = float(enemy[escort_candidate, 2])
+            threshold = getattr(policy, "escort_no_beam_dist_km", 0.0)
+            if threshold > 0.0:
+                # Sigmoid: closer = higher suppression probability
+                import math
+                prob_suppress = 1.0 / (1.0 + math.exp((dist_to_escort - threshold) / 5.0))
+                import random
+                if random.random() < prob_suppress:
+                    beam_allowed = False
 
         breaking = policy.break_range_km > 0.0 and best_dist <= policy.break_range_km
-        if (policy.escort_ignore_break_dist_km > 0.0 and escort_candidate is not None
+        if (escort_candidate is not None
                 and best == escort_candidate and best_dist <= policy.fire_range_km
-                and float(enemy[escort_candidate, 2]) <= policy.escort_ignore_break_dist_km):
-            breaking = False
+                and getattr(policy, "escort_ignore_break_dist_km", 0.0) > 0.0):
+            # Adaptive break ignore: probability-based instead of binary
+            dist_to_escort = float(enemy[escort_candidate, 2])
+            threshold = getattr(policy, "escort_ignore_break_dist_km", 0.0)
+            if threshold > 0.0:
+                import math
+                prob_ignore = 1.0 / (1.0 + math.exp((dist_to_escort - threshold) / 5.0))
+                import random
+                if random.random() < prob_ignore:
+                    breaking = False
         j.breaking = breaking
 
         # navigation heading
@@ -92,7 +109,8 @@ def judge(policy, observation, reward, done, info, agent_full_name,
             flank = 0.0
             if policy._flankDeg != 0.0 and policy.flankFullDistKm > 0.0:
                 dist = float(enemy[escort_candidate, 2])
-                factor = min(max(dist / policy.flankFullDistKm, 0.0), 1.0)
+                # Inverse scaling: closer escort target = larger flank
+                factor = min(max(1.0 - dist / policy.flankFullDistKm, 0.0), 1.0)
                 flank = policy._flankDeg * factor
             j.desired_heading_deg = enemy[escort_candidate, 1] + flank
         else:
@@ -124,14 +142,17 @@ def judge(policy, observation, reward, done, info, agent_full_name,
     j.evading = evading
     if threat_detected and evading:
         base_az = threat[1] + 180.0
-        crank = policy.evade_crank_deg
-        blend = getattr(policy, "evade_crank_blend", 0.0)
+        threat_dist = float(threat[2]) if len(threat) > 2 else 10.0
+        # Adaptive scaling: closer threat = more aggressive evasion
+        dist_scale = max(0.0, min(1.0, 1.0 - threat_dist / 50.0))
+        crank = policy.evade_crank_deg * dist_scale
+        blend = getattr(policy, "evade_crank_blend", 0.0) * dist_scale
         if blend > 0.0:
             rel_bearing = (threat[1] - own[4] + 180.0) % 360.0 - 180.0
             crank_sign = 1.0 if rel_bearing >= 0 else -1.0
             crank = (1.0 - blend) * crank + blend * (crank_sign * abs(crank))
-        # Weave: sinusoidal variation to create curved evasion path
-        weave = getattr(policy, "evade_weave_deg", 0.0)
+        # Adaptive weave: closer threat = larger weave amplitude
+        weave = getattr(policy, "evade_weave_deg", 0.0) * dist_scale
         if weave != 0.0:
             import math
             period = getattr(policy, "evade_weave_period", 20.0)

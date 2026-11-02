@@ -333,11 +333,6 @@
       "result": "新規変数。0.0=固定クランク、1.0=脅威方位基準の完全クランク",
       "refs": []
     },
-    "minFireRangeKm": {
-      "values": "未テスト",
-      "result": "新規変数提案。最小射撃距離ゲート。目標がこの距離以内に入るまで発射しない。hit_count改善のための未試験軸。",
-      "refs": []
-    },
     "evadeWeaveDeg": {
       "values": "未テスト",
       "result": "新規変数。回避時のウェーブ機動振幅（度）。0=無効（直線退避）、非0=正弦波ウェーブ。敵弾回避のための曲線軌道。",
@@ -347,6 +342,13 @@
       "values": "未テスト",
       "result": "新規変数。ウェーブ機動の周期（フレーム）。ウェーブの振動速度を制御。",
       "refs": []
+    },
+    "beamHoldWhileArmed": {
+      "values": "0/1",
+      "result": "binary 変数として削除済み。beamHoldFrames に統合。escort 限定 beamHold は escortNoBeamDistKm で代替。",
+      "refs": [
+        "N-175"
+      ]
     }
   }
 }
