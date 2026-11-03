@@ -2655,3 +2655,53 @@
 - 検証: beamHoldWhileArmed は binary 変数として削除済み（beamHoldFrames に統合）。escort 限定 beamHold は escortNoBeamDistKm で代替実装済み。paired eval: beamHoldFrames (N/A) は 5勝1分0敗、avg_score 0.637。
 - 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
 - 次の一手: escortNoBeamDistKm の検証は別途実施（N-237 で棄却済み）。beamHoldWhileArmed 軸は binary→continuous 分解により閉鎖。
+
+## O-263 [observation/analysis] 2026-11-02T23:01:45
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: escortFireMaxDistKm=0（デフォルト: fireRangeKm使用）。非ゼロ値で護衛対象機への射撃距離を制限。adaptive 実装により escortPriorityFire と組み合わせて護衛対象機への射撃を制御可能。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: axis:escortFireMaxDistKm カードを深掘り。N-189/N-187 の護衛候補優先 paired eval 結果を再検証。
+- 検証: deepen コマンドで axis:escortFireMaxDistKm カードを深掘り。護衛候補優先の効果は限定的（score 0.65 vs baseline 0.674）。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: escortFireMaxDistKm の検証は escortPriorityFire (N-250) と組み合わせて実施。単独では効果が限定的。
+
+## O-264 [observation/analysis] 2026-11-02T23:03:12
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: escortAmmoHoldDistKm=0（デフォルト: 発射保留なし）。非ゼロ値で護衛対象機が特定距離以内になるまで発射を保留。adaptive 実装により確率ベースの保留（sigmoid）に変更。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: axis:escortAmmoHoldDistKm カードを深掘り。N-239 の 40km 棄却結果を再検証。
+- 検証: deepen コマンドで axis:escortAmmoHoldDistKm カードを深掘り。40km は火力不足で棄却済み。adaptive 版では 10-20km で再検証の余地あり。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: escortAmmoHoldDistKm の検証は 10-20km の小さな値で実施。単独では効果が限定的。
+
+## O-265 [observation/analysis] 2026-11-02T23:05:01
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: escortFireMinKm=35（デフォルト: 護衛対象機が35km以内のときだけ護衛射撃）。0=無効（常に射撃）。adaptive 実装により escortPriorityFire と組み合わせて護衛対象機への射撃を制御可能。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: axis:escortFireMinKm カードを深掘り。N-189/N-187 の護衛候補優先 paired eval 結果を再検証。
+- 検証: deepen コマンドで axis:escortFireMinKm カードを深掘り。護衛候補優先の効果は限定的（score 0.65 vs baseline 0.674）。escortFireMinKm=35 は護衛対象機が35km以内のときだけ護衛射撃するため、発射機会が制限される可能性がある。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: escortFireMinKm の検証は escortPriorityFire (N-250) と組み合わせて実施。単独では効果が限定的。
+
+## O-266 [observation/log] 2026-11-02T23:12:48
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: beamHoldFrames=5 の検証。ビーム保持中に整列が進み、保持終了後に発射可能になる。
+- 仮説: N-253
+- 変更: beamHoldFrames=5 を args.json に設定。
+- 検証: paired eval: avg_score 0.637（baseline 0.674 から微減）、avg_our_alive 3.17（baseline 3.33 から微減）、avg_enemy_alive 3.5（baseline 3.33 から微悪化）、hit_rate 0.065（baseline 0.083 から微減）。5勝1分0敗（baseline 6勝0分0敗）。仮説棄却。
+- 指標: {"avg_score": 0.637, "avg_our_alive": 3.17, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: beamHoldFrames を 0 に戻す（revert）。5 フレーム保持はスコア微減で不採用。別軸を検証する。
+
+## O-267 [observation/log] 2026-11-02T23:20:28
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: burstHeadAlignDeg=15 の検証。バースト初弾のみの機首整列ゲート（adaptive 版）。
+- 仮説: N-252
+- 変更: burstHeadAlignDeg=15 を args.json に設定。
+- 検証: paired eval: avg_score 0.64（baseline 0.674 から微減）、avg_our_alive 3.17（baseline 3.33 から微減）、avg_enemy_alive 3.67（baseline 3.33 から微悪化）、hit_rate 0.055（baseline 0.083 から微減）。5勝1分0敗（baseline 6勝0分0敗）。仮説棄却。
+- 指標: {"avg_score": 0.64, "avg_our_alive": 3.17, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: burstHeadAlignDeg を 0 に戻す（revert）。15 はスコア微減で不採用。別軸を検証する。

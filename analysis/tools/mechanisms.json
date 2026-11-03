@@ -30,7 +30,8 @@
       "escortNoBeamDistKm",
       "escortIgnoreBreakDistKm",
       "escortReserveMsls",
-      "escortFireMaxDistKm"
+      "escortFireMaxDistKm",
+      "escortPriorityFire"
     ],
     "tracking": [
       "trackConfirmFrames",

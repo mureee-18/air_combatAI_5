@@ -31,6 +31,10 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
     )
 
     fire_target = best
+    # Escort priority fire: when enabled, prioritize escort target within fire range
+    if getattr(policy, "escort_priority_fire", 0) > 0 and escort_candidate is not None:
+        if float(enemy[escort_candidate, 2]) <= policy.fire_range_km:
+            fire_target = escort_candidate
     if policy.escort_fire_max_km != 0.0 and escort_candidate is not None:
         max_dist = abs(policy.escort_fire_max_km) if policy.escort_fire_max_km > 0.0 else policy.fire_range_km
         if float(enemy[escort_candidate, 2]) <= max_dist:

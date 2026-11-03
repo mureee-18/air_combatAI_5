@@ -59,6 +59,7 @@ class DefaultPolicy(StandalonePolicy):
         self.escort_ignore_break_dist_km = float(args.get("escortIgnoreBreakDistKm", 0.0))
         self.escort_reserve_msls = int(args.get("escortReserveMsls", 0))
         self.escort_fire_min_km = float(args.get("escortFireMinKm", 0.0))
+        self.escort_priority_fire = int(args.get("escortPriorityFire", 0))
         self._flankDeg = float(args.get("escortFlankDeg", 0.0))
         self.flankFullDistKm = float(args.get("flankFullDistKm", 150.0))
 

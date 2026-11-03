@@ -5,7 +5,7 @@ function renderImpl(d) {
     "fireRangeKm": 50.0, "breakRangeKm": 35.0, "evadeCrankDeg": 0.0, "evadeCrankBlend": 0.0, "evadeWeaveDeg": 0.0, "evadeWeavePeriod": 20.0, "marginKm": 25.0,
     "trackConfirmFrames": 0, "targetSpread": 0, "escortSeekDistKm": 150, "escortForwardXKm": 110,
     "escortFireMaxDistKm": 0.0, "escortMaxSpeedKmps": 0.3, "escortAmmoHoldDistKm": 0.0, "escortNoBeamDistKm": 0.0,
-    "escortIgnoreBreakDistKm": 0.0, "escortReserveMsls": 3, "escortFireMinKm": 35.0, "escortFlankDeg": 0.0,
+    "escortIgnoreBreakDistKm": 0.0, "escortReserveMsls": 3, "escortFireMinKm": 35.0, "escortPriorityFire": 0, "escortFlankDeg": 0.0,
     "beamHoldFrames": 0, "fireAlignDeg": 0.0, "burstHeadAlignDeg": 0.0, "launchIntervalFrames": 0, "maxSimulShot": 4,
   };
   const desc = {
@@ -27,6 +27,7 @@ function renderImpl(d) {
     "escortIgnoreBreakDistKm": "護衛対象機がこの距離(km)以内でブレイク無視。0=無効",
     "escortReserveMsls": "護衛用予備ミサイル数。護衛対象機用に温存",
     "escortFireMinKm": "護衛射撃の最小距離(km)。これ以内で発射",
+    "escortPriorityFire": "護衛対象機への射撃を優先(0=無効, 1=有効)。護衛対象機を先行排除",
     "escortFlankDeg": "護衛接近の側方オフセット角度(度)。0=無効",
     "beamHoldFrames": "ビーム保持フレーム数。射撃前の整列待ち。0=無効",
     "fireAlignDeg": "射撃前機首整列角度(度)。この角度以内で発射可。0=無効",

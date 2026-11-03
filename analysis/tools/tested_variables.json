@@ -349,6 +349,18 @@
       "refs": [
         "N-175"
       ]
+    },
+    "escortPriorityFire": {
+      "values": "未テスト",
+      "result": "新規変数。護衛対象機への射撃を優先（0=無効, 1=有効）。護衛対象機を先行排除するための winpath-escort 分解。",
+      "refs": []
+    },
+    "burstHeadAlignDeg": {
+      "values": "0/15",
+      "result": "adaptive 版。15 は Red TIMEUP（alive3, score0.64, hit_rate0.055）で score 微減。baseline 0.674 vs 0.64。不採用。",
+      "refs": [
+        "N-252"
+      ]
     }
   }
 }

@@ -26,5 +26,6 @@
     "evadeWeaveDeg": 0.0,
     "evadeWeavePeriod": 20.0,
     "fireCoordination": 0,
-    "minFireRangeKm": 0.0
+    "minFireRangeKm": 0.0,
+    "escortPriorityFire": 0
 }
