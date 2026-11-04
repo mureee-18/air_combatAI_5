@@ -18,14 +18,12 @@
     "escortFireMaxDistKm": 0.0,
     "escortMaxSpeedKmps": 0.3,
     "escortAmmoHoldDistKm": 0.0,
-    "escortNoBeamDistKm": 0.0,
-    "escortIgnoreBreakDistKm": 0.0,
+    "escortNoBeamDistKm": 50.0,
+    "escortIgnoreBreakDistKm": 50.0,
     "escortReserveMsls": 3,
     "escortFireMinKm": 35.0,
     "escortFlankDeg": 0.0,
     "evadeWeaveDeg": 0.0,
     "evadeWeavePeriod": 20.0,
-    "fireCoordination": 0,
-    "minFireRangeKm": 0.0,
     "escortPriorityFire": 0
 }

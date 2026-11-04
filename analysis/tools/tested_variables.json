@@ -106,11 +106,12 @@
     },
     "escortSeekDistKm": {
       "values": "60/100/150",
-      "result": "150 の純粋追跡は 0.315、安全時のみは 0.500（採用）",
+      "result": "150の純粋追跡は0.315、安全時のみは0.500（採用）。修復後再検証: 100 は 0.674 と完全同一（forwardX優先のためseek距離は実質未使用）。150維持",
       "refs": [
         "N-126",
         "N-127",
-        "def_escort100.json"
+        "def_escort100.json",
+        "v_seek100"
       ]
     },
     "escortChaserCount": {
@@ -143,20 +144,22 @@
       ]
     },
     "beamHoldFrames": {
-      "values": "0/10",
-      "result": "10 は命中 0→0.076 だが生存・敵生存数が悪化（avg_score 0.41・our_alive 2.0・enemy 4.0）。0 を維持",
+      "values": "0/10/3",
+      "result": "修復後再検証: 3 は 0.572(4勝1分1敗, our2.67/enemy3.5/hit0.091)でベースライン0.674を下回る。10も従来0.41で棄却。0維持",
       "refs": [
         "N-141",
-        "bhf10.json"
+        "bhf10.json",
+        "v_beamhold"
       ]
     },
     "fireAlignDeg": {
       "values": "0/30/15",
-      "result": "0/15/30 すべて生存悪化。0 を維持（15: avg_score 0.276 our_alive 0.17、30: 0.364 our_alive 1.33）",
+      "result": "0/15/30 すべて生存悪化。0を維持。修復後再検証: 15 は 0.277(0勝1分5敗, our0.17/hit0.189)で不変",
       "refs": [
         "N-142",
         "fad30.json",
-        "N-216"
+        "N-216",
+        "v_align"
       ]
     },
     "escortMaxSpeedKmps": {
@@ -193,14 +196,16 @@
       ]
     },
     "escortFireMinKm": {
-      "values": "0/30/27/35",
-      "result": "27は却下（12勝中11戦 -0.0003〜-0.0026、改善0、hit/alive は不変＝ELIMINATION が遅れるだけ）、35は採用（10戦改善・1戦微悪・3戦不変、avg 0.657→0.659、公式seeds1-5 0.638→0.639）。早撃ちほど ELIMINATION が早く score が上がる。43-49km帯は外れる（b3実績）ため上限は未踏。",
+      "values": "0/30/27/35/40",
+      "result": "27は却下（ELIMINATIONが遅れるだけ）、35は採用。修復後再検証: 40 は seeds1-3 0.675(6勝) / holdout 0.639 vs base0.638 で実質同等、採用根拠なし。35維持",
       "refs": [
         "N-155",
         "fmin30_7.json",
         "N-160",
         "fm35_7.json",
-        "fm27_7.json"
+        "fm27_7.json",
+        "v_firemin40",
+        "ho_v_firemin40"
       ]
     },
     "escortReserveMaxKm": {
@@ -309,9 +314,11 @@
       ]
     },
     "escortFireMaxDistKm": {
-      "values": "0",
-      "result": "0 は fireRangeKm を使用（デフォルト）。新規変数。",
-      "refs": []
+      "values": "0/50",
+      "result": "0はfireRangeKmを使用（既定）。50単独では効果なし（0.500のまま）。退行の主因はnoBeam/ignoreBreak。0維持",
+      "refs": [
+        "singleF"
+      ]
     },
     "escortAmmoHoldDistKm": {
       "values": "0",
@@ -319,29 +326,43 @@
       "refs": []
     },
     "escortNoBeamDistKm": {
-      "values": "0",
-      "result": "新規変数。0=無効、>0=護衛対象機がこの距離以内でビーム抑制",
-      "refs": []
+      "values": "0/50",
+      "result": "7a00b9d で旧 escortNoBeam=1 を距離閾値0.0(無効)に置換したことが性能退行の一因。単独50(射程)で 0.500→0.606、ignoreBreak=50 と併用で 0.674 を完全再現。50維持",
+      "refs": [
+        "O-282",
+        "singleN",
+        "comboBN"
+      ]
     },
     "escortIgnoreBreakDistKm": {
-      "values": "0",
-      "result": "新規変数。0=無効、>0=護衛対象機がこの距離以内でブレイク無視",
-      "refs": []
+      "values": "0/50",
+      "result": "旧 escortIgnoreBreak=1 の距離化。単独50で 0.606(4勝2分)、noBeam=50 と併用で 0.674。0は退行(0.500)。50維持",
+      "refs": [
+        "O-282",
+        "singleB",
+        "comboBN"
+      ]
     },
     "evadeCrankBlend": {
-      "values": "0.0",
-      "result": "新規変数。0.0=固定クランク、1.0=脅威方位基準の完全クランク",
-      "refs": []
+      "values": "0.0/0.5",
+      "result": "修復後ベースライン(0.674)で 0.5 は 0.674/3.33/3.33/hit0.083 と完全同一＝脅威回避が発火せず実質no-op。軸として効果なし。0.0維持",
+      "refs": [
+        "v_crank"
+      ]
     },
     "evadeWeaveDeg": {
-      "values": "未テスト",
-      "result": "新規変数。回避時のウェーブ機動振幅（度）。0=無効（直線退避）、非0=正弦波ウェーブ。敵弾回避のための曲線軌道。",
-      "refs": []
+      "values": "10.0",
+      "result": "ウェーブ振幅10度。avg_our_alive 3.33→3.67（改善）、avg_score 0.674→0.620（微減）、avg_enemy_alive 3.33→3.33。生存は改善するがスコアは微減のため基準では0のまま（混合）。",
+      "refs": [
+        "N-244"
+      ]
     },
     "evadeWeavePeriod": {
-      "values": "未テスト",
-      "result": "新規変数。ウェーブ機動の周期（フレーム）。ウェーブの振動速度を制御。",
-      "refs": []
+      "values": "20.0（既定）",
+      "result": "ウェーブ周期20フレーム。evadeWeaveDeg=10 の混合結果のみで周期自体は未分離。既定20を使用。",
+      "refs": [
+        "N-244"
+      ]
     },
     "beamHoldWhileArmed": {
       "values": "0/1",
@@ -351,15 +372,76 @@
       ]
     },
     "escortPriorityFire": {
-      "values": "未テスト",
-      "result": "新規変数。護衛対象機への射撃を優先（0=無効, 1=有効）。護衛対象機を先行排除するための winpath-escort 分解。",
-      "refs": []
+      "values": "1",
+      "result": "護衛対象機への射撃優先。avg_score 0.65（baseline 0.674 未満）で棄却。護衛対象機は射程外にいる時間が長く、優先しても発射機会が増えない。",
+      "refs": [
+        "N-250"
+      ]
     },
     "burstHeadAlignDeg": {
       "values": "0/15",
       "result": "adaptive 版。15 は Red TIMEUP（alive3, score0.64, hit_rate0.055）で score 微減。baseline 0.674 vs 0.64。不採用。",
       "refs": [
         "N-252"
+      ]
+    },
+    "evadePattern": {
+      "values": "1 / 2 / 3（振幅10度で比較）",
+      "result": "修復後ベースライン0.674で再検証: pattern1=0.640(5勝1分, hit0.073)、pattern2=0.650(5勝1分, hit0.079)、pattern3=0.662(5勝1分, our3.5/enemy3.0/hit0.108)。pattern3は生存・命中は改善するが引き分け1でavg_scoreが下回る。パターン軸は棄却。実装・args・レジストリは revert 済み（変数は現存しない）",
+      "refs": [
+        "v_evp1",
+        "v_evp2",
+        "v_evp3",
+        "O-276",
+        "O-277",
+        "O-278"
+      ]
+    },
+    "evadePatternDeg": {
+      "values": "10.0（全パターン共通）",
+      "result": "振幅10度。4パターン比較の共通条件。単独では未分離（振幅0は無効）。",
+      "refs": [
+        "O-276",
+        "O-277",
+        "O-278"
+      ]
+    },
+    "evadePatternPeriod": {
+      "values": "20.0（既定）",
+      "result": "周期20フレーム。ウェーブ/ジグザグの振動速度。パターン比較では既定値を使用し未分離。",
+      "refs": [
+        "O-276",
+        "O-277",
+        "O-278"
+      ]
+    },
+    "winpathPressKm": {
+      "values": "50.0",
+      "result": "護衛対象機への押し込み距離50km（遮蔽機へのビームをやめ護衛対象機方向へ連続ブレンド）。avg_score 0.674→0.275、avg_our_alive 3.33→0.5、hit_rate 0.083→0.195。射撃機会は増えるが生存崩壊で棄却。",
+      "refs": [
+        "N-249"
+      ]
+    },
+    "winpath-escort": {
+      "values": "方向カード（分解して検証済み）",
+      "result": "護衛戦闘機の先行排除／護衛対象機への押し込み。分解した変数はすべて棄却: escortEngageFirstKm=80/60（engage-first、hit_rate 0で戦闘機を排除できない）、escortPriorityFire=1（avg_score 0.65）、winpathPressKm=50（avg_score 0.275・our_alive 0.5）。護衛対象機への到達軸は命中率・生存の構造要因に阻まれクローズ。",
+      "refs": [
+        "N-149",
+        "N-150",
+        "N-152",
+        "N-153",
+        "N-249",
+        "N-250"
+      ]
+    },
+    "escortFlankOuterRatio": {
+      "values": "0.5/1.0",
+      "result": "修復後: seeds1-3 both で ratio0.5=0.678(6勝), ratio1.0=0.676(6勝)と微増。holdout seeds4-6: base0.638, ratio0.5=0.635, ratio1.0=0.611 で一般化せず棄却。0.0維持（実装はrevert）",
+      "refs": [
+        "v_flank05",
+        "v_flank10",
+        "ho_v_flank05",
+        "ho_v_flank10"
       ]
     }
   }
