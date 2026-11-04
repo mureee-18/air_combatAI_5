@@ -443,6 +443,13 @@
         "ho_v_flank05",
         "ho_v_flank10"
       ]
+    },
+    "maxSimulPerTarget": {
+      "values": "0/1",
+      "result": "1変数で試せる残り：1発にすると初回斉射 12→4発、hit_rate 0.083→0.20、avg_score 0.674→0.71、avg_enemy_alive 3.33→3.17、avg_our_alive 3.33 維持",
+      "refs": [
+        "N-256"
+      ]
     }
   }
 }

@@ -2916,3 +2916,13 @@
 - 検証: ペア評価6戦: 勝率6-0-0。挙動指標 avg_score 0.674 / avg_our_alive 3.33 / avg_enemy_alive 3.33 と baseline と同一（仮説未検証・しきい値30kmでは発動不該当）。
 - 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: escortAmmoHoldDistKm の閾値を上げる（50km〜100km）か、他の変数の組み合わせで改善を試す。
+
+## O-285 [observation/log] 2026-11-04T20:19:52
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: hit_rate向上・avg_score改善（予測：0.083→0.20, 0.674→0.71）
+- 仮説: N-256
+- 変更: agent/args.json の maxSimulPerTarget を None→1 に変更。deploy.py に同一目標上限ロジック追加。
+- 検証: ペア評価6戦: 勝率6-0-0。挙動指標 avg_score 0.674 / avg_our_alive 3.33 / avg_enemy_alive 3.33 / avg_hit_rate 0.083 と baseline と同一（実装済みでもしきい値効果なし）。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: deploy.py への上限ロジック実装確認後、しきい値調整または他変数組み合わせで改善を試す。
