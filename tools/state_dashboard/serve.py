@@ -1158,17 +1158,8 @@ def _validated_hypothesis_ids(target_session: dict) -> set:
 def load_tested_variables() -> dict:
     path = REPO_ROOT / "analysis" / "tools" / "tested_variables.json"
     return load_json(path) or {}
-    """card_fill.json の open/direction カードが検証入口として立てる変数名."""
-    path = Path(__file__).with_name("card_fill.json")
-    try:
-        cards = (load_json(path) or {}).get("cards", {})
-    except (OSError, ValueError):
-        return set()
-    return {
-        (c.get("variable_name") or "").strip()
-        for c in cards.values()
-        if c.get("variable_status") in ("open", "direction") and (c.get("variable_name") or "").strip()
-    }
+
+
 def _card_fill_open_direction_vars() -> set:
     """card_fill.json の open/direction カードが検証入口として立てる変数名."""
     path = Path(__file__).with_name("card_fill.json")
@@ -1184,17 +1175,13 @@ def _card_fill_open_direction_vars() -> set:
 
 
 def _pending_hypothesis_ids(target_session: dict) -> list:
-    """まだ検証が必要な仮説 id（登録順）。
+    """まだ検証が必要な仮説 id（登録順）.
 
-    既試軸ノイズ整理: tested_variables.json に載る変数、または directions.json の
-    方向カードID を variable に持つ仮説は「実装1変数の未試」ではないため pending から外す。
+    validate か record で紐付いた仮説（= 検証済み）を除外する。
+    既試軸の仮説もユーザーが明示的に登録したものは検証対象とする（除外しない）。
     """
     validated = _validated_hypothesis_ids(target_session)
     hyps = target_session.get("hypotheses", [])
-    validated = _validated_hypothesis_ids(target_session)
-    hyps = target_session.get("hypotheses", [])
-    # 未検証の仮説をすべて表示（dedup なし、cap なし）。
-    # 既試軸の仮説もユーザーが明示的に登録したものは検証対象とする。
     pending = [
         h
         for h in hyps
@@ -1208,7 +1195,8 @@ def _pending_hypothesis_ids(target_session: dict) -> list:
 def _recordable_hypothesis_ids(target_session: dict) -> list:
     """検証済みだが記録未実行の仮説 id（登録順）.
 
-    verify タブで record ステップを実行する対象。
+    検証タブからは表示しない（検証済みはタブに出さない方針）。
+    record の一括実行などで参照するための状態として残す。
     """
     validated = _validated_hypothesis_ids(target_session)
     recorded = {
