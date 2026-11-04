@@ -2880,3 +2880,39 @@
 - コード原因: `agent/strategy/execution/deploy.py:26` は自機ごとの飛翔ミサイル数（maxSimulShot=4）だけを見て、同一目標への重複発射を制限しない。
 - 既試ノブ（fireRangeKm/maxSimulShot/targetSpread/launchIntervalFrames）はすべて棄却済み。残るのは「自機ごと・同一目標への飛翔中ミサイル上限」という新条件（N-256）。
 - 仮説: 上限1発にすると初回斉射 12→4発、hit_rate 0.083→0.20、avg_score 0.674→0.71、avg_enemy_alive 3.33→3.17、avg_our_alive 3.33 維持。
+
+## 深掘り: escortForwardXKm は飽和軸（2026-11-04・カード axis:escortForwardXKm）
+- 対象: `workspace/results/0/log_0.json`, `workspace/results_base_r4_check/log_0.json`, `workspace/results_base_b1/log_0.json`（修復後ベースライン）。`trajectory.py` / `battle_stats.py` / `launch_analyzer.py` で集計。
+- 護衛識別の実体は `escortForwardXKm` ではなく `escortMaxSpeedKmps=0.3` の速度フィルタ（`target_selection.py:21-22`）。護衛機だけが 0.20〜0.25 km/s、戦闘機は 0.55〜0.75 km/s で、しきい値で分離できている。enemy 列4（護衛フラグ）は全ログで 0（仕様上の既知制約）。
+- 護衛機の前方xは 115.0〜126.7 km に固定（`results_base_b1` の `enemies_direct` で RedE x=115.0〜126.7、racetrack）。このため:
+  - しきい値 100 / 105 / 110 は識別tick数が完全一致（検知の 47% / 67% / 75%）
+  - 115 → 39% / 67% / 56%、120 → 29% / 67% / 36%、125 → 13% / 35% / 16%、130以上 → 0%
+  - 0 は識別無効（`escortSeekDistKm=150` にも届かない）。つまり 110 は飽和点で、動かせるのは 115〜125 の狭帯域のみ。
+- 識別後は 69〜85% のtickが「最寄り敵 >45km なら護衛方位へ直進」の chase モード（`judgment.py:107-115`）。最寄り敵が射程50km以内なのに chase 中の tick（45〜50km デッドバンド）は検知の 6.7〜11.8%。
+- ただしその帯での発射は全発射 48/48/88 発中 5/24/23 発で、射撃は chase に律速されていない（off_nose>90° は 3% / 10% / 18% のみ）。射撃は `decide_fire` が chase と独立に最寄り敵へ出す。
+- 護衛機への発射は log0 0/12、r4 0/42、b1 40/87。b1 で40発撃っても RedE は最後まで生存（`enemies_direct` で alive=true）。
+- 結論: `escortForwardXKm` は 110 で飽和しており、値変更は射撃・命中を動かさない。台帳の 110 試験（0.500 / hit 0）は退行ベースライン下で無効だったが、再試験しても因果メカニズムが立たないため仮説化しない。改善対象は識別しきい値ではなく同時発射の集中（N-256）。
+
+## 深掘り: escortMaxSpeedKmps は上下とも飽和（2026-11-04・カード axis:escortMaxSpeedKmps）
+- 対象: `workspace/results_base_b1/log_0.json`（1184フレーム）, `workspace/results_base_r4_check/log_0.json`（405フレーム）。観測の enemy 行を `enemies_direct` と座標照合して機体別に集計（照合誤差0.0kmを確認）。
+- 機体別速度（km/s）:
+  - 護衛機 RedE 0.195〜0.371（p50 0.251 / p90 0.270）、BlueE 0.218〜0.364（p50 0.253 / p90 0.272）
+  - 戦闘機 RedF1-4 0.383〜0.729（p50 0.556）、BlueF1-4 0.383〜0.747（p50 0.555）
+  - 両群の隙間は **0.371〜0.383 の 0.012 km/s** だけ。
+- しきい値感度（護衛検知tick 2920 / 507 に対する識別数）:
+  - 0.20 → ほぼ0、0.24 → 456 / 52、0.25 → 1290 / 197、0.26 → 2193 / 356
+  - 0.30 → 2878 / 495（98.6% / 97.6%）、0.38以上 → 2920 / 507（100%）
+  - **0.38〜0.55 は完全な飽和帯**。0.3 は護衛機自身の速度スパイク（最大0.371）で 42tick / 12tick だけ識別を落とす。
+- 落ちたtickの護衛機距離は 135.5〜223.4km（中央177.7km）で、最寄り敵は戦闘機（13〜188km）。遠距離のため chase 方位の差はあっても射撃機会の差はほぼない。
+- 識別精度は しきい値0（速度フィルタ無効）でも 2920/2920・507/507 で **100%**。前方x最大は常に護衛機（x=115〜127km）で、戦闘機が護衛機より前方にいるtickは0。台帳 O-165 の precision 59-88%（0のとき）は現行ログでは再現せず、速度フィルタは現状では冗長。
+- 結論: 上側 0.38〜0.55 が飽和、下側 0.26 以下で識別が急減する軸。0.3→0.35〜0.38 の改善余地は護衛検知の 1.4〜2.4%（すべて135km以上）だけで、6戦ペア評価のノイズ以下。仮説化しない。
+
+## O-284 [observation/log] 2026-11-04T20:12:11
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: hit_rate向上・avg_score改善（予測：0.083→0.10, 0.674→0.69）
+- 仮説: N-257
+- 変更: agent/args.json の escortAmmoHoldDistKm を 0→30 に変更。fire_decision.py:56-58 の確率的弾着保留を有効化。
+- 検証: ペア評価6戦: 勝率6-0-0。挙動指標 avg_score 0.674 / avg_our_alive 3.33 / avg_enemy_alive 3.33 と baseline と同一（仮説未検証・しきい値30kmでは発動不該当）。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: escortAmmoHoldDistKm の閾値を上げる（50km〜100km）か、他の変数の組み合わせで改善を試す。

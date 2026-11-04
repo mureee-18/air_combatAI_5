@@ -17,7 +17,7 @@
     "escortForwardXKm": 110,
     "escortFireMaxDistKm": 0.0,
     "escortMaxSpeedKmps": 0.3,
-    "escortAmmoHoldDistKm": 0.0,
+    "escortAmmoHoldDistKm": 30,
     "escortNoBeamDistKm": 50.0,
     "escortIgnoreBreakDistKm": 50.0,
     "escortReserveMsls": 3,
