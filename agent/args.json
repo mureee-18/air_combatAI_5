@@ -26,5 +26,8 @@
     "evadeWeaveDeg": 0.0,
     "evadeWeavePeriod": 20.0,
     "escortPriorityFire": 0,
-    "maxSimulPerTarget": 1
+    "maxSimulPerTarget": 1,
+    "escortTrailDistKm": 50.0,
+    "escortFormationKm": 50.0,
+    "escortLeadDistKm": 0.0
 }
