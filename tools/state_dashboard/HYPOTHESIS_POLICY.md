@@ -148,6 +148,10 @@ python analysis/tools/baseline_check.py --lock
 | escortNoBeam | 0 / 1 | 挙動は変化（50km内滞在 179→569f）だが結果不変（nbi 0.615＝中立）。1 を採用 | O-167・nbi.json |
 | escortIgnoreBreak | 0 / 1 | 挙動は変化するが結果不変（nbi 0.615＝中立）。1 を採用 | O-167・nbi.json |
 
+※ 閉鎖判定はこの表と `analysis/tools/tested_variables.json`（実測台帳）の**和**で行う
+（`serve.py::_tested_axes`）。表は要約なので、台帳に載った軸は表に無くてもカード化されない。
+軸を試験したら台帳へ記録すればカードは消える（表への追記は任意）。
+
 ## 未試験の軸（ここが材料）
 
 閉鎖済み軸（上の表）の補集合。1 因果メカニズムで試せる残りのノブだけを事実カード

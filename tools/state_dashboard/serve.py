@@ -1505,17 +1505,22 @@ _AXIS_META = {
 
 
 def _tested_axes() -> set:
-    """HYPOTHESIS_POLICY.md の『検証済みの変数軸』表から試験済みの変数名を読む."""
+    """検証済みの変数名 = HYPOTHESIS_POLICY.md の表 ∪ tested_variables.json の台帳.
 
+    台帳（tested_variables.json）が実測記録の正で、policy の表はその要約。
+    表の更新漏れで「未試験の軸」カードが復活しないよう、両者の和を閉鎖軸とする。
+    """
+
+    ledger = (load_tested_variables() or {}).get("variables", {}) or {}
+    out = set(ledger)
     doc = REPO_ROOT / "tools" / "state_dashboard" / "HYPOTHESIS_POLICY.md"
     if not doc.exists():
-        return set()
+        return out
     text = doc.read_text(encoding="utf-8")
     marker = "## 検証済みの変数軸（再試験禁止）"
     if marker not in text:
-        return set()
+        return out
     section = text.split(marker, 1)[1].split("\n## ", 1)[0]
-    out = set()
     for line in section.splitlines():
         line = line.strip()
         if not line.startswith("|"):

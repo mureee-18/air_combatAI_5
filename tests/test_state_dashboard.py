@@ -768,6 +768,19 @@ def test_tested_axes_parsed_from_policy_table():
     assert "" not in tested
 
 
+def test_tested_axes_include_ledger_variables():
+    # 実測台帳（tested_variables.json）の軸も閉鎖扱いにする。
+    # 表への追記漏れで「未試験の軸」カードが復活する事故を防ぐ。
+    tested = serve._tested_axes()
+    ledger = (serve.load_tested_variables() or {}).get("variables", {})
+    assert ledger, "台帳が空だと閉鎖判定が表だけに戻る"
+    assert set(ledger) <= tested
+    # 今回の誤カード（beamHoldFrames は 0/3/10 を試験済み）
+    assert "beamHoldFrames" in tested
+    ids = {c["id"] for c in serve._axis_cards() if "未試験の軸" in c["title"]}
+    assert "axis:beamHoldFrames" not in ids
+
+
 def test_axis_cards_render_untested_axis(monkeypatch):
     # 閉鎖軸が無い（=全部未試験）状態で、軸カードが正しい形で出ること
     monkeypatch.setattr(serve, "_tested_axes", lambda: set())

@@ -2870,3 +2870,13 @@
 - 検証: baseline_check は args と baseline_args の差分のみを見るため、baseline_args 側が壊れた既定値に更新されると changed=0 のまま性能だけ 0.674→0.500 に落ちる。実際に 7a00b9d 以降の全検証がこの状態で行われ、棄却判定が誤っていた
 - 指標: {"avg_score": 0.629, "avg_our_alive": 3.33, "avg_enemy_alive": 3.5, "games": 6}
 - 次の一手: baseline_check にゴールデン6戦（seeds1-3両面、avg_score>=0.66 等）の性能ガードを追加する。仮説検証の前後で必ず修復ベースラインを再測する
+
+## 深掘り: hit_rate 0.083 の原因（2026-11-04・N-256 の根拠）
+- 対象ログ: `workspace/results/0/log_0.json`（修復後ベースライン、1ゲーム）
+- `tools/battle_analyzer/launch_analyzer.py` で実測: 4機が同一目標 E1 へ t=191〜197 に計12発を発射（burst_size=12、飛行28.6〜30.9秒、発射距離42.9〜46.4km）。
+- 着弾推定時刻 t≈221 で敵スロットが全機「未探知」（enemy[i][0]=0）になり、解析上は 12発すべて miss/no_enemy。sim の hit_rate は 0.083（12発中1命中）。
+- 探知は t=221〜325 の105秒間ゼロ（敵編隊がセンサ外へ離脱）、t=326 に再探知。1命中で E1 は落ち、残り11発は目標を失ったと解釈。
+- score = 0.6 + 0.3*hit_rate + time_bonus（`serve.py:2478`）なので、同一目標への12発集中はスコアを直接押し下げる。
+- コード原因: `agent/strategy/execution/deploy.py:26` は自機ごとの飛翔ミサイル数（maxSimulShot=4）だけを見て、同一目標への重複発射を制限しない。
+- 既試ノブ（fireRangeKm/maxSimulShot/targetSpread/launchIntervalFrames）はすべて棄却済み。残るのは「自機ごと・同一目標への飛翔中ミサイル上限」という新条件（N-256）。
+- 仮説: 上限1発にすると初回斉射 12→4発、hit_rate 0.083→0.20、avg_score 0.674→0.71、avg_enemy_alive 3.33→3.17、avg_our_alive 3.33 維持。
