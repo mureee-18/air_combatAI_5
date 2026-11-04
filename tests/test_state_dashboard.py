@@ -774,11 +774,23 @@ def test_tested_axes_include_ledger_variables():
     tested = serve._tested_axes()
     ledger = (serve.load_tested_variables() or {}).get("variables", {})
     assert ledger, "台帳が空だと閉鎖判定が表だけに戻る"
-    assert set(ledger) <= tested
+    tested_in_ledger = {k for k, v in ledger.items() if (v or {}).get("refs")}
+    assert tested_in_ledger <= tested
     # 今回の誤カード（beamHoldFrames は 0/3/10 を試験済み）
     assert "beamHoldFrames" in tested
     ids = {c["id"] for c in serve._axis_cards() if "未試験の軸" in c["title"]}
     assert "axis:beamHoldFrames" not in ids
+
+
+def test_tested_axes_keeps_unverified_ledger_entries_open():
+    # refs が空の台帳項目は「実装済みだが未検証」。閉鎖して材料から消さない。
+    ledger = (serve.load_tested_variables() or {}).get("variables", {})
+    open_entries = {k for k, v in ledger.items() if not (v or {}).get("refs")}
+    assert "escortAmmoHoldDistKm" in open_entries
+    tested = serve._tested_axes()
+    assert "escortAmmoHoldDistKm" not in tested
+    ids = {c["id"] for c in serve._axis_cards() if "未試験の軸" in c["title"]}
+    assert "axis:escortAmmoHoldDistKm" in ids
 
 
 def test_axis_cards_render_untested_axis(monkeypatch):

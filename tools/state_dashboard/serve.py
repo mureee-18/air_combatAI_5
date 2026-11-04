@@ -1509,10 +1509,12 @@ def _tested_axes() -> set:
 
     台帳（tested_variables.json）が実測記録の正で、policy の表はその要約。
     表の更新漏れで「未試験の軸」カードが復活しないよう、両者の和を閉鎖軸とする。
+    ただし台帳の項目でも refs（検証記録）が空のものは「実装済みだが未検証」なので
+    閉鎖しない（実装しただけのノブを材料から消さない）。
     """
 
     ledger = (load_tested_variables() or {}).get("variables", {}) or {}
-    out = set(ledger)
+    out = {k for k, v in ledger.items() if (v or {}).get("refs")}
     doc = REPO_ROOT / "tools" / "state_dashboard" / "HYPOTHESIS_POLICY.md"
     if not doc.exists():
         return out
