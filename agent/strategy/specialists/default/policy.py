@@ -41,6 +41,8 @@ class DefaultPolicy(StandalonePolicy):
         self.target_spread = int(args.get("targetSpread", 0))
         self.launch_interval_frames = int(args.get("launchIntervalFrames", 0))
         self.max_simul_shot = int(args.get("maxSimulShot", 4))
+        # 同一目標への発射上限（0=無効）。直近 PER_TARGET_WINDOW_FRAMES の発射履歴で近似する。
+        self.max_simul_per_target = int(args.get("maxSimulPerTarget", 0))
 
         # --- Evasion (回避) ---
         self.evade_crank_deg = float(args.get("evadeCrankDeg", 0.0))
@@ -62,6 +64,10 @@ class DefaultPolicy(StandalonePolicy):
         self.escort_priority_fire = int(args.get("escortPriorityFire", 0))
         self._flankDeg = float(args.get("escortFlankDeg", 0.0))
         self.flankFullDistKm = float(args.get("flankFullDistKm", 150.0))
+        # 護衛候補との距離保持（judgment/escort_station.py で使用。0=無効）
+        self.escort_formation_km = float(args.get("escortFormationKm", 0.0))
+        self.escort_trail_dist_km = float(args.get("escortTrailDistKm", 0.0))
+        self.escort_lead_dist_km = float(args.get("escortLeadDistKm", 0.0))
 
         # --- Internal state ---
         self._tick = {}
@@ -70,6 +76,7 @@ class DefaultPolicy(StandalonePolicy):
         self._threat_evade_frames = {}
         self._last_target_xy = None
         self._track_count = 0
+        self._shot_hist = {}
 
     def step(self, observation, reward, done, info, agent_full_name, observation_space, action_space):
         judgment = judge(self, observation, reward, done, info, agent_full_name,

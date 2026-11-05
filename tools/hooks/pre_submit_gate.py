@@ -55,6 +55,25 @@ def _active_specialist() -> str:
     return str(args.get("specialist", ""))
 
 
+def _unwired_keys() -> list[str]:
+    """agent/args.json のうち、コードから参照されていない変数（提出しても効かない）."""
+    tools_dir = str(REPO_ROOT / "tools")
+    added = tools_dir not in sys.path
+    if added:
+        sys.path.insert(0, tools_dir)
+    try:
+        from arg_wiring import unwired
+        return unwired(REPO_ROOT)
+    except Exception:  # noqa: BLE001 - 監査不能でも提出自体は止めない
+        return []
+    finally:
+        if added:
+            try:
+                sys.path.remove(tools_dir)
+            except ValueError:
+                pass
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="SIGNATE 提出前ゲート")
     ap.add_argument("--command", default="", help="検証された提出コマンド（ログ用）")
@@ -78,6 +97,16 @@ def main() -> int:
             f"提出可能な specialist: {sorted(ALLOWED_SPECIALISTS)}"
         )
         return 1
+
+    # 警告のみ（提出は止めない）: 値だけあってコードに配線されていない変数。
+    # これらは提出物に入っても挙動に影響しないため、意図した変更か確認できるようにする。
+    unwired = _unwired_keys()
+    if unwired:
+        print(
+            f"警告: コードに未配線の変数が {len(unwired)} 個あります: {', '.join(unwired)}\n"
+            "これらは args.json の値が変わっても挙動に影響しません。"
+            "意図した変更か python tools/arg_wiring.py で確認してください。"
+        )
 
     if not ZIP_PATH.exists():
         print(f"提出物がありません: {ZIP_PATH}\npython scripts/build_submission.py を実行してください。")

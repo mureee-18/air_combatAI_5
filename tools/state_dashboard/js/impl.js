@@ -1,63 +1,82 @@
 function renderImpl(d) {
   const a = d.agents || {};
   const args = a.args || {};
-  const baseline = {
-    "fireRangeKm": 50.0, "breakRangeKm": 35.0, "evadeCrankDeg": 0.0, "evadeCrankBlend": 0.0, "evadeWeaveDeg": 0.0, "evadeWeavePeriod": 20.0, "marginKm": 25.0,
-    "trackConfirmFrames": 0, "targetSpread": 0, "escortSeekDistKm": 150, "escortForwardXKm": 110,
-    "escortFireMaxDistKm": 0.0, "escortMaxSpeedKmps": 0.3, "escortAmmoHoldDistKm": 0.0, "escortNoBeamDistKm": 50.0,
-    "escortIgnoreBreakDistKm": 50.0, "escortReserveMsls": 3, "escortFireMinKm": 35.0, "escortPriorityFire": 0, "escortFlankDeg": 0.0,
-    "beamHoldFrames": 0, "fireAlignDeg": 0.0, "burstHeadAlignDeg": 0.0, "launchIntervalFrames": 0, "maxSimulShot": 4,
-  };
-  const desc = {
-    "fireRangeKm": "射撃開始距離(km)。遠いほど早く撃てるが弾浪費リスク",
-    "breakRangeKm": "ブレイク(離脱)開始距離(km)。近いほど交戦持続",
-    "evadeCrankDeg": "回避時の機首ずらし角度(度)。0=真後ろ退避",
-    "evadeCrankBlend": "脅威方位基準のクランク混合率(0.0=固定, 1.0=脅威側に応じて左右クランク)",
-    "evadeWeaveDeg": "回避時のウェーブ機動振幅(度)。0=無効(直線退避)、非0=正弦波ウェーブで曲線回避",
-    "evadeWeavePeriod": "ウェーブ機動の周期(フレーム)。振動速度を制御",
-    "marginKm": "境界回避マージン(km)。小さいほど深く進出",
-    "trackConfirmFrames": "射撃前に必要な連続トラックフレーム数。高いほど安定射撃",
-    "targetSpread": "目標分散(0=集中射撃)。味方の射撃先を分散する",
-    "escortSeekDistKm": "護衛対象機探索距離(km)。遠い護衛を優先",
-    "escortForwardXKm": "護衛対象機の前方x閾値(km)。この距離以上で護衛候補",
-    "escortFireMaxDistKm": "護衛射撃の最大距離(km)。0=無効(fireRangeKm使用)",
-    "escortMaxSpeedKmps": "護衛対象機の最大速度(km/s)。これ以下を護衛候補",
-    "escortAmmoHoldDistKm": "護衛対象機がこの距離(km)以内になるまで発射保留。0=無効",
-    "escortNoBeamDistKm": "護衛対象機がこの距離(km)以内でビーム抑制。0=無効、50=射程内全体",
-    "escortIgnoreBreakDistKm": "護衛対象機がこの距離(km)以内でブレイク無視。0=無効、50=射程内全体",
-    "escortReserveMsls": "護衛用予備ミサイル数。護衛対象機用に温存",
-    "escortFireMinKm": "護衛射撃の最小距離(km)。これ以内で発射",
-    "escortPriorityFire": "護衛対象機への射撃を優先(0=無効, 1=有効)。護衛対象機を先行排除",
-    "escortFlankDeg": "護衛接近の側方オフセット角度(度)。0=無効",
-    "beamHoldFrames": "ビーム保持フレーム数。射撃前の整列待ち。0=無効",
-    "fireAlignDeg": "射撃前機首整列角度(度)。この角度以内で発射可。0=無効",
-    "launchIntervalFrames": "発射間隔フレーム数。0=同時発射",
-    "maxSimulShot": "同時発射上限数",
-    "burstHeadAlignDeg": "バースト初弾の機首整列角度(度)。0=無効",
-  };
-  const keys = Object.keys(args).filter(k => k !== "type" && k !== "specialist").sort();
-  let h = '<h2>実装状態（agent/args.json）</h2>';
-  h += '<p class="meta">現在の変数値と目的。変数の追加・削除・仕様変更は agent/args.json と policy.py を編集する。</p>';
-  h += table([{label:"変数"},{label:"現在値"},{label:"ベースライン"},{label:"目的"}],
-    keys.map(k => {
-      const cur = args[k];
-      const base = baseline[k];
-      const changed = (cur !== base && base !== undefined);
-      return [
-        esc(k),
-        esc(String(cur)),
-        esc(base !== undefined ? String(base) : "—"),
-        esc(desc[k] || "—"),
-      ];
+  const wiring = a.arg_wiring || {};
+  // サーバー（serve.py の _arg_rows）が値・ベースライン・目的・配線状態をまとめて返す。
+  // 旧ペイロード（arg_rows なし）でも壊れないように args から組み立てる。
+  const rows = (a.arg_rows && a.arg_rows.length) ? a.arg_rows : Object.keys(args)
+    .filter(k => k !== "type" && k !== "specialist")
+    .sort()
+    .map(k => ({
+      key: k,
+      current: args[k],
+      baseline: undefined,
+      changed: false,
+      desc: "",
+      wired: null,
+      via: [],
+      files: [],
     }));
-  const changed = keys.filter(k => args[k] !== baseline[k] && baseline[k] !== undefined);
+
+  let h = '<h2>実装状態（agent/args.json → コードの配線）</h2>';
+  h += '<p class="meta">現在の変数値と目的。この表は args.json のキー一覧ではなく、'
+     + 'コード参照の監査結果（tools/arg_wiring.py）を正としています。'
+     + '「未配線」の変数は値を変えても挙動が変わりません。</p>';
+
+  const unwired = rows.filter(r => r.wired === false);
+  if (wiring.total) {
+    if (wiring.unwired && wiring.unwired.length) {
+      h += `<p class="meta warn">未配線の変数: ${esc(wiring.unwired.join(", "))}`
+         + `（${wiring.wired}/${wiring.total} 配線済み）</p>`;
+    } else {
+      h += `<p class="meta ok">全 ${wiring.total} 変数がコードに配線済みです`
+         + '（policy / modelConfig / 直接参照のいずれか）。</p>';
+    }
+  }
+
+  const wiredCell = (r) => {
+    if (r.wired === true) {
+      const via = (r.via && r.via.length) ? r.via.join("+") : "wired";
+      const files = (r.files && r.files.length) ? r.files.join(", ") : "";
+      return `<span class="ok" title="${esc(files)}">配線済み（${esc(via)}）</span>`;
+    }
+    if (r.wired === false) return '<span class="warn">未配線</span>';
+    return "—";
+  };
+
+  h += table(
+    [{label:"変数"},{label:"現在値"},{label:"ベースライン"},{label:"目的"},{label:"配線"}],
+    rows.map(r => [
+      esc(r.key),
+      esc(String(r.current)),
+      esc(r.baseline !== undefined && r.baseline !== null ? String(r.baseline) : "—"),
+      esc(r.desc || "—"),
+      wiredCell(r),
+    ])
+  );
+
+  const changed = rows.filter(r => r.changed);
   if (changed.length) {
-    h += `<p class="meta warn">ベースラインと異なる変数: ${esc(changed.join(", "))}（${changed.length} 個）</p>`;
-  } else {
+    h += `<p class="meta warn">ベースラインと異なる変数: `
+       + `${esc(changed.map(r => r.key).join(", "))}（${changed.length} 個）</p>`;
+  } else if (rows.length) {
     h += '<p class="meta ok">全変数がベースラインと一致しています。</p>';
   }
+
+  if (unwired.length) {
+    h += '<h2>未配線の変数（値を変えても挙動が変わらない）</h2>';
+    h += '<p class="meta">args.json にキーを足しただけの状態です。'
+       + 'policy.py に属性を作り、判断層から参照するまで効果はありません。</p>';
+    h += '<ul>' + unwired.map(r => `<li><code>${esc(r.key)}</code></li>`).join("") + '</ul>';
+  }
+
   h += '<h2>変数の追加・削除・仕様変更</h2>';
-  h += '<p class="meta">変数を追加するには: (1) agent/args.json にキーを追加、(2) policy.py に self.xxx = args.get("xxx", default) を追加、(3) judgment.py で使用。削除は逆順。仕様変更は policy.py の型変換や judgment.py のロジックを編集。</p>';
+  h += '<p class="meta">変数を追加するときは次の4点をセットで変更します: '
+     + '(1) agent/args.json にキーを追加、'
+     + '(2) policy.py に self.xxx = args.get("xxx", default) を追加、'
+     + '(3) judgment / execution で実際に参照、'
+     + '(4) analysis/tools/baseline_args.json に同じ既定値を追加。'
+     + '追加後は python tools/arg_wiring.py で「全変数が配線済み」を確認してください。</p>';
   h += cmdRow(
     '実装変更を依頼します。agent/args.json / policy.py / judgment.py を編集して変数を追加・削除・仕様変更してください。具体的な変更内容は私が指定します。',
     "実装変更の指示（OpenCode に貼り付け）", INTENT_IMPL);

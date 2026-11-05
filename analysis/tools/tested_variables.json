@@ -446,24 +446,22 @@
     },
     "maxSimulPerTarget": {
       "values": "0/1",
-      "result": "1変数で試せる残り：1発にすると初回斉射 12→4発、hit_rate 0.083→0.20、avg_score 0.674→0.71、avg_enemy_alive 3.33→3.17、avg_our_alive 3.33 維持",
-      "refs": [
-        "N-256"
-      ]
+      "result": "実装済み・未試験（2026-11-05 に fire_decision.py へ配線。直近60フレームの発射履歴で同一目標への本数を近似）。以前の N-256 は args.json のみの変更でコード未配線だったため記録は無効",
+      "refs": []
     },
     "escortTrailDistKm": {
       "values": "0.0/50.0/100.0/200.0",
-      "result": "未試験（新規変数）。0.0=無効、>0=護衛候補の後方に維持する距離（km）。",
+      "result": "実装済み・未試験（escort_station.py に配線）。0.0=無効、>0=射程外フェーズで護衛候補との距離を保つ（km）。",
       "refs": []
     },
     "escortFormationKm": {
       "values": "0.0/50.0/100.0/200.0",
-      "result": "未試験（新規変数）。0.0=編成無し、>0=護衛候補との formation 距離（km）。",
+      "result": "実装済み・未試験（escort_station.py に配線）。0.0=編成無し、>0=護衛候補との基本保持距離（km）。",
       "refs": []
     },
     "escortLeadDistKm": {
       "values": "0.0/50.0/100.0",
-      "result": "未試験（新規変数）。0.0=先頭維持、>0=護衛候補より前方に維持する距離（km）。",
+      "result": "実装済み・未試験（escort_station.py に配線）。0.0=無効、>0=射程内フェーズで護衛候補との最小間隔（km）。",
       "refs": []
     }
   }

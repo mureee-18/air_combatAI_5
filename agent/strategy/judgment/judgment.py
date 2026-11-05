@@ -8,6 +8,7 @@ from typing import List, Optional
 
 import numpy as np
 
+from .escort_station import escort_station_heading
 from .fire_decision import decide_fire
 from .navigation import navigate
 from .target_selection import select_escort_candidate, select_primary_target
@@ -126,6 +127,15 @@ def judge(policy, observation, reward, done, info, agent_full_name,
         if threat_active:
             fire_slot = None
         j.fire_target_slot = fire_slot
+
+        # escort station keeping (護衛候補との距離保持。3変数とも 0=無効)
+        # 射撃解がある tick・ブレイク中・脅威対応中は上書きしない。
+        if (escort_candidate is not None and not breaking and not threat_active
+                and j.fire_target_slot is None):
+            station_heading = escort_station_heading(
+                policy, enemy, escort_candidate, policy.beam_range_km)
+            if station_heading is not None:
+                j.desired_heading_deg = station_heading
 
         j.escort_candidate_slot = escort_candidate
     else:

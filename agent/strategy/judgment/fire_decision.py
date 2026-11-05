@@ -3,6 +3,9 @@
 Decides whether and at whom to fire.
 """
 
+# 同一目標への発射上限を数える窓（フレーム）。ミサイルの飛翔時間の近似。
+PER_TARGET_WINDOW_FRAMES = 60
+
 
 def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
                 breaking, name, tick, off_nose, threat_active):
@@ -70,6 +73,16 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
         or float(enemy[escort_candidate, 2]) <= policy.escort_fire_min_km
     )
 
+    # 同一目標への発射上限（0=無効）。
+    # ミサイルごとの目標は観測できないため、「直近 PER_TARGET_WINDOW_FRAMES に
+    # 同じ目標へ出した発射指示の数」で飛翔中の本数を近似する。
+    max_per_target = int(getattr(policy, "max_simul_per_target", 0))
+    per_target_ok = True
+    if max_per_target > 0:
+        hist = policy._shot_hist.setdefault(name, {}).setdefault(fire_target, [])
+        hist[:] = [t for t in hist if tick - t < PER_TARGET_WINDOW_FRAMES]
+        per_target_ok = len(hist) < max_per_target
+
     burst_head = name not in policy._last_fire or tick - policy._last_fire[name] > 4
     # Adaptive fire alignment: looser at far range, stricter at close range
     if policy.fire_align_deg <= 0.0:
@@ -93,7 +106,10 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
         and interval_ok
         and align_ok
         and ammo_hold_ok
+        and per_target_ok
         ):
         policy._last_fire[name] = tick
+        if max_per_target > 0:
+            policy._shot_hist.setdefault(name, {}).setdefault(fire_target, []).append(tick)
         return fire_target
     return None

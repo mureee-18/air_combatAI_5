@@ -655,6 +655,97 @@ def _module_summary(path: Path) -> str:
     return ""
 
 
+_ARG_DESC = {
+    "fireRangeKm": "射撃開始距離(km)。遠いほど早く撃てるが弾浪費リスク",
+    "breakRangeKm": "ブレイク(離脱)開始距離(km)。近いほど交戦持続",
+    "evadeCrankDeg": "回避時の機首ずらし角度(度)。0=真後ろ退避",
+    "evadeCrankBlend": "脅威方位基準のクランク混合率(0.0=固定, 1.0=脅威側に応じて左右クランク)",
+    "evadeWeaveDeg": "回避時のウェーブ機動振幅(度)。0=無効(直線退避)、非0=正弦波ウェーブで曲線回避",
+    "evadeWeavePeriod": "ウェーブ機動の周期(フレーム)。振動速度を制御",
+    "marginKm": "境界回避マージン(km)。小さいほど深く進出",
+    "trackConfirmFrames": "射撃前に必要な連続トラックフレーム数。高いほど安定射撃",
+    "targetSpread": "目標分散(0=集中射撃)。味方の射撃先を分散する",
+    "escortSeekDistKm": "護衛対象機探索距離(km)。遠い護衛を優先",
+    "escortForwardXKm": "護衛対象機の前方x閾値(km)。この距離以上で護衛候補",
+    "escortFireMaxDistKm": "護衛射撃の最大距離(km)。0=無効(fireRangeKm使用)",
+    "escortMaxSpeedKmps": "護衛対象機の最大速度(km/s)。これ以下を護衛候補",
+    "escortAmmoHoldDistKm": "護衛対象機がこの距離(km)以内になるまで発射保留。0=無効",
+    "escortNoBeamDistKm": "護衛対象機がこの距離(km)以内でビーム抑制。0=無効、50=射程内全体",
+    "escortIgnoreBreakDistKm": "護衛対象機がこの距離(km)以内でブレイク無視。0=無効、50=射程内全体",
+    "escortReserveMsls": "護衛用予備ミサイル数。護衛対象機用に温存",
+    "escortFireMinKm": "護衛射撃の最小距離(km)。これ以内で発射",
+    "escortPriorityFire": "護衛対象機への射撃を優先(0=無効, 1=有効)。護衛対象機を先行排除",
+    "escortFlankDeg": "護衛接近の側方オフセット角度(度)。0=無効",
+    "escortFormationKm": "護衛候補との基本保持距離(km)。指定距離より内側に入ると離脱方位へ。0=無効",
+    "escortTrailDistKm": "射程外(接近フェーズ)での護衛候補との保持距離(km)。0=無効(formationに従う)",
+    "escortLeadDistKm": "射程内(交戦フェーズ)での護衛候補との最小間隔(km)。0=無効(formationに従う)",
+    "beamHoldFrames": "ビーム保持フレーム数。射撃前の整列待ち。0=無効",
+    "fireAlignDeg": "射撃前機首整列角度(度)。この角度以内で発射可。0=無効",
+    "launchIntervalFrames": "発射間隔フレーム数。0=同時発射",
+    "maxSimulShot": "同時発射上限数（機体全体）",
+    "maxSimulPerTarget": "同一目標への同時発射上限数。直近60フレームの発射履歴で近似。0=無効",
+    "burstHeadAlignDeg": "バースト初弾の機首整列角度(度)。0=無効",
+}
+
+
+def _arg_audit() -> dict:
+    """tools/arg_wiring.py の監査結果（args.json → コード）を返す.
+
+    ダッシュボードの「実装状態」は args.json のキー一覧ではなく、この監査結果を
+    正とする。値だけ足してコードに配線していない変数を「実装済み」に見せない。
+    """
+    tools_dir = str(REPO_ROOT / "tools")
+    added = tools_dir not in sys.path
+    if added:
+        sys.path.insert(0, tools_dir)
+    try:
+        from arg_wiring import audit
+        return audit(REPO_ROOT)
+    except Exception:  # noqa: BLE001 - ダッシュボードは監査失敗でも落とさない
+        return {}
+    finally:
+        if added:
+            try:
+                sys.path.remove(tools_dir)
+            except ValueError:
+                pass
+
+
+def _arg_rows() -> list[dict]:
+    """args.json の各変数を、値・ベースライン・目的・配線状態つきで返す."""
+    args = load_json(REPO_ROOT / "agent" / "args.json") or {}
+    baseline = load_json(REPO_ROOT / "analysis" / "tools" / "baseline_args.json") or {}
+    audit = _arg_audit()
+    rows = []
+    for key in sorted(k for k in args if k not in ("type", "specialist")):
+        cur = args.get(key)
+        base = baseline.get(key)
+        info = audit.get(key) or {}
+        rows.append({
+            "key": key,
+            "current": cur,
+            "baseline": base,
+            "changed": base is not None and cur != base,
+            "desc": _ARG_DESC.get(key, ""),
+            "wired": bool(info.get("wired")),
+            "via": list(info.get("via") or []),
+            "files": list(info.get("files") or []),
+            "attr": info.get("attr"),
+        })
+    return rows
+
+
+def _arg_wiring_summary() -> dict:
+    """配線監査のサマリ（未配線キー一覧）."""
+    audit = _arg_audit()
+    missing = sorted(k for k, v in audit.items() if not (v or {}).get("wired"))
+    return {
+        "total": len(audit),
+        "wired": len(audit) - len(missing),
+        "unwired": missing,
+    }
+
+
 def _arg_keys(path: Path) -> list[str]:
     """モジュールが args から読む設定キー."""
     try:
@@ -720,12 +811,21 @@ def collect_agents() -> dict:
         for path in sorted(specialists_dir.glob("*.py")):
             if path.name == "__init__.py":
                 continue
+            # パッケージ型 specialist（specialists/<name>/）は配下の .py も走査する。
+            # default.py は再エクスポートだけなので、これがないと arg_keys が空になる。
+            pkg_dir = specialists_dir / path.stem
+            arg_keys = set(_arg_keys(path))
+            if pkg_dir.is_dir():
+                for py in sorted(pkg_dir.rglob("*.py")):
+                    if "__pycache__" in py.parts:
+                        continue
+                    arg_keys.update(_arg_keys(py))
             specialists.append({
                 "name": path.stem,
                 "file": path.relative_to(REPO_ROOT).as_posix(),
                 "classes": _py_classes(path),
                 "summary": _module_summary(path),
-                "arg_keys": _arg_keys(path),
+                "arg_keys": sorted(arg_keys),
                 "lines": len(path.read_text(encoding="utf-8").splitlines()),
                 "active": path.stem == specialist,
             })
@@ -774,6 +874,8 @@ def collect_agents() -> dict:
         "presets": presets,
         "ideas": ideas,
         "args": args,
+        "arg_rows": _arg_rows(),
+        "arg_wiring": _arg_wiring_summary(),
         "config": collect_agent_config(),
     }
 
@@ -1543,6 +1645,7 @@ def _axis_cards() -> list[dict]:
     tested = _tested_axes()
     args = load_json(REPO_ROOT / "agent" / "args.json") or {}
     baseline_args = load_json(REPO_ROOT / "analysis" / "tools" / "baseline_args.json") or {}
+    wiring = _arg_audit()
     mechanisms = (load_json(REPO_ROOT / "analysis" / "tools" / "mechanisms.json") or {}).get("mechanisms", {})
     var_to_mech = {}
     for mech, keys in mechanisms.items():
@@ -1552,6 +1655,10 @@ def _axis_cards() -> list[dict]:
     for var in _agent_axes():
         cur = _scalar(args.get(var))
         if cur is None:
+            continue
+        # コードに配線されていない変数は「1変数で試せる軸」ではないので除外する。
+        # （args.json に値だけ足した変数を材料として出さない）
+        if not (wiring.get(var) or {}).get("wired"):
             continue
         base = _scalar(baseline_args.get(var))
         changed_from_baseline = (base is not None and cur != base)
@@ -1605,7 +1712,9 @@ def _axis_cards() -> list[dict]:
             "phrase": phrase,
             "metric": meta["judge"],
             "from_tab": "コード",
-            "from_path": "agent/args.json, agent/strategy/specialists/default.py",
+            "from_path": ", ".join(
+                ["agent/args.json"] + ((wiring.get(var) or {}).get("files") or [])
+            ),
             "command": "",
             "command_label": "",
         })
