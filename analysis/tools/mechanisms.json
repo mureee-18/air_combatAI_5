@@ -48,6 +48,13 @@
       "maxSimulShot",
       "launchIntervalFrames",
       "engageRangeKm"
+    ],
+    "formation": [
+      "formationSpreadDeg",
+      "launchStaggerFrames",
+      "evadeReturnFrames",
+      "formationSpacingKm",
+      "lostAllySpeedBoost"
     ]
   }
 }

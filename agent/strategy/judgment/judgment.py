@@ -40,6 +40,19 @@ def judge(policy, observation, reward, done, info, agent_full_name,
     threat = np.asarray(observation["threat"], dtype=np.float64)
 
     name = agent_full_name or ""
+    # slot identity (0-based) for formation control. Derived from the trailing
+    # digit of the agent name (e.g. "Blue_1_3" -> slot 2). Falls back to a
+    # per-policy counter if no digit is found.
+    if not hasattr(policy, "_slot_index"):
+        policy._slot_index = {}
+        policy._next_slot = 0
+    if name not in policy._slot_index:
+        import re
+        m = re.search(r"(\d+)\s*$", name)
+        if m:
+            policy._slot_index[name] = (int(m.group(1)) - 1) % 4
+        else:
+            policy._slot_index[name] = hash(name) % 4
     policy._tick[name] = policy._tick.get(name, 0) + 1
 
     j = Judgment()
@@ -105,6 +118,7 @@ def judge(policy, observation, reward, done, info, agent_full_name,
         j.breaking = breaking
 
         # navigation heading
+        policy._current_slot = getattr(policy, "_slot_index", {}).get(name, 0)
         if (escort_candidate is not None and not breaking
                 and best_dist > policy.beam_range_km):
             flank = 0.0
@@ -113,10 +127,23 @@ def judge(policy, observation, reward, done, info, agent_full_name,
                 # Inverse scaling: closer escort target = larger flank
                 factor = min(max(1.0 - dist / policy.flankFullDistKm, 0.0), 1.0)
                 flank = policy._flankDeg * factor
-            j.desired_heading_deg = enemy[escort_candidate, 1] + flank
+            spread = getattr(policy, "formationSpreadDeg", 0.0)
+            j.desired_heading_deg = enemy[escort_candidate, 1] + flank + (
+                (0.0, spread, -spread, 2.0 * spread)[getattr(policy, "_current_slot", 0) % 4]
+                if spread != 0.0 else 0.0
+            )
         else:
+            # formation spread: slot-based heading offset to create lateral separation
+            spread = getattr(policy, "formationSpreadDeg", 0.0)
+            slot = getattr(policy, "_slot_index", {}).get(name, 0)
+            if spread != 0.0:
+                # slots 0,1,2,3 -> offsets 0, +spread, -spread, +2*spread (fan)
+                offsets = (0.0, spread, -spread, 2.0 * spread)
+                off = offsets[slot % 4]
+            else:
+                off = 0.0
             j.desired_heading_deg = navigate(policy, own, enemy, best, best_dist,
-                                            escort_candidate, breaking, beam_allowed)
+                                            escort_candidate, breaking, beam_allowed) + off
 
         # firing decision
         threat_active = bool(threat[0] > 0.5)
@@ -150,10 +177,10 @@ def judge(policy, observation, reward, done, info, agent_full_name,
     threat_detected, evading = assess_threat(policy, threat, name)
     j.threat_detected = threat_detected
     j.evading = evading
+    return_frames = int(getattr(policy, "evadeReturnFrames", 0))
     if threat_detected and evading:
         base_az = threat[1] + 180.0
         threat_dist = float(threat[2]) if len(threat) > 2 else 10.0
-        # Adaptive scaling: closer threat = more aggressive evasion
         dist_scale = max(0.0, min(1.0, 1.0 - threat_dist / 50.0))
         crank = policy.evade_crank_deg * dist_scale
         blend = getattr(policy, "evade_crank_blend", 0.0) * dist_scale
@@ -161,7 +188,6 @@ def judge(policy, observation, reward, done, info, agent_full_name,
             rel_bearing = (threat[1] - own[4] + 180.0) % 360.0 - 180.0
             crank_sign = 1.0 if rel_bearing >= 0 else -1.0
             crank = (1.0 - blend) * crank + blend * (crank_sign * abs(crank))
-        # Adaptive weave: closer threat = larger weave amplitude
         weave = getattr(policy, "evade_weave_deg", 0.0) * dist_scale
         if weave != 0.0:
             import math
@@ -173,15 +199,39 @@ def judge(policy, observation, reward, done, info, agent_full_name,
             crank += weave * math.sin(phase)
         j.desired_heading_deg = base_az + crank
         j.fire_target_slot = None
+        if return_frames > 0:
+            policy._evade_return_tick[name] = policy._tick.get(name, 0) + return_frames
+            policy._last_evade_heading[name] = j.desired_heading_deg
+    elif return_frames > 0 and policy._tick.get(name, 0) < policy._evade_return_tick.get(name, 0):
+        # still in return window: keep evading
+        j.evading = True
+        j.desired_heading_deg = policy._last_evade_heading.get(name, j.desired_heading_deg)
+        j.fire_target_slot = None
 
-    # --- margin adjustments ---
-    margin_side, margin_front, margin_back = own[5], own[6], own[7]
-    if margin_front < policy.margin_km:
-        j.desired_heading_deg = (policy.margin_az_deg if own[1] < 0.0
-                                 else -policy.margin_az_deg)
-    elif margin_back < policy.margin_km:
-        j.desired_heading_deg = 0.0
-    if margin_side < policy.margin_km:
-        j.desired_heading_deg = -60.0 if own[1] > 0.0 else 60.0
+    # --- formation spacing (maintain distance from nearest teammate) ---
+    spacing = getattr(policy, "formationSpacingKm", 0.0)
+    teammates = getattr(policy, "_teammates", {}) or {}
+    if spacing > 0.0 and teammates:
+        import math
+        # find nearest teammate
+        nearest_dist = None
+        for tname, (tx, ty, _) in teammates.items():
+            dx = tx - own[0]
+            dy = ty - own[1]
+            d = (dx * dx + dy * dy) ** 0.5
+            if nearest_dist is None or d < nearest_dist:
+                nearest_dist = d
+        if nearest_dist is not None and nearest_dist < spacing:
+            # turn away from nearest teammate
+            dx = list(teammates.values())[0][0] - own[0]
+            dy = list(teammates.values())[0][1] - own[1]
+            away = math.degrees(math.atan2(dy, dx)) + 180.0
+            j.desired_heading_deg = away
+
+    # --- lost ally speed boost ---
+    boost = getattr(policy, "lostAllySpeedBoost", 0.0)
+    if boost > 0.0 and len(teammates) < 3:
+        max_idx = int(action_space["speed"].n) - 1
+        j.speed_index = min(max_idx, j.speed_index + int(boost))
 
     return j

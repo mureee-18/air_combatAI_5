@@ -22,6 +22,25 @@ from ...judgment import judge
 from .config import get_model_config as load_model_config
 
 
+# ---------------------------------------------------------------------------
+# Shared formation state (class-level across all aircraft in the same process).
+# The sim runs all 4 aircraft in one Python process, so a module-level dict
+# lets them observe each other's positions for formation control.
+# ---------------------------------------------------------------------------
+_formation_positions = {}   # name -> (x, y, tick)
+
+
+def _report_formation_position(name: str, x: float, y: float, tick: int) -> None:
+    _formation_positions[name] = (float(x), float(y), int(tick))
+    stale = [k for k, v in _formation_positions.items() if tick - v[2] > 5]
+    for k in stale:
+        del _formation_positions[k]
+
+
+def _formation_teammates(name: str) -> dict:
+    return {k: v for k, v in _formation_positions.items() if k != name}
+
+
 class DefaultPolicy(StandalonePolicy):
     def __init__(self, args={}):
         super().__init__()
@@ -69,6 +88,19 @@ class DefaultPolicy(StandalonePolicy):
         self.escort_trail_dist_km = float(args.get("escortTrailDistKm", 0.0))
         self.escort_lead_dist_km = float(args.get("escortLeadDistKm", 0.0))
 
+        # --- Formation control variables (4-aircraft relative positioning) ---
+        self.formationSpreadDeg = float(args.get("formationSpreadDeg", 0.0))
+        self.launchStaggerFrames = int(args.get("launchStaggerFrames", 0))
+        self.evadeReturnFrames = int(args.get("evadeReturnFrames", 0))
+        self.formationSpacingKm = float(args.get("formationSpacingKm", 0.0))
+        self.lostAllySpeedBoost = float(args.get("lostAllySpeedBoost", 0.0))
+        # slot tracking: name -> 0-based slot index
+        self._slot_index = {}
+        self._next_slot = 0
+        self._evade_return_tick = {}
+        self._last_evade_heading = {}
+        self._teammates = {}
+
         # --- Internal state ---
         self._tick = {}
         self._last_fire = {}
@@ -79,6 +111,15 @@ class DefaultPolicy(StandalonePolicy):
         self._shot_hist = {}
 
     def step(self, observation, reward, done, info, agent_full_name, observation_space, action_space):
+        own = observation["own"]
+        # report position to shared formation state (same process, all 4 aircraft)
+        try:
+            name = agent_full_name or ""
+            tick = self._tick.get(name, 0) + 1
+            _report_formation_position(name, float(own[0]), float(own[1]), tick)
+            self._teammates = _formation_teammates(name)
+        except Exception:
+            self._teammates = {}
         judgment = judge(self, observation, reward, done, info, agent_full_name,
                          observation_space, action_space)
         return execute(self, judgment, action_space)

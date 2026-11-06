@@ -2926,3 +2926,33 @@
 - 検証: ペア評価6戦: 勝率6-0-0。挙動指標 avg_score 0.674 / avg_our_alive 3.33 / avg_enemy_alive 3.33 / avg_hit_rate 0.083 と baseline と同一（実装済みでもしきい値効果なし）。
 - 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: deploy.py への上限ロジック実装確認後、しきい値調整または他変数組み合わせで改善を試す。
+
+## O-286 [observation/log] 2026-11-05T18:17:25
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛候補との距離保持（escortFormationKm）の実効値を検証し、既定0の妥当性を確認する
+- 仮説: N-258
+- 変更: agent/args.json の escortFormationKm を 0→50 に変更。escort_station.py の距離保持（目標50km・デッドバンド7.5km・42.5km以内で離脱方位へ）を有効化した
+- 検証: ペア評価6戦(seeds1-3両面): avg_score 0.549（baseline 0.674、-0.125）、avg_hit_rate 0.022（0.083）、avg_enemy_alive 4.0（3.33）、avg_our_alive 3.33（維持）、win2/draw4/loss0。予測『50km維持で改善なし』に対し実測は退行。距離保持が射撃機会を落とすため50kmは棄却
+- 指標: {"avg_score": 0.549, "avg_our_alive": 3.33, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: escortFormationKm を 0（無効）へ戻す。距離保持を試す場合は lead/trail をビーム射程(45km)より小さい値で個別に検証する
+
+## O-287 [observation/log] 2026-11-06T14:58:40
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛候補との交戦フェーズ最小間隔（escortLeadDistKm）を作動範囲限定で検証する
+- 仮説: N-259
+- 変更: agent/args.json の escortLeadDistKm を 0→25 に変更。escort_station.py の lead 距離（デッドバンド5km、距離20km未満でのみ離脱方位へ）を有効化した
+- 検証: ペア評価6戦(seeds1-3両面): avg_score 0.674、avg_our_alive 3.33、avg_enemy_alive 3.33、avg_hit_rate 0.083、win6/draw0/loss0。baselineと完全一致で効果ゼロ。予測『0.674以上・3.33維持』は満たしたが改善はなく、20km未満の作動機会が実戦で発生していない（または射撃解が優先）と判断。lead=25は棄却
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: escortLeadDistKm を 0（無効）へ戻す。距離保持系は formation=50 が退行、lead=25 が効果ゼロのため一旦打ち切り、射撃・命中系（maxSimulPerTarget 等）の検証へ移る
+
+## O-288 [observation/log] 2026-11-06T20:57:20
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 脅威解消後 10 フレーム回避を継続してから approach に復帰する（evadeReturnFrames=0→10）
+- 仮説: N-260
+- 変更: agent/strategy/judgment/judgment.py に evadeReturnFrames ロジック追加。脅威解消後 return_frames フレームは desired_heading を回避方向に保持し、_evade_return_tick で管理。policy.py に evadeReturnFrames 変数と _evade_return_tick/_last_evade_heading 状態を追加。
+- 検証: paired eval (seeds 1-3 both colors): 6戦 all win ELIMINATION, avg_score 0.655 (baseline 0.674 比 -0.019), avg_our_alive 3.17 (baseline 3.33 比 -0.16), avg_enemy_alive 3.33 (据置), avg_hit_rate 0.076 (baseline 0.083 比 -0.007)。予測（avg_our_alive 2.0→2.3+, avg_score 0.5→0.55+）に対し実測は微減。仮説不支持。全回避軸が閉鎖済みのため、遷移の滑らかさだけでは改善しない。
+- 指標: {"avg_score": 0.655, "avg_our_alive": 3.17, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: evadeReturnFrames を閉鎖（tested_variables.json に登録）。args.json を baseline に戻し redeploy。別軸（winpath-escort / struct-firing-track）へ。

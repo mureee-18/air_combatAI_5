@@ -321,9 +321,11 @@
       ]
     },
     "escortAmmoHoldDistKm": {
-      "values": "0",
-      "result": "新規変数。0=無効、>0=護衛対象機がこの距離以内になるまで発射保留",
-      "refs": []
+      "values": "0/0/30",
+      "result": "閉鎖: hold_prob は escort ≤15km でないと有意にならないが、本試合の幾何では escort は 29-33km で撃墜されるため hold は発火しない。さらに escortReserveMsls=3 が同じ役割（弾の温存）をすでに果たしており冗長。有効値域が存在しない。",
+      "refs": [
+        "O-289"
+      ]
     },
     "escortNoBeamDistKm": {
       "values": "0/50",
@@ -446,23 +448,66 @@
     },
     "maxSimulPerTarget": {
       "values": "0/1",
-      "result": "実装済み・未試験（2026-11-05 に fire_decision.py へ配線。直近60フレームの発射履歴で同一目標への本数を近似）。以前の N-256 は args.json のみの変更でコード未配線だったため記録は無効",
-      "refs": []
+      "result": "閉鎖: maxSimulPerTarget=1 は同一目標への集中を抑制するが、close-range の 3 連射（t=1292/1296/1300、命中 3/3）まで 60f 窓でブロックし、唯一の命中源を 3→1 に削る。max=2 でも 3→2。max=0（無制限）だけが 3/3 を温存でき、有効値域が存在しない。PER_TARGET_WINDOW_FRAMES=60 がミサイル飛翔時間（≈31f）の 2 倍のため、4f 間隔のバーストが suppression 対象になる構造的問題。",
+      "refs": [
+        "O-288"
+      ]
     },
     "escortTrailDistKm": {
-      "values": "0.0/50.0/100.0/200.0",
-      "result": "実装済み・未試験（escort_station.py に配線）。0.0=無効、>0=射程外フェーズで護衛候補との距離を保つ（km）。",
-      "refs": []
+      "values": "0.0/50.0/60.0/100.0/200.0",
+      "result": "閉鎖: 50 は no-op（threshold 42.5km < beamRange 45km で分岐条件が常に真）。60 は現行再現。100/200 は standoff（85km/170km 近傍に留まり射撃機会を失う）。有効な値域が存在しない。escortFormationKm=50（N-258）と同構造。0=無効を維持。",
+      "refs": [
+        "N-258"
+      ]
     },
     "escortFormationKm": {
-      "values": "0.0/50.0/100.0/200.0",
-      "result": "実装済み・未試験（escort_station.py に配線）。0.0=編成無し、>0=護衛候補との基本保持距離（km）。",
-      "refs": []
+      "values": "0/50",
+      "result": "50km強制は退行（avg_score 0.549 vs 0.674、hit_rate 0.022 vs 0.083、avg_enemy_alive 4.0 vs 3.33）。0=無効を維持",
+      "refs": [
+        "N-258"
+      ]
     },
     "escortLeadDistKm": {
-      "values": "0.0/50.0/100.0",
-      "result": "実装済み・未試験（escort_station.py に配線）。0.0=無効、>0=射程内フェーズで護衛候補との最小間隔（km）。",
-      "refs": []
+      "values": "0.0/50.0/100.0/0/25",
+      "result": "lead=25はbaselineと完全一致（avg_score 0.674、hit_rate 0.083、avg_our_alive 3.33、avg_enemy_alive 3.33、win6-0-0）で効果ゼロ。20km未満の作動機会がなく0=無効を維持",
+      "refs": [
+        "N-259"
+      ]
+    },
+    "formationSpreadDeg": {
+      "values": "0/5/10/15/0/2/3/5/10",
+      "result": "閉鎖: formationSpreadDeg は escortFlankDeg（N-164 閉鎖）と同じ構造。有効値域（2-3度）は微小な効果しか期待できない。spread >= 5度 は接近を阻害（escortFlankDeg=15 と同じ構造）。spread < 2度 は no-op。有効な値域が存在しない。",
+      "refs": [
+        "O-293"
+      ]
+    },
+    "launchStaggerFrames": {
+      "values": "0/10/30",
+      "result": "閉鎖: launchStaggerFrames>0 は close-range の唯一の命中源（3/3, t=1292/1296/1300, 4f間隔）を分断し、命中 3→1 に削る。maxSimulPerTarget=1 と同型の suppression 副作用。開幕 12 発の同時発射を分散しても benefit なし（0/12 命中）。有効値域が存在しない。",
+      "refs": [
+        "O-291"
+      ]
+    },
+    "evadeReturnFrames": {
+      "values": "0/10",
+      "result": "閉鎖: evadeReturnFrames=10 で脅威解消後 10f 回避継続を追加。paired eval (seeds 1-3 both): 6戦 all win, avg_score 0.655 (baseline 0.674, -0.019), avg_our_alive 3.17 (baseline 3.33, -0.16), avg_enemy_alive 3.33 (据置), avg_hit_rate 0.076 (baseline 0.083, -0.007)。予測 (avg_our_alive 2.0→2.3+, avg_score 0.5→0.55+) に対し実測は微減。仮説不支持。全回避軸が閉鎖済みのため、遷移の滑らかさだけでは改善しない。有効値域なし。",
+      "refs": [
+        "O-288"
+      ]
+    },
+    "formationSpacingKm": {
+      "values": "0/5/10/20/0/2/3/5",
+      "result": "閉鎖: formationSpacingKm の有効値域は 2-3km のみ（現在の機間距離 2.4km 付近）。spacing >= 2.4km は approach を阻害（escortFormationKm=50 と同じ構造、N-258 退行）。spacing < 2.4km は no-op。有効な値域が存在しない。",
+      "refs": [
+        "O-292"
+      ]
+    },
+    "lostAllySpeedBoost": {
+      "values": "0/1/2",
+      "result": "閉鎖: lostAllySpeedBoost は speed_index を boost するが、speed_index は常に max (2=340) のため boost しても clamp されて no-op。速度は常に最大で、boost の有効値域が存在しない。味方が減ったときの並び方は heading の変更で制御すべきだが、観測に味方位置がないため heading 制御も不可能。formationSpacingKm が味方機との距離制御を担うため、速度軸は不要。",
+      "refs": [
+        "O-290"
+      ]
     }
   }
 }

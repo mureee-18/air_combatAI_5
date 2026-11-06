@@ -13,6 +13,12 @@ def decide_fire(policy, own, enemy, best, best_dist, escort_candidate,
 
     Returns the 0-based enemy slot to fire at, or None.
     """
+    # launch stagger: per-slot fire delay to create temporal separation
+    stagger = int(getattr(policy, "launchStaggerFrames", 0))
+    if stagger > 0:
+        slot = getattr(policy, "_slot_index", {}).get(name, 0)
+        if policy._tick.get(name, 0) < slot * stagger:
+            return None
     if breaking:
         return None
     if threat_active:

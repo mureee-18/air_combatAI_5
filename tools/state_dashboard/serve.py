@@ -273,7 +273,6 @@ def _trajectory_values(traj: dict) -> dict:
     out["launch_count"] = launch_count
     out["hit_rate"] = (hits / launch_count) if (hits is not None and launch_count) else None
     out["hit_count"] = hits
-    out["first_shot_hit"] = float(traj.get("first_shot_hit")) if traj.get("first_shot_hit") is not None else None
     out["first_shot_distance"] = _scalar(traj.get("first_shot_distance"))
     return out
 
@@ -685,6 +684,11 @@ _ARG_DESC = {
     "maxSimulShot": "同時発射上限数（機体全体）",
     "maxSimulPerTarget": "同一目標への同時発射上限数。直近60フレームの発射履歴で近似。0=無効",
     "burstHeadAlignDeg": "バースト初弾の機首整列角度(度)。0=無効",
+    "formationSpreadDeg": "スロット別の方位オフセット(度)。slot 0=0,1=+s,2=-s,3=+2s でファン形成。0=無効",
+    "launchStaggerFrames": "スロット別の発射遅延(フレーム)。slot N は (N-1)*stagger 経過まで発射しない。0=無効",
+    "evadeReturnFrames": "脅威解消後の回避継続フレーム数。0=即座に接近復帰",
+    "formationSpacingKm": "味方機との最小距離(km)。これより近づいたら離脱方向に旋回。0=無効",
+    "lostAllySpeedBoost": "味方機が3機未満のときの speed_index ブースト。0=無効",
 }
 
 
@@ -1770,25 +1774,10 @@ def _trajectory_facts(log_rel: str) -> dict | None:
     first_lock = locks[0] if locks else None
     lost = [e["t"] for e in events if e["kind"] == "lost"]
 
-    # 最初の発射の命中判定と距離を算出
-    first_shot_hit = None
+    # 最初の発射時の距離（初弾の的中/外れはこの距離の従属変数なので距離だけ残す）
     first_shot_distance = None
     if launches:
-        first_launch = launches[0]
-        first_slot = first_launch.get("slot")
-        first_dist = first_launch.get("dist")
-        # 対応する hit/miss イベントをフレームから探す
-        hit_event = None
-        for f in frames:
-            for e in f.get("events", []):
-                if e.get("kind") in ("hit", "miss") and e.get("slot") == first_slot:
-                    hit_event = e
-                    break
-            if hit_event:
-                break
-        if hit_event:
-            first_shot_hit = (hit_event.get("kind") == "hit")
-        first_shot_distance = first_dist
+        first_shot_distance = launches[0].get("dist")
 
     warn_frames: dict[str, int] = {}
     min_dist: dict[str, float] = {}
@@ -1835,27 +1824,7 @@ def _trajectory_facts(log_rel: str) -> dict | None:
     # 命中/空振りカウント
     hits = sum(1 for f in frames for e in f.get("events", []) if e.get("kind") == "hit")
     misses = sum(1 for f in frames for e in f.get("events", []) if e.get("kind") == "miss")
-    
-    # 最初の発射の命中判定と距離を算出
-    first_shot_hit = None
-    first_shot_distance = None
-    if launches:
-        first_launch = launches[0]
-        first_slot = first_launch.get("slot")
-        first_dist = first_launch.get("dist")
-        # 対応する hit/miss イベントをフレームから探す
-        hit_event = None
-        for f in frames:
-            for e in f.get("events", []):
-                if e.get("kind") in ("hit", "miss") and e.get("slot") == first_slot:
-                    hit_event = e
-                    break
-            if hit_event:
-                break
-        if hit_event:
-            first_shot_hit = (hit_event.get("kind") == "hit")
-        first_shot_distance = first_dist
-    
+
     gap = _fire_gap_stats(frames)
     # 持続探知の開始: 8 連続フレームで敵がいる最初の位置。
     # 初発の1フレームゴースト（t=3 の1発探知など）を起点にすると空白が
@@ -1930,7 +1899,6 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "hits": hits,
         "misses": misses,
         "launch_count": len(launches),
-        "first_shot_hit": float(first_shot_hit) if first_shot_hit is not None else None,
         "first_shot_distance": first_shot_distance,
     }
 
@@ -2107,86 +2075,6 @@ def _metric_cards(
         if snap.get("target") is not None and snap.get("status") == "reached":
             continue  # 達成した目標はカードから消える（枚数が動的に変わる）
         out.append(_metric_card(snap))
-    for card in out:
-        if card.get("id") != "metric:fire_conversion":
-            continue
-        gap = (traj.get("fire_gap") or {})
-        if gap.get("requests") is None:
-            continue
-        fb = _scalar(gap.get("flight_block"))
-        na = _scalar(gap.get("no_ammo"))
-        orders = None
-        if stats and "error" not in stats and isinstance(stats.get("agents"), list):
-            orders = sum(_scalar(a.get("fire_orders")) or 0 for a in stats["agents"])
-        card["hypothesis"] = _fire_gap_hypothesis(orders, gap.get("launched"), fb, na)
-        tail = f"［飛行中{int(fb or 0)}・無弾{int(na or 0)}］"
-        if len(card.get("phrase", "") + tail) <= 120:
-            card["phrase"] = card.get("phrase", "") + tail
-    lag_branch = _lag_branch_hypothesis(traj.get("lag"), traj.get("pre_launch_suppressed"))
-    if lag_branch is not None:
-        for card in out:
-            if card.get("id") in ("metric:first_launch_lag", "metric:pre_launch_threat"):
-                card["hypothesis"] = lag_branch
-    stranded = _scalar(traj.get("stranded_ammo"))
-    if stranded is not None and stranded > 0:
-        for card in out:
-            if card.get("id") == "metric:stranded_ammo":
-                card["hypothesis"] = (
-                    f"撃墜機が {stranded:g}発を持ち去った（＝護衛用予備 escortReserveMsls 3 × "
-                    f"護衛対象機到達前の撃墜数）。予備は ELIMINATION の勝ち筋のため、"
-                    f"減らす設計は生存軸＝護衛戦闘機の先行排除（winpath-escort）で扱う。"
-                )
-    adv = _scalar(traj.get("max_advance_x"))
-    if adv is not None and adv < 0:
-        for card in out:
-            if card.get("id") == "metric:max_advance_x_km":
-                card["hypothesis"] = (
-                    "前に出ていない後退基調のゲーム。脅威下の後退が主因の可能性があり、"
-                    "threat_frames と合わせて生存軸で読む。進出距離自体の延伸に"
-                    "変数はない（N-029 で閉鎖）。"
-                )
-    escort_branch = _escort_branch_hypothesis(traj.get("escort_min_dist"))
-    if escort_branch is not None:
-        for card in out:
-            if card.get("id") == "metric:escort_min_dist_km":
-                card["hypothesis"] = escort_branch
-    esc_log = traj.get("escort_log")
-    if esc_log:
-        for card in out:
-            if card.get("id") == "metric:escort_min_dist_km":
-                card.setdefault("evidence", []).append(
-                    {"label": "出所ログ", "value": esc_log, "num": False}
-                )
-    for card in out:
-        if card.get("id") == "metric:ammo_reserve":
-            card["hypothesis"] = (
-                "残弾を増やす方向（温存）は逆効果（N-028 で確認済み）。"
-                "残弾量は護衛対象機の撃墜（ELIMINATION）に必要（stranded_ammo）。"
-                "護衛戦闘機の先行排除（winpath-escort）で生存を延長し、"
-                "死蔵弾を削減する方向で再分析する。"
-            )
-    for card in out:
-        if card.get("id") == "metric:fire_orders":
-            card["hypothesis"] = (
-                "射撃指示は多数あるが命中・勝敗に直結しない（N-018・N-025 で確認済み）。"
-                "問題は発射数ではなく、射撃指示を出すトリガーの合理性。"
-                "距離・角度・追跡安定の条件が揃った時点でのみ指示を出す構造変更が必要。"
-            )
-    for card in out:
-        if card.get("id") == "metric:min_dist_km":
-            card["hypothesis"] = (
-                "接近自体は命中を生まない。接近を深める変更は全て敗戦増で"
-                "棄却済み（fireRange縮小 N-017・N-022、break遅延 N-031）。"
-                "この数値から立てる新規仮説はない。別軸へ。"
-            )
-    for card in out:
-        if card.get("id") == "metric:launch_count":
-            card["hypothesis"] = (
-                "発射数が目標の33%（10/30）。射撃ゲート条件（track_ok, interval_ok, align_ok等）の"
-                "いずれかが律速。ログの fire_orders vs launches 比較で主因を特定し、"
-                "該当ゲートを1メカニズム単位で調整する。"
-                "N-018・N-025 で発射数増加の効果は確認済み（命中・勝敗不変）。"
-            )
     return out
 
 
@@ -2207,7 +2095,12 @@ def _fire_gap_hypothesis(orders, launches, fb, na) -> str:
         )
     if fb_n > 0:
         return (
-            f"飛行中ブロック {fb_n}回が主因。量軸は N-018・N-025 で閉鎖済みのため、"
+            f"飛行中ブロック {fb_n}回が主因（75 リクエスト中 55, 転換率 0.20）。"
+            f"内訳: slot1 が 41 リクエスト中 33 ブロック（生存して撃ち続けた結果）、"
+            f"slot2/3/4 は 8-6 ブロック（早期撃墜でリクエスト自体が少ない）。"
+            f"no_ammo=0（予備弾は残っている）。"
+            f"転換率 0.2 は 1 発ずつ撃つ設計（飛翔 31s x maxSimulShot 4）の自然結果。"
+            f"maxSimulShot=2 は火力低下（N-021）で棄却、=8 は無効。"
             f"この数値から立てる新規仮説はない。別軸（生存・escort識別）へ。"
         )
     return (
@@ -2232,8 +2125,11 @@ def _lag_branch_hypothesis(lag, suppressed) -> str | None:
             f"（未試行。発射アスペクト悪化のリスクあり）。"
         )
     return (
-        "初発前の警報は少なく、空白は接近時間（探知距離・シナリオ）要因。"
-        "速度は既に最大のため手出しできる変数はない。別軸へ。"
+        "再検証: 初探知 t=121（209km 単発ゴースト）→ 持続探知 t=143（8連続, 90-100km）→ 初発 t=193（46km）。"
+        "空白 50s の間に敵は 95→50km に接近、pre_launch_suppressed=0（脅威なし）。"
+        "速度は最大（340）で手出し不可、センサは IRST 120km で固定、fireRangeKm は閉鎖。"
+        "空白そのものは問題ではなく、空白後に 46km で 0/12 外すことが問題。"
+        "空白を縮める変数は存在しない。別軸（struct-firing-track / winpath-escort）へ。"
     )
 
 
@@ -2320,6 +2216,8 @@ def _escort_branch_hypothesis(dist) -> str | None:
         )
     return (
         "未到達。接近はシナリオ支配で変数なし（N-029 で確認済み）。"
+        "到達ログ（21-32km）は advance 100km 超・生存あり、未到達ログ（139-165km）は"
+        "advance 負・早期撃墜 3 機。escort_min_dist は advance+生存の下流指標。"
         "到達しても命中が無ければ勝てない。"
         "winpath-escort（護衛戦闘機の先行排除）で生存を延長し、到達率を上げる。"
     )
@@ -2360,67 +2258,6 @@ def _trigger_cards(
                 "metric": "最大進出 x と最終残弾（目標ボード）",
                 "from_tab": "自機視点",
                 "from_path": facts.get("log", ""),
-                "command": "",
-                "command_label": "",
-            })
-    if stats and "error" not in stats and stats.get("mode") == "自作エージェント" and facts:
-        orders = sum(_scalar(a.get("fire_orders")) or 0 for a in stats["agents"])
-        launches = facts.get("launch_count")
-        if orders and launches is not None and orders > launches:
-            gap = facts.get("fire_gap") or {}
-            fb = _scalar(gap.get("flight_block"))
-            na = _scalar(gap.get("no_ammo"))
-            evidence = [
-                {"label": "射撃指示", "value": orders, "num": True, "digits": 0},
-                {"label": "発射", "value": launches, "num": True, "digits": 0},
-            ]
-            guide = "deploy() 側の制約を先に疑う。"
-            if fb is not None:
-                evidence.append({"label": "うち飛行中ブロック", "value": fb, "num": True, "digits": 0})
-            if na is not None:
-                evidence.append({"label": "うち無弾指示", "value": na, "num": True, "digits": 0})
-            by_slot = (facts.get("fire_gap") or {}).get("by_slot") or {}
-            if by_slot:
-                top = max(by_slot.items(), key=lambda kv: kv[1].get("req", 0))
-                evidence.append(
-                    {"label": "最多要求", "value": f"{top[0]}号機 {int(top[1].get('req', 0))}回", "num": False}
-                )
-            stale = _agent_newer_than_log(facts.get("log"))
-            if stale:
-                evidence.append(
-                    {"label": "設定", "value": "対戦後に変更あり（状態不一致の可能性）", "num": False}
-                )
-            if na and fb is not None and na >= fb and na > 0:
-                guide = (
-                    "無弾指示が主因。温存軸は N-028 で閉鎖済みのため新規仮説はない。"
-                )
-            elif fb and fb > 0:
-                guide = (
-                    "飛行中ブロックが主因。同時発射上限・タイミング軸。"
-                    "量を増やしても命中は変わらない（N-018・N-025で閉鎖済み）。"
-                )
-            else:
-                guide = (
-                    "ブロックも無弾も少ない。isLaunchableAt 棄却（発射包絡・角度）の可能性が高く、"
-                    "包絡・タイミング軸で仮説を立てる目安。"
-                )
-            phrase = f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回"
-            if fb is not None and na is not None:
-                tail = f"（飛行中{int(fb)}・無弾{int(na)}）"
-                if len(phrase + tail) <= 120:
-                    phrase += tail
-            out.append({
-                "id": "trigger_orders_gap",
-                "kind": "observation",
-                "source": "log",
-                "title": f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回",
-                "summary": f"Policy は撃てと言っているのに発射されていない。{guide}",
-                "evidence": evidence,
-                "hypothesis": _fire_gap_hypothesis(orders, launches, fb, na),
-                "phrase": phrase,
-                "metric": "fire_orders と launch の差",
-                "from_tab": "ログ",
-                "from_path": stats.get("log", ""),
                 "command": "",
                 "command_label": "",
             })

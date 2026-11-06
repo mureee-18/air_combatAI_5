@@ -427,7 +427,6 @@ function drawBattle() {
     { k: "自陣スコア", v: r.own ? num(r.scores ? r.scores[r.own] : null, 3) : "—" },
     { k: "命中率", v: r.hit_rate === null || r.hit_rate === undefined ? "—" : num(r.hit_rate, 3) },
     { k: "命中数", v: r.hit_count === null || r.hit_count === undefined ? "—" : num(r.hit_count, 0) },
-    { k: "初弾命中", v: r.first_shot_hit === null || r.first_shot_hit === undefined ? "—" : (r.first_shot_hit ? "命中" : "不命中") },
     { k: "初発距離", v: r.first_shot_distance === null || r.first_shot_distance === undefined ? "—" : num(r.first_shot_distance, 1) + " km" },
     { k: "生存（自/敵）", v: r.numAlives ? `${r.numAlives.Red ?? "—"} / ${r.numAlives.Blue ?? "—"}` : "—" },
   ]);

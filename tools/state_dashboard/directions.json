@@ -30,11 +30,11 @@
     {
       "id": "struct-firing-track",
       "title": "射撃開始を距離ではなく追跡の安定度で決める",
-      "summary": "初発距離 47.1km（目標 30km）の原因は fireRangeKm=50 による距離判定。だが fireRangeKm は 30/38/40/50 すべて試験済みで、距離だけを動かすと命中・生存が悪化する（N-017/N-022/N-118/N-124）。距離ではなく『同じ目標を連続 N フレーム追跡できた時だけ発射』に置き換える構造変更が残る。",
+      "summary": "初発距離 46.3km（目標 30km）の原因は fireRangeKm=50 による距離判定。だが fireRangeKm は 30/38/40/50 すべて試験済みで、距離だけを動かすと命中・生存が悪化する（N-017/N-022/N-118/N-124）。距離ではなく『同じ目標を連続 N フレーム追跡できた時だけ発射』に置き換える構造変更が残る。",
       "why": [
         "fireRangeKm を 30〜50 で動かしても avg_score は 0.500 据置、40 以下は敗戦増（N-017/N-022/N-118/N-124）",
         "trackConfirmFrames による連続追跡は 0.500 で据置。ただし目標の入れ替わりが多く、接近速度 85000km/h 超の不安定トラックに発射している（N-120/N-125）",
-        "初弾は実在しない目標に発射された可能性が高い（初弾命中 0 回、事実カード first_shot_hit）",
+        "初弾は実在する目標（行1）へ 46.29km から発射され、t=223 で miss。開幕43-49kmは命中0/12、終盤29-33kmは命中3/3で、外れの原因は目標の非実在ではなく距離（N-157）",
         "バースト（一斉射撃）の最初の弾が常に外れる（base_b1: バーストサイズ12、head off_nose 31.75° / dist 46.25km / miss、バースト初弾命中率 0/4=0.0）。1発目の外れが後続を無駄にする",
         "姿勢制限系（fireAlignDeg/fireAlignOnlyDeg/beamHoldWhileArmed/burstHeadAlignDeg）は全変数試験済みで生存悪化または変化なし。バーストサイズ制御（maxSimulShot=1）も不採用。姿勢制限とバーストサイズ軸は閉鎖",
         "距離軸（fireRangeKm）も閉鎖。残る軸は『同じ目標を連続 N フレーム追跡できた時だけ発射』のみ"
@@ -43,10 +43,11 @@
         "発射条件を『同一目標の連続追跡 N フレーム』に限定する（距離条件は据置、既存の trackConfirmFrames とは別の判定として実装）",
         "バースト（一斉射撃）の最初の1発のみ、off_nose ゲートを適用し姿勢安定まで発射を遅らせる（burstHeadAlignDeg は不採用済み、別軸として検討不要）",
         "1 変数として N のみを振る（N = 3 / 5）",
-        "判定は初発距離・初弾命中・バースト初弾命中率・avg_score・avg_our_alive の5指標。初弾命中が 0 のまま変わらなければ棄却"
+        "判定は初発距離・命中率・バースト初弾命中率・avg_score・avg_our_alive の5指標。初発距離が 30km 前後へ下がらない限り棄却",
+        "射撃開始を遅らせた結果、僚機が 40-49km で撃墜されて発射機会自体が消える場合は棄却（距離短縮は生存と両立しない）"
       ],
       "records": ["N-120", "N-125", "N-118", "N-124", "O-142", "O-170", "O-180"],
-      "metrics": "first_shot_distance / first_shot_hit / burst_first_hit_rate / avg_score / avg_our_alive",
+      "metrics": "first_shot_distance / hit_rate / burst_first_hit_rate / avg_score / avg_our_alive",
       "paths": [
         "agent/strategy/specialists/default.py",
         "analysis/agents/default/improvement.md"

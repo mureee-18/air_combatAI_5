@@ -29,5 +29,10 @@
   "escortLeadDistKm": 0.0,
   "evadeWeaveDeg": 0.0,
   "evadeWeavePeriod": 20.0,
-  "escortPriorityFire": 0
+  "escortPriorityFire": 0,
+  "formationSpreadDeg": 0.0,
+  "launchStaggerFrames": 0,
+  "evadeReturnFrames": 0,
+  "formationSpacingKm": 0.0,
+  "lostAllySpeedBoost": 0.0
 }
