@@ -3,93 +3,6 @@
   "note": "評価タブの『独自指標』の定義。python tools/state_dashboard/add_metric.py で追加・更新できる。",
   "metrics": [
     {
-      "id": "first_launch_lag",
-      "label": "初発までの空白",
-      "unit": "秒",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "lower",
-      "target": 30,
-      "digits": 0,
-      "note": "敵を最初に探知してから最初の発射までの時間。長いほど攻撃機会を逃している。"
-    },
-    {
-      "id": "launch_count",
-      "label": "総発射数",
-      "unit": "発",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "higher",
-      "target": 30,
-      "digits": 0,
-      "note": "1戦あたりの誘導弾消費量。0 ならまったく発射できていない。"
-    },
-    {
-      "id": "min_dist_km",
-      "label": "最短交戦距離",
-      "unit": "km",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "lower",
-      "target": 5,
-      "digits": 1,
-      "note": "敵を最も近接したときの距離（参考値）。接近距離は引き分けで採点に影響せず、近接を深める変数（fireRange/break/beam）は全て棄却済み、接近軸は N-029 で閉鎖。目標は置かない。"
-    },
-    {
-      "id": "fire_orders",
-      "label": "射撃指示回数",
-      "unit": "回",
-      "from": "logstats",
-      "source": "log",
-      "direction": "higher",
-      "target": 5000,
-      "digits": 0,
-      "note": "1戦あたりの射撃指示総数。trigger 条件の抑制度合いを見る。"
-    },
-    {
-      "id": "max_advance_x_km",
-      "label": "最大進出距離",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "higher",
-      "target": 150,
-      "digits": 0,
-      "note": "自軍が敵陣方向へ最も深く進んだ x（陣営座標）。護衛対象機の周回帯 x≈115-130 に届いたかを見る。残弾が無いと届いても勝てない。",
-      "unit": "km"
-    },
-    {
-      "id": "escort_min_dist_km",
-      "label": "護衛対象機への最短距離",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "lower",
-      "target": 20.0,
-      "digits": 1,
-      "note": "敵護衛対象機（絶対座標記録 ...E）への最も近い距離。勝ち条件は護衛対象機の撃墜なので、20km 未満まで接近できたかを見る。絶対座標記録の無いログでは算出されない。",
-      "unit": "km"
-    },
-    {
-      "id": "ammo_reserve",
-      "label": "最終残弾",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "higher",
-      "target": null,
-      "digits": 0,
-      "note": "終了時に生存機が持っていた誘導弾の合計。撃墜機の残弾は使えないため含めない。深追い時に撃てる弾の目安。",
-      "unit": "発"
-    },
-    {
-      "id": "fire_conversion",
-      "label": "発射転換率",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "higher",
-      "digits": 2,
-      "note": "発射数÷射撃指示。低いときはtrigger証拠の内訳（飛行中ブロック/無弾）を見て主因を特定する目安。量自体は勝敗を決めない（N-018・N-025）ため目標値は置かない。",
-      "unit": "率"
-    },
-    {
       "id": "wipe_count",
       "label": "全滅戦数",
       "from": "paired",
@@ -99,17 +12,6 @@
       "digits": 0,
       "note": "自機生存0で終わった戦数。平均生存数が良くても完敗が混ざると採点が崩れるためtail riskの目安。0ならカードは消える。",
       "unit": "戦"
-    },
-    {
-      "id": "stranded_ammo",
-      "label": "死蔵弾数",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "lower",
-      "target": 0.0,
-      "digits": 0,
-      "note": "撃墜機が持ち去った残弾。実測は『護衛用予備 escortReserveMsls × 護衛対象機到達前の撃墜数』に一致（r2_4=6/r4_4=12/r5_4=15）。予備は ELIMINATION の勝ち筋（2〜5走査で3が最良）なので0は設計上未達。減らす材料は生存延長＝護衛戦闘機の先行排除（winpath-escort）。0なら非表示。",
-      "unit": "発"
     },
     {
       "id": "escort_hit_rate",
@@ -132,39 +34,6 @@
       "digits": 2,
       "note": "launch_analyzer による護衛対象機への発射単位での命中率（trajectory の hit/miss 推定ベース）。機体撃墜ベースの hit_rate とは異なり、発射ごとの有効性を直接見る。",
       "unit": "率"
-    },
-    {
-      "id": "hit_count",
-      "label": "命中数",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "higher",
-      "target": 10,
-      "digits": 0,
-      "note": "命中した弾の総数。0 なら全弾外れ。まずは 10 発以上を目指す。",
-      "unit": "発"
-    },
-    {
-      "id": "first_shot_hit",
-      "label": "初弾命中",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "higher",
-      "target": null,
-      "digits": 0,
-      "note": "最初の発射が命中したか（1=命中, 0=外れ）。初動の精度を見る。",
-      "unit": "回"
-    },
-    {
-      "id": "first_shot_distance",
-      "label": "初発距離",
-      "from": "trajectory",
-      "source": "log",
-      "direction": "lower",
-      "target": 30.0,
-      "digits": 1,
-      "note": "最初の発射時の距離。遠すぎると命中率が下がる。30km 以内を目指す。",
-      "unit": "km"
     }
   ]
 }

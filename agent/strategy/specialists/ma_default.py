@@ -42,14 +42,12 @@ class DefaultPolicy(StandalonePolicy):
         self._lastFire = {}
         self.escortSeekDistKm = float(args.get("escortSeekDistKm", 0.0))
         self.escortForwardXKm = float(args.get("escortForwardXKm", 0.0))
-        self.escortFireEnable = int(args.get("escortFireEnable", 0))
         self.escortFireMaxDistKm = float(args.get("escortFireMaxDistKm", 0.0))
         self.escortMaxSpeedKmps = float(args.get("escortMaxSpeedKmps", 0.0))
-        self.escortAmmoHold = int(args.get("escortAmmoHold", 0))
-        self.escortNoBeam = int(args.get("escortNoBeam", 0))
-        self.escortIgnoreBreak = int(args.get("escortIgnoreBreak", 0))
+        self.escortAmmoHoldDistKm = float(args.get("escortAmmoHoldDistKm", 0.0))
+        self.escortNoBeamDistKm = float(args.get("escortNoBeamDistKm", 0.0))
+        self.escortIgnoreBreakDistKm = float(args.get("escortIgnoreBreakDistKm", 0.0))
         self.escortReserveMsls = int(args.get("escortReserveMsls", 0))
-        self.beamHoldWhileArmed = int(args.get("beamHoldWhileArmed", 0))
         self.beamHoldFrames = int(args.get("beamHoldFrames", 0))
         self.fireAlignDeg = float(args.get("fireAlignDeg", 0.0))
         self._beamHoldStart = {}
@@ -121,9 +119,7 @@ class DefaultPolicy(StandalonePolicy):
             off_nose = abs((own[4] - enemy[best, 1] + 180.0) % 360.0 - 180.0)
             beam_allowed = True
             if armed and self.beamRangeKm > 0.0 and bestDist <= self.beamRangeKm:
-                if self.beamHoldWhileArmed > 0:
-                    beam_allowed = False
-                elif self.beamHoldFrames > 0:
+                if self.beamHoldFrames > 0:
                     start = self._beamHoldStart.setdefault(name, self._tick[name])
                     beam_allowed = (self._tick[name] - start) >= self.beamHoldFrames
                 elif self.fireAlignDeg > 0.0:
@@ -131,19 +127,21 @@ class DefaultPolicy(StandalonePolicy):
             else:
                 self._beamHoldStart.pop(name, None)
             if (
-                self.escortNoBeam > 0
+                self.escortNoBeamDistKm > 0.0
                 and escort_candidate is not None
                 and best == escort_candidate
                 and self.beamRangeKm > 0.0
                 and bestDist <= self.fireRangeKm
+                and float(enemy[escort_candidate, 2]) <= self.escortNoBeamDistKm
             ):
                 beam_allowed = False
             breaking = self.breakRangeKm > 0.0 and bestDist <= self.breakRangeKm
             if (
-                self.escortIgnoreBreak > 0
+                self.escortIgnoreBreakDistKm > 0.0
                 and escort_candidate is not None
                 and best == escort_candidate
                 and bestDist <= self.fireRangeKm
+                and float(enemy[escort_candidate, 2]) <= self.escortIgnoreBreakDistKm
             ):
                 breaking = False
             if breaking:
@@ -162,12 +160,12 @@ class DefaultPolicy(StandalonePolicy):
                 or tick - self._lastFire[name] >= self.launchIntervalFrames
             )
             fire_target = best
-            if self.escortFireEnable > 0 and escort_candidate is not None:
-                max_dist = self.escortFireMaxDistKm if self.escortFireMaxDistKm > 0.0 else self.fireRangeKm
+            if self.escortFireMaxDistKm != 0.0 and escort_candidate is not None:
+                max_dist = abs(self.escortFireMaxDistKm) if self.escortFireMaxDistKm > 0.0 else self.fireRangeKm
                 if float(enemy[escort_candidate, 2]) <= max_dist:
                     fire_target = escort_candidate
             ammo_hold_ok = (
-                self.escortAmmoHold <= 0
+                self.escortAmmoHoldDistKm <= 0.0
                 or (escort_candidate is not None and fire_target == escort_candidate)
             )
             if self.escortReserveMsls > 0 and not (

@@ -273,7 +273,6 @@ def _trajectory_values(traj: dict) -> dict:
     out["launch_count"] = launch_count
     out["hit_rate"] = (hits / launch_count) if (hits is not None and launch_count) else None
     out["hit_count"] = hits
-    out["first_shot_hit"] = float(traj.get("first_shot_hit")) if traj.get("first_shot_hit") is not None else None
     out["first_shot_distance"] = _scalar(traj.get("first_shot_distance"))
     return out
 
@@ -655,6 +654,102 @@ def _module_summary(path: Path) -> str:
     return ""
 
 
+_ARG_DESC = {
+    "fireRangeKm": "射撃開始距離(km)。遠いほど早く撃てるが弾浪費リスク",
+    "breakRangeKm": "ブレイク(離脱)開始距離(km)。近いほど交戦持続",
+    "evadeCrankDeg": "回避時の機首ずらし角度(度)。0=真後ろ退避",
+    "evadeCrankBlend": "脅威方位基準のクランク混合率(0.0=固定, 1.0=脅威側に応じて左右クランク)",
+    "evadeWeaveDeg": "回避時のウェーブ機動振幅(度)。0=無効(直線退避)、非0=正弦波ウェーブで曲線回避",
+    "evadeWeavePeriod": "ウェーブ機動の周期(フレーム)。振動速度を制御",
+    "marginKm": "境界回避マージン(km)。小さいほど深く進出",
+    "trackConfirmFrames": "射撃前に必要な連続トラックフレーム数。高いほど安定射撃",
+    "targetSpread": "目標分散(0=集中射撃)。味方の射撃先を分散する",
+    "escortSeekDistKm": "護衛対象機探索距離(km)。遠い護衛を優先",
+    "escortForwardXKm": "護衛対象機の前方x閾値(km)。この距離以上で護衛候補",
+    "escortFireMaxDistKm": "護衛射撃の最大距離(km)。0=無効(fireRangeKm使用)",
+    "escortMaxSpeedKmps": "護衛対象機の最大速度(km/s)。これ以下を護衛候補",
+    "escortAmmoHoldDistKm": "護衛対象機がこの距離(km)以内になるまで発射保留。0=無効",
+    "escortNoBeamDistKm": "護衛対象機がこの距離(km)以内でビーム抑制。0=無効、50=射程内全体",
+    "escortIgnoreBreakDistKm": "護衛対象機がこの距離(km)以内でブレイク無視。0=無効、50=射程内全体",
+    "escortReserveMsls": "護衛用予備ミサイル数。護衛対象機用に温存",
+    "escortFireMinKm": "護衛射撃の最小距離(km)。これ以内で発射",
+    "escortPriorityFire": "護衛対象機への射撃を優先(0=無効, 1=有効)。護衛対象機を先行排除",
+    "escortFlankDeg": "護衛接近の側方オフセット角度(度)。0=無効",
+    "escortFormationKm": "護衛候補との基本保持距離(km)。指定距離より内側に入ると離脱方位へ。0=無効",
+    "escortTrailDistKm": "射程外(接近フェーズ)での護衛候補との保持距離(km)。0=無効(formationに従う)",
+    "escortLeadDistKm": "射程内(交戦フェーズ)での護衛候補との最小間隔(km)。0=無効(formationに従う)",
+    "beamHoldFrames": "ビーム保持フレーム数。射撃前の整列待ち。0=無効",
+    "fireAlignDeg": "射撃前機首整列角度(度)。この角度以内で発射可。0=無効",
+    "launchIntervalFrames": "発射間隔フレーム数。0=同時発射",
+    "maxSimulShot": "同時発射上限数（機体全体）",
+    "maxSimulPerTarget": "同一目標への同時発射上限数。直近60フレームの発射履歴で近似。0=無効",
+    "burstHeadAlignDeg": "バースト初弾の機首整列角度(度)。0=無効",
+    "formationSpreadDeg": "スロット別の方位オフセット(度)。slot 0=0,1=+s,2=-s,3=+2s でファン形成。0=無効",
+    "launchStaggerFrames": "スロット別の発射遅延(フレーム)。slot N は (N-1)*stagger 経過まで発射しない。0=無効",
+    "evadeReturnFrames": "脅威解消後の回避継続フレーム数。0=即座に接近復帰",
+    "formationSpacingKm": "味方機との最小距離(km)。これより近づいたら離脱方向に旋回。0=無効",
+    "lostAllySpeedBoost": "味方機が3機未満のときの speed_index ブースト。0=無効",
+}
+
+
+def _arg_audit() -> dict:
+    """tools/arg_wiring.py の監査結果（args.json → コード）を返す.
+
+    ダッシュボードの「実装状態」は args.json のキー一覧ではなく、この監査結果を
+    正とする。値だけ足してコードに配線していない変数を「実装済み」に見せない。
+    """
+    tools_dir = str(REPO_ROOT / "tools")
+    added = tools_dir not in sys.path
+    if added:
+        sys.path.insert(0, tools_dir)
+    try:
+        from arg_wiring import audit
+        return audit(REPO_ROOT)
+    except Exception:  # noqa: BLE001 - ダッシュボードは監査失敗でも落とさない
+        return {}
+    finally:
+        if added:
+            try:
+                sys.path.remove(tools_dir)
+            except ValueError:
+                pass
+
+
+def _arg_rows() -> list[dict]:
+    """args.json の各変数を、値・ベースライン・目的・配線状態つきで返す."""
+    args = load_json(REPO_ROOT / "agent" / "args.json") or {}
+    baseline = load_json(REPO_ROOT / "analysis" / "tools" / "baseline_args.json") or {}
+    audit = _arg_audit()
+    rows = []
+    for key in sorted(k for k in args if k not in ("type", "specialist")):
+        cur = args.get(key)
+        base = baseline.get(key)
+        info = audit.get(key) or {}
+        rows.append({
+            "key": key,
+            "current": cur,
+            "baseline": base,
+            "changed": base is not None and cur != base,
+            "desc": _ARG_DESC.get(key, ""),
+            "wired": bool(info.get("wired")),
+            "via": list(info.get("via") or []),
+            "files": list(info.get("files") or []),
+            "attr": info.get("attr"),
+        })
+    return rows
+
+
+def _arg_wiring_summary() -> dict:
+    """配線監査のサマリ（未配線キー一覧）."""
+    audit = _arg_audit()
+    missing = sorted(k for k, v in audit.items() if not (v or {}).get("wired"))
+    return {
+        "total": len(audit),
+        "wired": len(audit) - len(missing),
+        "unwired": missing,
+    }
+
+
 def _arg_keys(path: Path) -> list[str]:
     """モジュールが args から読む設定キー."""
     try:
@@ -720,12 +815,21 @@ def collect_agents() -> dict:
         for path in sorted(specialists_dir.glob("*.py")):
             if path.name == "__init__.py":
                 continue
+            # パッケージ型 specialist（specialists/<name>/）は配下の .py も走査する。
+            # default.py は再エクスポートだけなので、これがないと arg_keys が空になる。
+            pkg_dir = specialists_dir / path.stem
+            arg_keys = set(_arg_keys(path))
+            if pkg_dir.is_dir():
+                for py in sorted(pkg_dir.rglob("*.py")):
+                    if "__pycache__" in py.parts:
+                        continue
+                    arg_keys.update(_arg_keys(py))
             specialists.append({
                 "name": path.stem,
                 "file": path.relative_to(REPO_ROOT).as_posix(),
                 "classes": _py_classes(path),
                 "summary": _module_summary(path),
-                "arg_keys": _arg_keys(path),
+                "arg_keys": sorted(arg_keys),
                 "lines": len(path.read_text(encoding="utf-8").splitlines()),
                 "active": path.stem == specialist,
             })
@@ -774,6 +878,8 @@ def collect_agents() -> dict:
         "presets": presets,
         "ideas": ideas,
         "args": args,
+        "arg_rows": _arg_rows(),
+        "arg_wiring": _arg_wiring_summary(),
         "config": collect_agent_config(),
     }
 
@@ -1119,6 +1225,7 @@ def collect_session(paired: dict | None = None) -> dict:
         "hypotheses": target_session.get("hypotheses", []),
         "cycles": target_session.get("cycles", []),
         "pending": _pending_hypothesis_ids(target_session),
+        "recordable": _recordable_hypothesis_ids(target_session),
         "open_work": _open_work(target, target_session),
         "paired": paired,
         "metric_sources": METRIC_SOURCES,
@@ -1154,31 +1261,63 @@ def _validated_hypothesis_ids(target_session: dict) -> set:
     return ids
 
 
-def _pending_hypothesis_ids(target_session: dict) -> list:
-    """まだ検証が必要な仮説 id（登録順）。
+def load_tested_variables() -> dict:
+    path = REPO_ROOT / "analysis" / "tools" / "tested_variables.json"
+    return load_json(path) or {}
 
-    既試軸ノイズ整理: tested_variables.json に載る変数、または directions.json の
-    方向カードID を variable に持つ仮説は「実装1変数の未試」ではないため pending から外す。
+
+def _card_fill_open_direction_vars() -> set:
+    """card_fill.json の open/direction カードが検証入口として立てる変数名."""
+    path = Path(__file__).with_name("card_fill.json")
+    try:
+        cards = (load_json(path) or {}).get("cards", {})
+    except (OSError, ValueError):
+        return set()
+    return {
+        (c.get("variable_name") or "").strip()
+        for c in cards.values()
+        if c.get("variable_status") in ("open", "direction") and (c.get("variable_name") or "").strip()
+    }
+
+
+def _pending_hypothesis_ids(target_session: dict) -> list:
+    """まだ検証が必要な仮説 id（登録順）.
+
+    validate か record で紐付いた仮説（= 検証済み）を除外する。
+    既試軸の仮説もユーザーが明示的に登録したものは検証対象とする（除外しない）。
     """
     validated = _validated_hypothesis_ids(target_session)
     hyps = target_session.get("hypotheses", [])
-    # 検証済み仮説と同じ変数を持つ仮説もまとめて外す（検証単位は「変数」＝旧重複を消す）
-    def _is_tried_noise(h):
-        return False
-
     pending = [
         h
         for h in hyps
-        if h.get("id") not in validated and not _is_tried_noise(h)
+        if h.get("id") not in validated
     ]
-    # 同一変数の再登録重複は最新1件のみ pending に残す（検証対象の曖昧さを防ぐ）
-    out: list = []
-    for h in pending:
-        v = (h.get("variable") or "").strip()
-        if v:
-            out = [x for x in out if (x.get("variable") or "").strip() != v]
-        out.append(h)
-    return [h.get("id") for h in out]
+    # 最新 20 件に制限（古い仮説の蓄積を防ぐ）
+    pending = pending[-20:]
+    return [h.get("id") for h in pending]
+
+
+def _recordable_hypothesis_ids(target_session: dict) -> list:
+    """検証済みだが記録未実行の仮説 id（登録順）.
+
+    検証タブからは表示しない（検証済みはタブに出さない方針）。
+    record の一括実行などで参照するための状態として残す。
+    """
+    validated = _validated_hypothesis_ids(target_session)
+    recorded = {
+        r.get("hypothesis")
+        for r in target_session.get("records", [])
+        if r.get("hypothesis")
+    }
+    hyps = target_session.get("hypotheses", [])
+    recordable = [
+        h
+        for h in hyps
+        if h.get("id") in validated and h.get("id") not in recorded
+    ]
+    recordable = recordable[-20:]
+    return [h.get("id") for h in recordable]
 
 
 def _open_work(target: str, target_session: dict) -> dict:
@@ -1472,17 +1611,24 @@ _AXIS_META = {
 
 
 def _tested_axes() -> set:
-    """HYPOTHESIS_POLICY.md の『検証済みの変数軸』表から試験済みの変数名を読む."""
+    """検証済みの変数名 = HYPOTHESIS_POLICY.md の表 ∪ tested_variables.json の台帳.
 
+    台帳（tested_variables.json）が実測記録の正で、policy の表はその要約。
+    表の更新漏れで「未試験の軸」カードが復活しないよう、両者の和を閉鎖軸とする。
+    ただし台帳の項目でも refs（検証記録）が空のものは「実装済みだが未検証」なので
+    閉鎖しない（実装しただけのノブを材料から消さない）。
+    """
+
+    ledger = (load_tested_variables() or {}).get("variables", {}) or {}
+    out = {k for k, v in ledger.items() if (v or {}).get("refs")}
     doc = REPO_ROOT / "tools" / "state_dashboard" / "HYPOTHESIS_POLICY.md"
     if not doc.exists():
-        return set()
+        return out
     text = doc.read_text(encoding="utf-8")
     marker = "## 検証済みの変数軸（再試験禁止）"
     if marker not in text:
-        return set()
+        return out
     section = text.split(marker, 1)[1].split("\n## ", 1)[0]
-    out = set()
     for line in section.splitlines():
         line = line.strip()
         if not line.startswith("|"):
@@ -1503,6 +1649,7 @@ def _axis_cards() -> list[dict]:
     tested = _tested_axes()
     args = load_json(REPO_ROOT / "agent" / "args.json") or {}
     baseline_args = load_json(REPO_ROOT / "analysis" / "tools" / "baseline_args.json") or {}
+    wiring = _arg_audit()
     mechanisms = (load_json(REPO_ROOT / "analysis" / "tools" / "mechanisms.json") or {}).get("mechanisms", {})
     var_to_mech = {}
     for mech, keys in mechanisms.items():
@@ -1512,6 +1659,10 @@ def _axis_cards() -> list[dict]:
     for var in _agent_axes():
         cur = _scalar(args.get(var))
         if cur is None:
+            continue
+        # コードに配線されていない変数は「1変数で試せる軸」ではないので除外する。
+        # （args.json に値だけ足した変数を材料として出さない）
+        if not (wiring.get(var) or {}).get("wired"):
             continue
         base = _scalar(baseline_args.get(var))
         changed_from_baseline = (base is not None and cur != base)
@@ -1565,7 +1716,9 @@ def _axis_cards() -> list[dict]:
             "phrase": phrase,
             "metric": meta["judge"],
             "from_tab": "コード",
-            "from_path": "agent/args.json, agent/strategy/specialists/default.py",
+            "from_path": ", ".join(
+                ["agent/args.json"] + ((wiring.get(var) or {}).get("files") or [])
+            ),
             "command": "",
             "command_label": "",
         })
@@ -1621,25 +1774,10 @@ def _trajectory_facts(log_rel: str) -> dict | None:
     first_lock = locks[0] if locks else None
     lost = [e["t"] for e in events if e["kind"] == "lost"]
 
-    # 最初の発射の命中判定と距離を算出
-    first_shot_hit = None
+    # 最初の発射時の距離（初弾の的中/外れはこの距離の従属変数なので距離だけ残す）
     first_shot_distance = None
     if launches:
-        first_launch = launches[0]
-        first_slot = first_launch.get("slot")
-        first_dist = first_launch.get("dist")
-        # 対応する hit/miss イベントをフレームから探す
-        hit_event = None
-        for f in frames:
-            for e in f.get("events", []):
-                if e.get("kind") in ("hit", "miss") and e.get("slot") == first_slot:
-                    hit_event = e
-                    break
-            if hit_event:
-                break
-        if hit_event:
-            first_shot_hit = (hit_event.get("kind") == "hit")
-        first_shot_distance = first_dist
+        first_shot_distance = launches[0].get("dist")
 
     warn_frames: dict[str, int] = {}
     min_dist: dict[str, float] = {}
@@ -1686,27 +1824,7 @@ def _trajectory_facts(log_rel: str) -> dict | None:
     # 命中/空振りカウント
     hits = sum(1 for f in frames for e in f.get("events", []) if e.get("kind") == "hit")
     misses = sum(1 for f in frames for e in f.get("events", []) if e.get("kind") == "miss")
-    
-    # 最初の発射の命中判定と距離を算出
-    first_shot_hit = None
-    first_shot_distance = None
-    if launches:
-        first_launch = launches[0]
-        first_slot = first_launch.get("slot")
-        first_dist = first_launch.get("dist")
-        # 対応する hit/miss イベントをフレームから探す
-        hit_event = None
-        for f in frames:
-            for e in f.get("events", []):
-                if e.get("kind") in ("hit", "miss") and e.get("slot") == first_slot:
-                    hit_event = e
-                    break
-            if hit_event:
-                break
-        if hit_event:
-            first_shot_hit = (hit_event.get("kind") == "hit")
-        first_shot_distance = first_dist
-    
+
     gap = _fire_gap_stats(frames)
     # 持続探知の開始: 8 連続フレームで敵がいる最初の位置。
     # 初発の1フレームゴースト（t=3 の1発探知など）を起点にすると空白が
@@ -1781,7 +1899,6 @@ def _trajectory_facts(log_rel: str) -> dict | None:
         "hits": hits,
         "misses": misses,
         "launch_count": len(launches),
-        "first_shot_hit": float(first_shot_hit) if first_shot_hit is not None else None,
         "first_shot_distance": first_shot_distance,
     }
 
@@ -1958,86 +2075,6 @@ def _metric_cards(
         if snap.get("target") is not None and snap.get("status") == "reached":
             continue  # 達成した目標はカードから消える（枚数が動的に変わる）
         out.append(_metric_card(snap))
-    for card in out:
-        if card.get("id") != "metric:fire_conversion":
-            continue
-        gap = (traj.get("fire_gap") or {})
-        if gap.get("requests") is None:
-            continue
-        fb = _scalar(gap.get("flight_block"))
-        na = _scalar(gap.get("no_ammo"))
-        orders = None
-        if stats and "error" not in stats and isinstance(stats.get("agents"), list):
-            orders = sum(_scalar(a.get("fire_orders")) or 0 for a in stats["agents"])
-        card["hypothesis"] = _fire_gap_hypothesis(orders, gap.get("launched"), fb, na)
-        tail = f"［飛行中{int(fb or 0)}・無弾{int(na or 0)}］"
-        if len(card.get("phrase", "") + tail) <= 120:
-            card["phrase"] = card.get("phrase", "") + tail
-    lag_branch = _lag_branch_hypothesis(traj.get("lag"), traj.get("pre_launch_suppressed"))
-    if lag_branch is not None:
-        for card in out:
-            if card.get("id") in ("metric:first_launch_lag", "metric:pre_launch_threat"):
-                card["hypothesis"] = lag_branch
-    stranded = _scalar(traj.get("stranded_ammo"))
-    if stranded is not None and stranded > 0:
-        for card in out:
-            if card.get("id") == "metric:stranded_ammo":
-                card["hypothesis"] = (
-                    f"撃墜機が {stranded:g}発を持ち去った（＝護衛用予備 escortReserveMsls 3 × "
-                    f"護衛対象機到達前の撃墜数）。予備は ELIMINATION の勝ち筋のため、"
-                    f"減らす設計は生存軸＝護衛戦闘機の先行排除（winpath-escort）で扱う。"
-                )
-    adv = _scalar(traj.get("max_advance_x"))
-    if adv is not None and adv < 0:
-        for card in out:
-            if card.get("id") == "metric:max_advance_x_km":
-                card["hypothesis"] = (
-                    "前に出ていない後退基調のゲーム。脅威下の後退が主因の可能性があり、"
-                    "threat_frames と合わせて生存軸で読む。進出距離自体の延伸に"
-                    "変数はない（N-029 で閉鎖）。"
-                )
-    escort_branch = _escort_branch_hypothesis(traj.get("escort_min_dist"))
-    if escort_branch is not None:
-        for card in out:
-            if card.get("id") == "metric:escort_min_dist_km":
-                card["hypothesis"] = escort_branch
-    esc_log = traj.get("escort_log")
-    if esc_log:
-        for card in out:
-            if card.get("id") == "metric:escort_min_dist_km":
-                card.setdefault("evidence", []).append(
-                    {"label": "出所ログ", "value": esc_log, "num": False}
-                )
-    for card in out:
-        if card.get("id") == "metric:ammo_reserve":
-            card["hypothesis"] = (
-                "残弾を増やす方向（温存）は逆効果（N-028 で確認済み）。"
-                "残弾量は護衛対象機の撃墜（ELIMINATION）に必要（stranded_ammo）。"
-                "護衛戦闘機の先行排除（winpath-escort）で生存を延長し、"
-                "死蔵弾を削減する方向で再分析する。"
-            )
-    for card in out:
-        if card.get("id") == "metric:fire_orders":
-            card["hypothesis"] = (
-                "射撃指示は多数あるが命中・勝敗に直結しない（N-018・N-025 で確認済み）。"
-                "問題は発射数ではなく、射撃指示を出すトリガーの合理性。"
-                "距離・角度・追跡安定の条件が揃った時点でのみ指示を出す構造変更が必要。"
-            )
-    for card in out:
-        if card.get("id") == "metric:min_dist_km":
-            card["hypothesis"] = (
-                "接近自体は命中を生まない。接近を深める変更は全て敗戦増で"
-                "棄却済み（fireRange縮小 N-017・N-022、break遅延 N-031）。"
-                "この数値から立てる新規仮説はない。別軸へ。"
-            )
-    for card in out:
-        if card.get("id") == "metric:launch_count":
-            card["hypothesis"] = (
-                "発射数が目標の33%（10/30）。射撃ゲート条件（track_ok, interval_ok, align_ok等）の"
-                "いずれかが律速。ログの fire_orders vs launches 比較で主因を特定し、"
-                "該当ゲートを1メカニズム単位で調整する。"
-                "N-018・N-025 で発射数増加の効果は確認済み（命中・勝敗不変）。"
-            )
     return out
 
 
@@ -2058,7 +2095,12 @@ def _fire_gap_hypothesis(orders, launches, fb, na) -> str:
         )
     if fb_n > 0:
         return (
-            f"飛行中ブロック {fb_n}回が主因。量軸は N-018・N-025 で閉鎖済みのため、"
+            f"飛行中ブロック {fb_n}回が主因（75 リクエスト中 55, 転換率 0.20）。"
+            f"内訳: slot1 が 41 リクエスト中 33 ブロック（生存して撃ち続けた結果）、"
+            f"slot2/3/4 は 8-6 ブロック（早期撃墜でリクエスト自体が少ない）。"
+            f"no_ammo=0（予備弾は残っている）。"
+            f"転換率 0.2 は 1 発ずつ撃つ設計（飛翔 31s x maxSimulShot 4）の自然結果。"
+            f"maxSimulShot=2 は火力低下（N-021）で棄却、=8 は無効。"
             f"この数値から立てる新規仮説はない。別軸（生存・escort識別）へ。"
         )
     return (
@@ -2083,8 +2125,11 @@ def _lag_branch_hypothesis(lag, suppressed) -> str | None:
             f"（未試行。発射アスペクト悪化のリスクあり）。"
         )
     return (
-        "初発前の警報は少なく、空白は接近時間（探知距離・シナリオ）要因。"
-        "速度は既に最大のため手出しできる変数はない。別軸へ。"
+        "再検証: 初探知 t=121（209km 単発ゴースト）→ 持続探知 t=143（8連続, 90-100km）→ 初発 t=193（46km）。"
+        "空白 50s の間に敵は 95→50km に接近、pre_launch_suppressed=0（脅威なし）。"
+        "速度は最大（340）で手出し不可、センサは IRST 120km で固定、fireRangeKm は閉鎖。"
+        "空白そのものは問題ではなく、空白後に 46km で 0/12 外すことが問題。"
+        "空白を縮める変数は存在しない。別軸（struct-firing-track / winpath-escort）へ。"
     )
 
 
@@ -2171,6 +2216,8 @@ def _escort_branch_hypothesis(dist) -> str | None:
         )
     return (
         "未到達。接近はシナリオ支配で変数なし（N-029 で確認済み）。"
+        "到達ログ（21-32km）は advance 100km 超・生存あり、未到達ログ（139-165km）は"
+        "advance 負・早期撃墜 3 機。escort_min_dist は advance+生存の下流指標。"
         "到達しても命中が無ければ勝てない。"
         "winpath-escort（護衛戦闘機の先行排除）で生存を延長し、到達率を上げる。"
     )
@@ -2211,67 +2258,6 @@ def _trigger_cards(
                 "metric": "最大進出 x と最終残弾（目標ボード）",
                 "from_tab": "自機視点",
                 "from_path": facts.get("log", ""),
-                "command": "",
-                "command_label": "",
-            })
-    if stats and "error" not in stats and stats.get("mode") == "自作エージェント" and facts:
-        orders = sum(_scalar(a.get("fire_orders")) or 0 for a in stats["agents"])
-        launches = facts.get("launch_count")
-        if orders and launches is not None and orders > launches:
-            gap = facts.get("fire_gap") or {}
-            fb = _scalar(gap.get("flight_block"))
-            na = _scalar(gap.get("no_ammo"))
-            evidence = [
-                {"label": "射撃指示", "value": orders, "num": True, "digits": 0},
-                {"label": "発射", "value": launches, "num": True, "digits": 0},
-            ]
-            guide = "deploy() 側の制約を先に疑う。"
-            if fb is not None:
-                evidence.append({"label": "うち飛行中ブロック", "value": fb, "num": True, "digits": 0})
-            if na is not None:
-                evidence.append({"label": "うち無弾指示", "value": na, "num": True, "digits": 0})
-            by_slot = (facts.get("fire_gap") or {}).get("by_slot") or {}
-            if by_slot:
-                top = max(by_slot.items(), key=lambda kv: kv[1].get("req", 0))
-                evidence.append(
-                    {"label": "最多要求", "value": f"{top[0]}号機 {int(top[1].get('req', 0))}回", "num": False}
-                )
-            stale = _agent_newer_than_log(facts.get("log"))
-            if stale:
-                evidence.append(
-                    {"label": "設定", "value": "対戦後に変更あり（状態不一致の可能性）", "num": False}
-                )
-            if na and fb is not None and na >= fb and na > 0:
-                guide = (
-                    "無弾指示が主因。温存軸は N-028 で閉鎖済みのため新規仮説はない。"
-                )
-            elif fb and fb > 0:
-                guide = (
-                    "飛行中ブロックが主因。同時発射上限・タイミング軸。"
-                    "量を増やしても命中は変わらない（N-018・N-025で閉鎖済み）。"
-                )
-            else:
-                guide = (
-                    "ブロックも無弾も少ない。isLaunchableAt 棄却（発射包絡・角度）の可能性が高く、"
-                    "包絡・タイミング軸で仮説を立てる目安。"
-                )
-            phrase = f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回"
-            if fb is not None and na is not None:
-                tail = f"（飛行中{int(fb)}・無弾{int(na)}）"
-                if len(phrase + tail) <= 120:
-                    phrase += tail
-            out.append({
-                "id": "trigger_orders_gap",
-                "kind": "observation",
-                "source": "log",
-                "title": f"射撃指示 {int(orders)} 回に対し発射は {int(launches)} 回",
-                "summary": f"Policy は撃てと言っているのに発射されていない。{guide}",
-                "evidence": evidence,
-                "hypothesis": _fire_gap_hypothesis(orders, launches, fb, na),
-                "phrase": phrase,
-                "metric": "fire_orders と launch の差",
-                "from_tab": "ログ",
-                "from_path": stats.get("log", ""),
                 "command": "",
                 "command_label": "",
             })

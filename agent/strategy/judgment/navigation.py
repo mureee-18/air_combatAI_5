@@ -17,4 +17,10 @@ def navigate(policy, own, enemy, best, best_dist, escort_candidate,
         return bearing + 180.0
     if policy.beam_range_km > 0.0 and best_dist <= policy.beam_range_km and beam_allowed:
         return bearing + 80.0
+    # formation spread: slot-based heading offset
+    spread = getattr(policy, "formationSpreadDeg", 0.0)
+    if spread != 0.0:
+        offsets = (0.0, spread, -spread, 2.0 * spread)
+        cur_slot = getattr(policy, "_current_slot", 0)
+        return bearing + offsets[cur_slot % 4]
     return bearing

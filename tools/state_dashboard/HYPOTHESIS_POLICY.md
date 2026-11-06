@@ -19,7 +19,7 @@
 
 ## 必ず守ること
 
-1. **1因果メカニズムだけ**。無関係なメカニズムを同時に変えると、悪化時に原因を切り分けられない。同一メカニズムに属する複数ノブの同時変更は許可する（例: 射撃整列 = fireAlignDeg + beamHoldWhileArmed）。
+1. **1因果メカニズムだけ**。無関係なメカニズムを同時に変えると、悪化時に原因を切り分けられない。同一メカニズムに属する複数ノブの同時変更は許可する（例: 射撃整列 = fireAlignDeg + beamHoldFrames）。
 2. **毎回ベースラインへ戻す**。前回の変更を残したまま次の変数を足さない。
 2. **数値予測を書く**。「何を何倍にするか」が書けないなら変更しない。
 3. **出所を付ける**。`--source` は「どこから見たか」（log / analysis / code / official）。
@@ -36,7 +36,7 @@
 1 因果メカニズムずつ試す。無関係なメカニズムを積み増さない。前回の変更が残ったまま次のメカニズムを足さない。同一メカニズム内の複数ノブは同時変更可。
 
 1. **ベースラインへ戻す**（毎サイクルの最初）
-   - args.json を採用済みベースライン（escortFireMinKm=35.0, fireRangeKm=50.0, trackConfirmFrames=0, roleSplit=0, evadeCrankDeg=0.0, escortFlankDeg=0.0, threatEvadeMaxFrames=0）に戻す
+   - args.json を採用済みベースライン（escortFireMinKm=35.0, fireRangeKm=50.0, trackConfirmFrames=0, evadeCrankDeg=0.0, escortFlankDeg=0.0）に戻す
    - `python scripts/build_submission.py --deploy`
 2. **1 因果メカニズムだけ実装する**（同一メカニズムに属する複数ノブ・複数箇所のコード修正を含めてよい）
 3. **1 戦ゲート**
@@ -118,7 +118,7 @@ python analysis/tools/baseline_check.py --lock
 | 深掘り結論 | 仮説の変数 |
 |---|---|
 | 実装の問題（例: ターゲット再選択に追跡継続性がない） | コード変更（例: trackConfirmFrames） |
-| 物理的制約（例: 30発目標は補給なしで不可能） | 仮説なし（見送り維持） |
+| 物理的制約（例: 発射数の30は射撃機4機×6発=24が上限で不可能） | 仮説なし（見送り維持） |
 | 既に検証済みの軸（例: fireRangeKm） | 仮説なし（別軸を探す） |
 
 ## 報告ルール ①②③
@@ -147,6 +147,10 @@ python analysis/tools/baseline_check.py --lock
 | escortReserveMsls | 2 / 3 / 4 / 5 | 3 が最良（win9/draw5/loss0, avg0.617, our3.21, enemy3.5）。4/5 は Blue4 負け、2 は 3 と同等。3 を採用 | O-168・rsrm.json |
 | escortNoBeam | 0 / 1 | 挙動は変化（50km内滞在 179→569f）だが結果不変（nbi 0.615＝中立）。1 を採用 | O-167・nbi.json |
 | escortIgnoreBreak | 0 / 1 | 挙動は変化するが結果不変（nbi 0.615＝中立）。1 を採用 | O-167・nbi.json |
+
+※ 閉鎖判定はこの表と `analysis/tools/tested_variables.json`（実測台帳）の**和**で行う
+（`serve.py::_tested_axes`）。表は要約なので、台帳に載った軸は表に無くてもカード化されない。
+軸を試験したら台帳へ記録すればカードは消える（表への追記は任意）。
 
 ## 未試験の軸（ここが材料）
 
@@ -216,6 +220,10 @@ TIMEUP の引き分けでは敵戦闘機の撃墜数・接近距離・警報数�
 - `min_dist_km` の目標 25 を解除（参考値化）。接近距離は引き分けで採点に影響せず（上記 79-81 行）、
   接近を深める変数（fireRange/break/beam）は全て棄却・接近軸は N-029 で閉鎖済みのため、
   未達表示を摩擦として残さない。数値とカードは診断用に残す。
+- `launch_count` の目標を 30 から 24 へ修正。射撃するのは戦闘機4機のみで初期6発・補給なしのため
+  物理上限は 4×6=24。実測15は『各機3発（予備弾 escortReserveMsls=3）＋護衛対象へ3発』の設計値で、
+  stranded_ammo 9発は開幕で撃墜された僚機3機の持ち去り分。発射数を増やす手段は
+  長距離での予備弾消費のみ（開幕43-49kmの12発は命中0/12、N-157 で棄却済み）。
 
 独自の指標は `python tools/state_dashboard/add_metric.py` で追加すると、
 評価タブの「独自指標」に現れる。
