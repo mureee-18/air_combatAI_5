@@ -37,6 +37,7 @@ class DefaultPolicy(StandalonePolicy):
         self.trackConfirmFrames = int(args.get("trackConfirmFrames", 0))
         self.trackPosToleranceKm = float(args.get("trackPosToleranceKm", 10.0))
         self.targetSpread = int(args.get("targetSpread", 0))
+        self.targetSpreadMode = int(args.get("targetSpreadMode", 0))
         self.launchIntervalFrames = int(args.get("launchIntervalFrames", 0))
         self._tick = {}
         self._lastFire = {}
@@ -93,9 +94,20 @@ class DefaultPolicy(StandalonePolicy):
             pool = near if len(near) > 0 else (escorted if len(escorted) > 0 else detected)
             pool_sorted = sorted(pool, key=lambda i: enemy[i, 2])
 
-            if self.targetSpread > 0 and agentFullName:
-                offset = sum(ord(c) for c in agentFullName) % self.targetSpread
-                pick_idx = offset % len(pool_sorted)
+            if self.targetSpreadMode == 0:
+                pick_idx = 0
+            elif self.targetSpreadMode == 1:
+                import random
+                if self.targetSpread > 0 and random.random() < (self.targetSpread / 10.0):
+                    slot = hash(agentFullName or "") % max(1, len(pool_sorted))
+                    pick_idx = slot % len(pool_sorted)
+                    if pick_idx == 0 and len(pool_sorted) > 1:
+                        pick_idx = 1
+                else:
+                    pick_idx = 0
+            elif self.targetSpreadMode == 2:
+                slot = hash(agentFullName or "") % max(1, len(pool_sorted))
+                pick_idx = slot % len(pool_sorted)
             else:
                 pick_idx = 0
             best = pool_sorted[pick_idx]

@@ -664,6 +664,7 @@ _ARG_DESC = {
     "marginKm": "境界回避マージン(km)。小さいほど深く進出",
     "trackConfirmFrames": "射撃前に必要な連続トラックフレーム数。高いほど安定射撃",
     "targetSpread": "目標分散(0=集中射撃)。味方の射撃先を分散する",
+    "targetSpreadMode": "分散方式(0=集中, 1=確率的分散, 2=常時分散)。targetSpread と組み合わせて使う",
     "escortSeekDistKm": "護衛対象機探索距離(km)。遠い護衛を優先",
     "escortForwardXKm": "護衛対象機の前方x閾値(km)。この距離以上で護衛候補",
     "escortFireMaxDistKm": "護衛射撃の最大距離(km)。0=無効(fireRangeKm使用)",
@@ -2234,33 +2235,6 @@ def _trigger_cards(
     """実測が条件を満たす間だけ出るカード（解消すると自動で消える）."""
 
     out: list[dict] = []
-    if facts:
-        max_x = facts.get("max_advance_x")
-        reserve = facts.get("ammo_reserve")
-        if max_x is not None and reserve is not None and max_x >= 100 and reserve <= 2:
-            out.append({
-                "id": "trigger_ammo_dry",
-                "kind": "observation",
-                "source": "log",
-                "title": f"深追いしたが残弾が尽きていた（x={max_x:g} / 残弾 {reserve:g}）",
-                "summary": "護衛対象機の周回帯まで到達しているのに残弾が無く、撃てずに終わっている。",
-                "evidence": [
-                    {"label": "最大進出 x[km]", "value": max_x, "num": True, "digits": 0},
-                    {"label": "最終残弾[発]", "value": reserve, "num": True, "digits": 0},
-                ],
-                "hypothesis": (
-                    "深追いしても命中が無ければ意味がない。"
-                    "到達時の発射・命中軸で見る。"
-                    "護衛戦闘機の先行排除（winpath-escort）で生存を延長し、"
-                    "残弾を護衛対象機まで持ち帰る方向で再分析する。"
-                ),
-                "phrase": f"深追いしたが残弾が尽きていた（x={max_x:g} / 残弾 {reserve:g}）",
-                "metric": "最大進出 x と最終残弾（目標ボード）",
-                "from_tab": "自機視点",
-                "from_path": facts.get("log", ""),
-                "command": "",
-                "command_label": "",
-            })
     # 全滅カードは現行ターゲットのファイル内だけを見る。古い実験ファイルの
     # worst と比べると stale が常時発火するため（def_fr90 等）。
     wipes = _wipe_games(_paired_game_rows(target)) if target else []

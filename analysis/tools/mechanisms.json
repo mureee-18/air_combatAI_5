@@ -36,7 +36,8 @@
     "tracking": [
       "trackConfirmFrames",
       "trackPosToleranceKm",
-      "targetSpread"
+      "targetSpread",
+      "targetSpreadMode"
     ],
     "break-beam-margin": [
       "breakRangeKm",

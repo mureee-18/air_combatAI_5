@@ -58,6 +58,7 @@ class DefaultPolicy(StandalonePolicy):
         self.beam_hold_frames = int(args.get("beamHoldFrames", 0))
         self.track_confirm_frames = int(args.get("trackConfirmFrames", 0))
         self.target_spread = int(args.get("targetSpread", 0))
+        self.target_spread_mode = int(args.get("targetSpreadMode", 0))
         self.launch_interval_frames = int(args.get("launchIntervalFrames", 0))
         self.max_simul_shot = int(args.get("maxSimulShot", 4))
         # 同一目標への発射上限（0=無効）。直近 PER_TARGET_WINDOW_FRAMES の発射履歴で近似する。

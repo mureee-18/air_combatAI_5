@@ -2956,3 +2956,13 @@
 - 検証: paired eval (seeds 1-3 both colors): 6戦 all win ELIMINATION, avg_score 0.655 (baseline 0.674 比 -0.019), avg_our_alive 3.17 (baseline 3.33 比 -0.16), avg_enemy_alive 3.33 (据置), avg_hit_rate 0.076 (baseline 0.083 比 -0.007)。予測（avg_our_alive 2.0→2.3+, avg_score 0.5→0.55+）に対し実測は微減。仮説不支持。全回避軸が閉鎖済みのため、遷移の滑らかさだけでは改善しない。
 - 指標: {"avg_score": 0.655, "avg_our_alive": 3.17, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: evadeReturnFrames を閉鎖（tested_variables.json に登録）。args.json を baseline に戻し redeploy。別軸（winpath-escort / struct-firing-track）へ。
+
+## O-289 [observation/log] 2026-11-06T23:40:12
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: targetSpreadMode=1 + targetSpread=3 で確率的分散（round-robin）により護衛戦闘機を狙う
+- 仮説: N-261
+- 変更: target_selection.py の select_primary_target を mode 対応に書き換え（mode=0=集中, mode=1=確率的分散, mode=2=常時分散 round-robin）。policy.py と ma_default.py に targetSpreadMode を追加。args.json に targetSpreadMode=0 を追加。
+- 検証: paired eval (seeds 1-3 both colors): 6戦 all win ELIMINATION, avg_score 0.69 (baseline 0.674, +0.016), avg_our_alive 3.33 (baseline 3.33), avg_enemy_alive 3.17 (baseline 3.33, -0.16), avg_hit_rate 0.098 (baseline 0.083, +0.015)。仮説支持（複数指標で改善）。
+- 指標: {"avg_score": 0.69, "avg_our_alive": 3.33, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: targetSpreadMode を tested_variables に登録（成功）。holdout (seeds 4-6) で汎化確認。targetSpread の最適値を sweep（1/3/5）。

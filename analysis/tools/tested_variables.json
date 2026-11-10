@@ -508,6 +508,13 @@
       "refs": [
         "O-290"
       ]
+    },
+    "targetSpreadMode": {
+      "values": "0/1",
+      "result": "成功: mode=1 + targetSpread=3 で確率的分散（round-robin）。paired eval 6戦: avg_score 0.69 (baseline 0.674, +0.016), avg_our_alive 3.33 (baseline 3.33), avg_enemy_alive 3.17 (baseline 3.33, -0.16), avg_hit_rate 0.098 (baseline 0.083, +0.015)。全勝。仮説支持。護衛戦闘機への火力分散が winpath-escort（護衛機先行排除）に寄与。",
+      "refs": [
+        "O-289"
+      ]
     }
   }
 }

@@ -7,7 +7,7 @@
   "burstHeadAlignDeg": 0.0,
   "beamHoldFrames": 0,
   "trackConfirmFrames": 0,
-  "targetSpread": 0,
+  "targetSpread": 3,
   "launchIntervalFrames": 0,
   "maxSimulShot": 4,
   "maxSimulPerTarget": 0,
@@ -34,5 +34,6 @@
   "launchStaggerFrames": 0,
   "evadeReturnFrames": 0,
   "formationSpacingKm": 0.0,
-  "lostAllySpeedBoost": 0.0
+  "lostAllySpeedBoost": 0.0,
+  "targetSpreadMode": 1
 }
