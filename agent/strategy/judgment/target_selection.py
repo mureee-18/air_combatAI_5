@@ -10,11 +10,10 @@ import numpy as np
 def select_escort_candidate(policy, enemy, detected, own):
     """Identify the escort (high-value) target among detected enemies.
 
-    Uses independent enable flags instead of implicit either/or:
-      - escortUseForwardX: enable forward-x based identification
-      - escortUseSeekDist: enable seek-dist based identification
-    When both enabled, forward-x takes priority (existing behavior).
-    When neither enabled, falls back to threshold-based (original behavior).
+    Uses threshold-based identification:
+      - escortForwardXKm > 0: enable forward-x based identification
+      - escortSeekDistKm > 0: enable seek-dist based identification
+    When both thresholds are positive, forward-x takes priority.
     """
     if not detected:
         return None
@@ -24,11 +23,8 @@ def select_escort_candidate(policy, enemy, detected, own):
     if not eligible:
         return None
 
-    use_fwd = getattr(policy, "escort_use_forward_x", 1)
-    use_seek = getattr(policy, "escort_use_seek_dist", 0)
-
-    # Forward-x based identification (independent enable)
-    if use_fwd > 0 and policy.escort_forward_x_km > 0.0:
+    # Forward-x based identification (threshold-gated)
+    if policy.escort_forward_x_km > 0.0:
         fwd = [
             (i, own[0] + enemy[i, 2] * np.cos(np.radians(enemy[i, 1])))
             for i in eligible
@@ -37,26 +33,11 @@ def select_escort_candidate(policy, enemy, detected, own):
         if cand_x >= policy.escort_forward_x_km:
             return cand_i
 
-    # Seek-dist based identification (independent enable)
-    if use_seek > 0 and policy.escort_seek_dist_km > 0:
+    # Seek-dist based identification (threshold-gated)
+    if policy.escort_seek_dist_km > 0.0:
         far = [i for i in eligible if enemy[i, 2] >= policy.escort_seek_dist_km]
         if far:
             return max(far, key=lambda i: enemy[i, 2])
-
-    # Fallback: original either/or when neither enable flag is set
-    if use_fwd == 0 and use_seek == 0:
-        if policy.escort_forward_x_km > 0.0:
-            fwd = [
-                (i, own[0] + enemy[i, 2] * np.cos(np.radians(enemy[i, 1])))
-                for i in eligible
-            ]
-            cand_i, cand_x = max(fwd, key=lambda t: t[1])
-            if cand_x >= policy.escort_forward_x_km:
-                return cand_i
-        if policy.escort_seek_dist_km > 0:
-            far = [i for i in eligible if enemy[i, 2] >= policy.escort_seek_dist_km]
-            if far:
-                return max(far, key=lambda i: enemy[i, 2])
 
     return None
 
@@ -69,10 +50,34 @@ def select_primary_target(policy, enemy, detected, name):
     escorted = [i for i in detected if enemy[i, 4] > 0.5]
     pool = near if near else (escorted if escorted else detected)
     pool_sorted = sorted(pool, key=lambda i: enemy[i, 2])
-    if policy.target_spread > 0 and name:
-        offset = sum(ord(c) for c in name) % policy.target_spread
-        pick_idx = offset % len(pool_sorted)
+    if not pool_sorted:
+        return None, 0.0
+
+    mode = int(getattr(policy, "target_spread_mode", 0))
+    spread = int(getattr(policy, "target_spread", 0))
+
+    if mode == 0:
+        # concentrate: always nearest
+        pick_idx = 0
+    elif mode == 1:
+        # probabilistic spread: spread/10 chance to pick a non-nearest target
+        import random
+        if spread > 0 and random.random() < (spread / 10.0):
+            # round-robin by slot for coordinated spread
+            slot = 0
+            # derive slot from name hash
+            slot = hash(name or "") % max(1, len(pool_sorted))
+            pick_idx = slot % len(pool_sorted)
+            if pick_idx == 0 and len(pool_sorted) > 1:
+                pick_idx = 1
+        else:
+            pick_idx = 0
+    elif mode == 2:
+        # always spread: round-robin by slot
+        slot = hash(name or "") % max(1, len(pool_sorted))
+        pick_idx = slot % len(pool_sorted)
     else:
         pick_idx = 0
+
     best = pool_sorted[pick_idx]
     return best, float(enemy[best, 2])

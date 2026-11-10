@@ -12,6 +12,37 @@ def run(cmd, cwd=None):
     subprocess.run(cmd, cwd=cwd or ROOT, check=True)
 
 
+def preflight_sets(items):
+    """--set のキーが args.json に存在し、コードに配線済みかを確認する.
+
+    未配線の変数をセットしても挙動は変わらず、検証サイクル全体が無駄になる。
+    その事故を防ぐため、適用前に止める（判定は tools/arg_wiring.py と共通）。
+    """
+    tools_dir = str(ROOT / "tools")
+    wiring = {}
+    sys.path.insert(0, tools_dir)
+    try:
+        from arg_wiring import audit
+        wiring = audit(ROOT)
+    except Exception as exc:  # noqa: BLE001 - 監査不能でも従来動作は維持
+        print(f"warn: arg_wiring の監査に失敗しました（配線チェックをスキップ）: {exc}")
+    finally:
+        try:
+            sys.path.remove(tools_dir)
+        except ValueError:
+            pass
+
+    current = json.loads((ROOT / "agent" / "args.json").read_text(encoding="utf-8"))
+    problems = []
+    for item in items:
+        key = item.split("=", 1)[0].strip()
+        if key not in current:
+            problems.append(f"{key}: agent/args.json にキーがありません")
+        elif wiring and not (wiring.get(key) or {}).get("wired"):
+            problems.append(f"{key}: コードに未配線です（値を変えても挙動が変わりません）")
+    return problems
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--specialist", default="default")
@@ -22,6 +53,13 @@ def main():
     args = ap.parse_args()
 
     if args.set:
+        problems = preflight_sets(args.set)
+        if problems:
+            print("--set を適用できません:", file=sys.stderr)
+            for p in problems:
+                print(f"  - {p}", file=sys.stderr)
+            print("python tools/arg_wiring.py で配線状態を確認してください。", file=sys.stderr)
+            return 2
         args_path = ROOT / "agent" / "args.json"
         current = json.loads(args_path.read_text(encoding="utf-8"))
         for item in args.set:

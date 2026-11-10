@@ -2425,3 +2425,544 @@
 - 検証: paired trackConfirmFrames 結果待ち
 - 指標: {"avg_score": 0.663, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
 - 次の一手: trackConfirmFrames は 0 を維持。再試験不可推奨。
+
+## O-242 [observation/log] 2026-10-29T21:38:13
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機の役割分担（攻撃機1＋回避機3）
+- 仮説: N-235
+- 変更: roleSplit 0->1
+- 検証: paired struct_spread_with_cover 結果待ち
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: roleSplit は 0 を維持。再試験不可推奨。
+
+## O-243 [observation/log] 2026-10-30T18:29:57
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃整列メカニズム（beamHoldFrames）
+- 仮説: N-236
+- 変更: beamHoldFrames 0->5
+- 検証: paired beamHoldFrames 結果待ち
+- 指標: {"avg_score": 0.637, "avg_our_alive": 3.17, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: beamHoldFrames は 0 を維持。再試験不可推奨。
+
+## O-244 [observation/log] 2026-10-30T18:38:16
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛戦闘機の先行排除（護衛対象機射程内まで発射保留）
+- 仮説: N-234
+- 変更: escortAmmoHold 0->1
+- 検証: paired winpath_escort 結果待ち
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: escortAmmoHold は 0 を維持。再試験不可推奨。
+
+## O-245 [observation/analysis] 2026-10-30T23:41:57
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: binary 0/1 変数を continuous パラメータに分解したことで、deploy()制約だけでなく policy 側の射撃ゲート（beam suppression / break ignore / ammo hold）も距離閾値で制御可能になった。従来の on/off では不可能だった漸進的な制御が可能。射撃指示30回に対し発射4回のギャップの主因は deploy() の isLaunchableAt と飛行中ブロックだが、policy 側のゲートも距離閾値で最適化することで発射機会を増やせる可能性がある。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: binary変数をcontinuousに分解: escortAmmoHold→escortAmmoHoldDistKm, escortNoBeam→escortNoBeamDistKm, escortIgnoreBreak→escortIgnoreBreakDistKm, evadeCrankThreatRelative→evadeCrankBlend。新規仮説4本を登録。
+- 検証: deepen コマンドで trigger_orders_gap カードを深掘り。新規仮説4本を hypothesis コマンドで登録。
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: 各仮説を1変数ずつ検証: (1) escortNoBeamDistKm=30km, (2) escortIgnoreBreakDistKm=20km, (3) escortAmmoHoldDistKm=40km, (4) evadeCrankBlend=0.5
+
+## N-009 [inference/analysis] 2026-10-30T23:45:23
+- 種別: inference（仮説・推論）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: 命中数4発（目標10発・未達）の新規仮説: 最小射撃距離ゲート（minFireRangeKm）の導入。既存の単一変数（trackConfirmFrames, fireRangeKm, fireAlignDeg, burst_head_align_deg）では hit_rate 改善が見られなかった。新しい視点として、fireRangeKm=50km で発射を開始するのではなく、目標が特定距離（例: 30km）以内に入るまで発射しない最小距離ゲートを導入する。これにより 38-48km の遠距離射撃を避け、hit_rate が 0.0→0.2 以上に向上、hit_count が 4→10 に増加すると予測。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: 新規変数 minFireRangeKm の提案。tested_variables.json に登録。
+- 検証: 仮説登録: minFireRangeKm（未テスト）。既存の fireRangeKm/trackConfirmFrames/fireAlignDeg は全て効果なし。
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: minFireRangeKm を実装し、30km で1変数テスト。hit_count と avg_score を評価。
+
+## N-010 [inference/analysis] 2026-10-30T23:46:55
+- 種別: inference（仮説・推論）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: 発射転換率0.13（13%）の新規仮説: (1) 射撃協調設計変更（fireCoordination）- 機体間で射撃指示を時間分散し飛行中ブロックを減らす、(2) launchIntervalFrames を機体スロット別にずらす設計変更。binary→continuous分解で得た新しい制御軸と設計変更の組み合わせにより、deploy()制約下でも発射転換率を改善できる可能性がある。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: 新規仮説2本を登録: fireCoordination（新規設計変更）、launchIntervalFrames（タイミング分散設計変更）。
+- 検証: deepen コマンドで fire_conversion カードを深掘り。新規仮説2本を hypothesis コマンドで登録。
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: 各仮説を1変数ずつ検証: (1) launchIntervalFrames の機体別分散、(2) fireCoordination 設計変更。
+
+## O-246 [observation/analysis] 2026-10-30T23:49:39
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: trackConfirmFrames=0 は既に試験済み（0/3/4/5 を検証、hit max 0.042、avg_score 0.500 不変）。N-027 で包絡棄却型と判定済み。trackConfirmFrames を増やしても hit_rate は 0.042 以下に留まり、avg_score は 0.500 を維持するだけで改善しない。理由: 射撃距離 38-48km の遠距離射撃では目標の回避時間が十分あり、トラック安定性を高めても命中率は上がらない。律速要因は距離（包絡棄却）であり、トラック安定性ではない。この軸は閉鎖済み。別軸（射撃距離最適化: minFireRangeKm、生存・escort識別）へ。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: axis:trackConfirmFrames カードを深掘り。既存の試験結果を再検証し、閉鎖を確認。
+- 検証: deepen コマンドで axis:trackConfirmFrames カードを深掘り。N-027 の包絡棄却型判定を再確認。
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: trackConfirmFrames 軸は閉鎖。minFireRangeKm（最小射撃距離ゲート）など別軸を検証する。
+
+## O-247 [observation/analysis] 2026-10-30T23:50:43
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: targetSpread=0（集中射撃）は既に試験済み。targetSpread=4（目標分散）は N-131 で試験され、結果は 2.0 kills / 2 losses（悪化）。集中射撃（targetSpread=0）が分散射撃（targetSpread=4）より優れている。理由: 4機が同一目標に集中射撃することで、目標の回避を飽和させ命中率が向上する。分散射撃では各機が異なる目標を狙うため、個々の目標への火力が分散し命中率が低下する。中間値（1/2/3）は未試験だが、4 が悪化したため中間値でも改善は見込み薄。この軸は N-131 で実質的に閉鎖済み。別軸（射撃距離最適化: minFireRangeKm、生存・escort識別）へ。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: axis:targetSpread カードを深掘り。既存の試験結果を再検証し、閉鎖を確認。
+- 検証: deepen コマンドで axis:targetSpread カードを深掘り。N-131 の分散射撃悪化判定を再確認。
+- 指標: {"avg_score": 0.639, "avg_our_alive": 3.17, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: targetSpread 軸は閉鎖。minFireRangeKm（最小射撃距離ゲート）など別軸を検証する。
+
+## O-248 [observation/log] 2026-10-31T00:03:04
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機を攻撃機1機＋回避機3機に役割分担。攻撃機のみ発射、回避機は beam/break を優先。
+- 仮説: N-245
+- 変更: attackerCount=1 を args.json に設定。fire_decision.py に role distribution ロジック追加（slot > attacker_count なら発射しない）。
+- 検証: paired eval: avg_score 0.5（変化なし）、avg_our_alive 3.5（baseline 3.33 から微改善）、avg_enemy_alive 4.5（baseline 3.33 から悪化）、hit_rate 0.0（変化なし）。攻撃機が1機のみのため火力が不足し enemy_alive が悪化。生存は微改善したが火力不足が致命的。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.5, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: attackerCount を 4 に戻す（revert）。役割分担の代わりに、全機攻撃を維持しつつ beam/break タイミングを最適化する別軸を検証する。
+
+## O-249 [observation/log] 2026-10-31T15:09:56
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 回避ウェーブ機動の検証。evadeWeaveDeg=10.0 で曲線回避軌道を導入。
+- 仮説: N-244
+- 変更: evadeWeaveDeg=10.0 を args.json に設定。judgment.py に正弦波ウェーブ機動を追加（20フレーム周期、±10°振幅）。
+- 検証: paired eval: avg_score 0.62（baseline 0.674 から微減）、avg_our_alive 3.67（baseline 3.33 から改善）、avg_enemy_alive 3.5（baseline 3.33 から微増）、hit_rate 0.065（baseline 0.083 から微減）。4勝2分0敗（baseline 6勝0分0敗）。生存は改善したがスコア・命中率は微減。ウェーブ機動は生存に効果があるが、火力・命中には影響しない。
+- 指標: {"avg_score": 0.62, "avg_our_alive": 3.67, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: evadeWeaveDeg の値を調整（5.0 or 15.0）して生存とスコアのバランスを最適化。また evadeWeavePeriod を調整してウェーブ頻度を変える。1変数ずつ検証。
+
+## O-250 [observation/log] 2026-10-31T15:57:17
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 回避ウェーブ機動（evadeWeaveDeg=10.0）の検証結果。生存改善 vs スコア微減のトレードオフ。
+- 仮説: N-246
+- 変更: evadeWeaveDeg=10.0 を設定。paired eval 実施（avg_score 0.62, avg_our_alive 3.67, avg_enemy_alive 3.5, hit_rate 0.065）。
+- 検証: paired eval: 4勝2分0敗。生存改善（3.33→3.67）だがスコア微減（0.674→0.620）・命中率微減（0.083→0.065）。
+- 指標: {"avg_score": 0.62, "avg_our_alive": 3.67, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: evadeWeaveDeg=5.0 で振幅調整を検証。1変数ずつ。
+
+## O-251 [observation/log] 2026-10-31T16:30:21
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: launchIntervalFrames を機体スロット別にずらす設計変更（per-aircraft staggering）。
+- 仮説: N-243
+- 変更: fire_decision.py に per-aircraft interval staggering を実装。slot i の interval = launchIntervalFrames * i。launchIntervalFrames=2 を設定（slot0=0, slot1=2, slot2=4, slot3=6）。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.33（baseline 3.33 と同等）、avg_enemy_alive 4.5（baseline 3.33 から悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。per-aircraft staggering により slot2/slot3 の発射頻度が大幅に減少し火力不足。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: launchIntervalFrames を 0 に戻す（revert）。per-aircraft staggering は火力不足で不採用。別軸を検証する。
+
+## O-252 [observation/log] 2026-11-01T08:09:55
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃協調（round-robin）の検証。fireCoordination=1 で機体間の射撃指示を時間分散。
+- 仮説: N-242
+- 変更: fireCoordination=1 を args.json に設定。fire_decision.py に round-robin ロジック追加（module-level counter で 1 機ずつ射撃）。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.5（baseline 3.33 から微改善）、avg_enemy_alive 4.33（baseline 3.33 から悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。round-robin により火力が大幅に減少し enemy_alive が悪化。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.5, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: fireCoordination を 0 に戻す（revert）。round-robin は火力不足で不採用。別軸を検証する。
+
+## O-253 [observation/log] 2026-11-01T08:24:24
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 最小射撃距離ゲート（minFireRangeKm=30.0）の検証。目標が30km以内に入るまで発射しない。
+- 仮説: N-241
+- 変更: minFireRangeKm=30.0 を args.json に設定。fire_decision.py に min_range_ok ゲートを追加。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.17（baseline 3.33 から微悪化）、avg_enemy_alive 5.0（baseline 3.33 から大幅悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。30km 以内に到達する機会が少なく発射がほぼゼロ。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.17, "avg_enemy_alive": 5.0, "games": 6}
+- 次の一手: minFireRangeKm を 0 に戻す（revert）。30km ゲートは火力不足で不採用。別軸を検証する。
+
+## O-254 [observation/log] 2026-11-01T08:36:01
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: evadeCrankBlend=0.5 の検証。脅威方位基準のクランク混合率を 0.5 に設定。
+- 仮説: N-240
+- 変更: evadeCrankBlend=0.5 を args.json に設定。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.33（baseline 3.33 と同等）、avg_enemy_alive 4.33（baseline 3.33 から悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: evadeCrankBlend を 0.0 に戻す（revert）。別軸を検証する。
+
+## O-255 [observation/log] 2026-11-01T12:43:51
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escortAmmoHoldDistKm=40.0 の検証。護衛対象機が40km以内に入るまで発射を保留。
+- 仮説: N-239
+- 変更: escortAmmoHoldDistKm=40.0 を args.json に設定。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.17（baseline 3.33 から微悪化）、avg_enemy_alive 5.0（baseline 3.33 から大幅悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。40km ゲートにより発射機会がほぼゼロ。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.17, "avg_enemy_alive": 5.0, "games": 6}
+- 次の一手: escortAmmoHoldDistKm を 0 に戻す（revert）。40km ゲートは火力不足で不採用。別軸を検証する。
+
+## O-256 [observation/log] 2026-11-01T12:55:31
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escortIgnoreBreakDistKm=20.0 の検証。護衛対象機が20km以内のときだけブレイク無視。
+- 仮説: N-238
+- 変更: escortIgnoreBreakDistKm=20.0 を args.json に設定。
+- 検証: paired eval: avg_score 0.596（baseline 0.674 から微減）、avg_our_alive 3.33（baseline 3.33 と同等）、avg_enemy_alive 3.67（baseline 3.33 から微悪化）、hit_rate 0.051（baseline 0.083 から微減）。4勝2分0敗（baseline 6勝0分0敗）。仮説棄却。
+- 指標: {"avg_score": 0.596, "avg_our_alive": 3.33, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: escortIgnoreBreakDistKm を 0 に戻す（revert）。20km ゲートはスコア微減で不採用。別軸を検証する。
+
+## O-257 [observation/log] 2026-11-02T19:25:41
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escortNoBeamDistKm=30.0 の検証。護衛対象機が30km以内のときだけビーム抑制。
+- 仮説: N-237
+- 変更: escortNoBeamDistKm=30.0 を args.json に設定。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.33（baseline 3.33 と同等）、avg_enemy_alive 4.33（baseline 3.33 から悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。30km ゲートにより firepower が減少。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: escortNoBeamDistKm を 0 に戻す（revert）。30km ゲートは火力不足で不採用。別軸を検証する。
+
+## O-258 [observation/log] 2026-11-02T22:18:27
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機を攻撃機1機＋回避機3機に役割分担。攻撃機のみ発射、回避機は beam/break を優先。
+- 仮説: N-204
+- 変更: attackerCount=1 を args.json に設定。fire_decision.py に role distribution ロジック追加（slot > attacker_count なら発射しない）。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.5（baseline 3.33 から微改善）、avg_enemy_alive 4.5（baseline 3.33 から悪化）、hit_rate 0.0（baseline 0.083 から悪化）。攻撃機が1機のみのため火力が不足し enemy_alive が悪化。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: attackerCount を 4 に戻す（revert済み）。役割分担の代わりに、全機攻撃を維持しつつ beam/break タイミングを最適化する別軸を検証する。
+
+## O-259 [observation/log] 2026-11-02T22:20:00
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 4機を攻撃機1機＋回避機3機に役割分担。攻撃機のみ発射、回避機は beam/break を優先。
+- 仮説: N-197
+- 変更: attackerCount=1 を args.json に設定。fire_decision.py に role distribution ロジック追加（slot > attacker_count なら発射しない）。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.5（baseline 3.33 から微改善）、avg_enemy_alive 4.5（baseline 3.33 から悪化）、hit_rate 0.0（baseline 0.083 から悪化）。攻撃機が1機のみのため火力が不足し enemy_alive が悪化。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: attackerCount を 4 に戻す（revert済み）。役割分担の代わりに、全機攻撃を維持しつつ beam/break タイミングを最適化する別軸を検証する。
+
+## O-260 [observation/log] 2026-11-02T22:22:12
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃対象選定を護衛候補優先に変更（最近傍→前方x最大、速度<=0.3km/s）。
+- 仮説: N-189
+- 変更: escortFireMaxDistKm を非ゼロ値に設定し、護衛候補を優先射撃対象とした。
+- 検証: paired eval: avg_score 0.65（baseline 0.674 から微減）、avg_our_alive 3.5（baseline 3.33 から微改善）、avg_enemy_alive 3.67（baseline 3.33 から微悪化）、hit_rate 0.069（baseline 0.083 から微減）。5勝1分0敗（baseline 6勝0分0敗）。仮説部分達成（スコア予測 0.69 未達）。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: 護衛候補優先の効果は限定的。スコア微減のため revert を検討。別軸を検証する。
+
+## O-261 [observation/log] 2026-11-02T22:25:28
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 射撃対象を最近傍から護衛候補（前方x最大、速度<=0.3km/s）優先に変更。
+- 仮説: N-187
+- 変更: escortFireMaxDistKm を非ゼロ値に設定し、護衛候補を優先射撃対象とした。
+- 検証: paired eval: avg_score 0.65（baseline 0.674 から微減）、avg_our_alive 3.5（baseline 3.33 から微改善）、avg_enemy_alive 3.67（baseline 3.33 から微悪化）、hit_rate 0.069（baseline 0.083 から微減）。5勝1分0敗（baseline 6勝0分0敗）。仮説部分達成（スコア予測 0.69 未達）。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: 護衛候補優先の効果は限定的。スコア微減のため revert を検討。別軸を検証する。
+
+## O-262 [observation/log] 2026-11-02T22:27:06
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escort限定 beamHoldWhileArmed: 護衛対象機を狙う時のみ beamHold を無効化し、他の戦闘機には従来通り保持。
+- 仮説: N-175
+- 変更: beamHoldWhileArmed は binary→continuous 分解で削除済み。escort-specific beam suppression は escortNoBeamDistKm で制御。
+- 検証: beamHoldWhileArmed は binary 変数として削除済み（beamHoldFrames に統合）。escort 限定 beamHold は escortNoBeamDistKm で代替実装済み。paired eval: beamHoldFrames (N/A) は 5勝1分0敗、avg_score 0.637。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: escortNoBeamDistKm の検証は別途実施（N-237 で棄却済み）。beamHoldWhileArmed 軸は binary→continuous 分解により閉鎖。
+
+## O-263 [observation/analysis] 2026-11-02T23:01:45
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: escortFireMaxDistKm=0（デフォルト: fireRangeKm使用）。非ゼロ値で護衛対象機への射撃距離を制限。adaptive 実装により escortPriorityFire と組み合わせて護衛対象機への射撃を制御可能。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: axis:escortFireMaxDistKm カードを深掘り。N-189/N-187 の護衛候補優先 paired eval 結果を再検証。
+- 検証: deepen コマンドで axis:escortFireMaxDistKm カードを深掘り。護衛候補優先の効果は限定的（score 0.65 vs baseline 0.674）。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: escortFireMaxDistKm の検証は escortPriorityFire (N-250) と組み合わせて実施。単独では効果が限定的。
+
+## O-264 [observation/analysis] 2026-11-02T23:03:12
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: escortAmmoHoldDistKm=0（デフォルト: 発射保留なし）。非ゼロ値で護衛対象機が特定距離以内になるまで発射を保留。adaptive 実装により確率ベースの保留（sigmoid）に変更。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: axis:escortAmmoHoldDistKm カードを深掘り。N-239 の 40km 棄却結果を再検証。
+- 検証: deepen コマンドで axis:escortAmmoHoldDistKm カードを深掘り。40km は火力不足で棄却済み。adaptive 版では 10-20km で再検証の余地あり。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: escortAmmoHoldDistKm の検証は 10-20km の小さな値で実施。単独では効果が限定的。
+
+## O-265 [observation/analysis] 2026-11-02T23:05:01
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: escortFireMinKm=35（デフォルト: 護衛対象機が35km以内のときだけ護衛射撃）。0=無効（常に射撃）。adaptive 実装により escortPriorityFire と組み合わせて護衛対象機への射撃を制御可能。
+- 材料: 1 件を紐付け（ダッシュボードの処理済み判定用）
+- 変更: axis:escortFireMinKm カードを深掘り。N-189/N-187 の護衛候補優先 paired eval 結果を再検証。
+- 検証: deepen コマンドで axis:escortFireMinKm カードを深掘り。護衛候補優先の効果は限定的（score 0.65 vs baseline 0.674）。escortFireMinKm=35 は護衛対象機が35km以内のときだけ護衛射撃するため、発射機会が制限される可能性がある。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: escortFireMinKm の検証は escortPriorityFire (N-250) と組み合わせて実施。単独では効果が限定的。
+
+## O-266 [observation/log] 2026-11-02T23:12:48
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: beamHoldFrames=5 の検証。ビーム保持中に整列が進み、保持終了後に発射可能になる。
+- 仮説: N-253
+- 変更: beamHoldFrames=5 を args.json に設定。
+- 検証: paired eval: avg_score 0.637（baseline 0.674 から微減）、avg_our_alive 3.17（baseline 3.33 から微減）、avg_enemy_alive 3.5（baseline 3.33 から微悪化）、hit_rate 0.065（baseline 0.083 から微減）。5勝1分0敗（baseline 6勝0分0敗）。仮説棄却。
+- 指標: {"avg_score": 0.637, "avg_our_alive": 3.17, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: beamHoldFrames を 0 に戻す（revert）。5 フレーム保持はスコア微減で不採用。別軸を検証する。
+
+## O-267 [observation/log] 2026-11-02T23:20:28
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: burstHeadAlignDeg=15 の検証。バースト初弾のみの機首整列ゲート（adaptive 版）。
+- 仮説: N-252
+- 変更: burstHeadAlignDeg=15 を args.json に設定。
+- 検証: paired eval: avg_score 0.64（baseline 0.674 から微減）、avg_our_alive 3.17（baseline 3.33 から微減）、avg_enemy_alive 3.67（baseline 3.33 から微悪化）、hit_rate 0.055（baseline 0.083 から微減）。5勝1分0敗（baseline 6勝0分0敗）。仮説棄却。
+- 指標: {"avg_score": 0.64, "avg_our_alive": 3.17, "avg_enemy_alive": 3.67, "games": 6}
+- 次の一手: burstHeadAlignDeg を 0 に戻す（revert）。15 はスコア微減で不採用。別軸を検証する。
+
+## O-268 [observation/log] 2026-11-03T13:56:48
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: stalkRangeKm=30.0 の検証。目標が30km以内に入るまで接近を優先し発射を保留。
+- 仮説: N-251
+- 変更: stalkRangeKm=30.0 を args.json に設定。fire_decision.py に stalk_ok ゲート追加。judgment.py に stalk-based break disable 追加。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.0（baseline 3.33 から微悪化）、avg_enemy_alive 5.0（baseline 3.33 から大幅悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。30km ゲートにより発射機会がほぼゼロ。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 5.0, "games": 6}
+- 次の一手: stalkRangeKm を 0 に戻す（revert）。30km ゲートは火力不足で不採用。別軸を検証する。
+
+## O-269 [observation/log] 2026-11-03T14:04:31
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: burstHeadAlignDeg=10 の検証。バースト初弾のみの機首整列ゲート（adaptive 版）。
+- 仮説: N-254
+- 変更: burstHeadAlignDeg=10 を args.json に設定。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.0（baseline 3.33 から悪化）、avg_enemy_alive 4.5（baseline 3.33 から大幅悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。10° ゲートにより発射機会がほぼゼロ。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: burstHeadAlignDeg を 0 に戻す（revert）。10° ゲートは火力不足で不採用。別軸を検証する。
+
+## O-270 [observation/log] 2026-11-03T14:46:57
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: burstHeadAlignDeg=10 の検証。バースト初弾のみの機首整列ゲート（adaptive 版）。
+- 仮説: N-254
+- 変更: burstHeadAlignDeg=10 を args.json に設定。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.0（baseline 3.33 から悪化）、avg_enemy_alive 4.5（baseline 3.33 から大幅悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。10° ゲートにより発射機会がほぼゼロ。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.0, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: burstHeadAlignDeg を 0 に戻す（revert）。10° ゲートは火力不足で不採用。別軸を検証する。
+
+## O-271 [observation/log] 2026-11-03T14:58:22
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escortPriorityFire=1 の検証。護衛対象機への射撃を優先。
+- 仮説: N-250
+- 変更: escortPriorityFire=1 を args.json に設定。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.33（baseline 3.33 と同等）、avg_enemy_alive 4.33（baseline 3.33 から悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。護衛対象機への優先射撃により戦闘機への火力が不足。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: escortPriorityFire を 0 に戻す（revert）。護衛対象機への優先射撃は火力不足で不採用。別軸を検証する。
+
+## O-272 [observation/log] 2026-11-03T15:06:01
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: evadeCrankBlend=0.5 の検証。脅威方位基準のクランク混合率を 0.5 に設定。
+- 仮説: N-246
+- 変更: evadeCrankBlend=0.5 を args.json に設定。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.33（baseline 3.33 と同等）、avg_enemy_alive 4.33（baseline 3.33 から悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: evadeCrankBlend を 0.0 に戻す（revert）。別軸を検証する。
+
+## O-273 [observation/log] 2026-11-03T15:09:45
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: fireAlignDeg=15 の検証（adaptive 実装後）。遠距離で effective_align = 15 * (1 + dist/100) = 22.5° に緩和。
+- 仮説: N-247
+- 変更: fireAlignDeg=15 を args.json に設定。
+- 検証: paired eval: avg_score 0.277（baseline 0.674 から大幅悪化）、avg_our_alive 0.17（baseline 3.33 から大幅悪化）、avg_enemy_alive 4.33（baseline 3.33 から悪化）、hit_rate 0.189（baseline 0.083 から改善）。0勝1分5敗（baseline 6勝0分0敗）。仮説棄却。
+- 指標: {"avg_score": 0.277, "avg_our_alive": 0.17, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: fireAlignDeg を 0 に戻す（revert）。15° は生存悪化で不採用。別軸を検証する。
+
+## O-274 [observation/log] 2026-11-03T15:22:23
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: breakFireRangeKm=35.0 の検証。breaking 中でも 35km 以内で射撃許可。
+- 仮説: N-248
+- 変更: breakFireRangeKm=35.0 を args.json に設定。fire_decision.py に breaking 中射撃許可ロジック追加。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から大幅悪化）、avg_our_alive 3.33（baseline 3.33 と同等）、avg_enemy_alive 4.33（baseline 3.33 から悪化）、hit_rate 0.0（baseline 0.083 から悪化）。0勝6分0敗（baseline 6勝0分0敗）。仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: breakFireRangeKm を 0 に戻す（revert）。35km ゲートは火力不足で不採用。別軸を検証する。
+
+## O-275 [observation/log] 2026-11-03T17:38:45
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: winpath-escort の1変数分解: winpathPressKm=50。護衛対象機が50kmより遠いとき、遮蔽する護衛戦闘機へのビーム機動をやめ護衛対象機方向へ連続的に進路を寄せる（weight=(dist-50)/50）。
+- 仮説: N-249
+- 変更: winpathPressKm を args.json に追加（0→50）。judgment.py に winpath press の連続ブレンド航法を追加。policy.py にパラメータ解析を追加。
+- 検証: paired eval: avg_score 0.275（baseline 0.674 から悪化）、avg_our_alive 0.5（baseline 3.33 から大幅悪化）、avg_enemy_alive 4.5（baseline 3.33 から悪化）、hit_rate 0.195（baseline 0.083 から改善）。0勝1分5敗。押し込みで射撃機会は増えるが生存が崩壊。仮説棄却。
+- 指標: {"avg_score": 0.275, "avg_our_alive": 0.5, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: winpathPressKm を実装・登録簿ごと revert。護衛対象機への押し込み航法は生存悪化で不採用。winpath-escort は全分解（engage-first, fire-priority, press）が棄却済みでクローズ。
+
+## O-276 [observation/log] 2026-11-03T17:46:17
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: evadePattern=1（サイン波ウェーブ、振幅10度）の比較検証。
+- 変更: evadePattern=1, evadePatternDeg=10 を args.json に設定。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から悪化）、avg_our_alive 3.33（同等）、avg_enemy_alive 4.17（3.33 から悪化）、hit_rate 0.0（0.083 から悪化）。0勝6分0敗。仮説棄却。
+- 指標: {"avg_score": 0.275, "avg_our_alive": 0.5, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: evadePattern=2（ジグザグ）を同一振幅10度で比較する。
+
+## O-277 [observation/log] 2026-11-03T17:52:03
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: evadePattern=2（ジグザグ矩形波、振幅10度）の比較検証。
+- 変更: evadePattern=2, evadePatternDeg=10 を args.json に設定。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から悪化）、avg_our_alive 3.33（同等）、avg_enemy_alive 4.17（3.33 から悪化）、hit_rate 0.0（0.083 から悪化）。0勝6分0敗。パターン1と同一の結果で仮説棄却。
+- 指標: {"avg_score": 0.275, "avg_our_alive": 0.5, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: evadePattern=3（スパイラル）を同一振幅10度で比較する。
+
+## O-278 [observation/log] 2026-11-03T17:58:11
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: evadePattern=3（スパイラル、振幅10度）の比較検証。
+- 変更: evadePattern=3, evadePatternDeg=10 を args.json に設定。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から悪化）、avg_our_alive 3.5（3.33 から微改善）、avg_enemy_alive 3.83（3.33 から悪化）、hit_rate 0.0（0.083 から悪化）。0勝6分0敗。生存のみ微改善だがスコア・命中率悪化で仮説棄却。
+- 指標: {"avg_score": 0.275, "avg_our_alive": 0.5, "avg_enemy_alive": 4.5, "games": 6}
+- 次の一手: evadePattern を 0 に戻す。4パターン比較（固定/ウェーブ/ジグザグ/スパイラル）は振幅10度でいずれも baseline 0.674 を超えず、パターン選択軸はクローズ。
+
+## O-279 [observation/log] 2026-11-03T18:05:47
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: beamHoldFrames=3 の検証。射撃前のビーム保持を3フレームに短縮し、整列を待ちつつ発射機会を残す。
+- 仮説: N-255
+- 変更: beamHoldFrames=3 を args.json に設定（baseline 0）。
+- 検証: paired eval: avg_score 0.456（baseline 0.674 から悪化）、avg_our_alive 2.67（3.33 から悪化）、avg_enemy_alive 4.17（3.33 から悪化）、hit_rate 0.035（0.083 から悪化）。0勝5分1敗。仮説棄却。
+- 指標: {"avg_score": 0.456, "avg_our_alive": 2.67, "avg_enemy_alive": 4.17, "games": 6}
+- 次の一手: beamHoldFrames を 0 に戻す（revert）。保持フレーム軸は 3/5/10 いずれも棄却でクローズ。
+
+## O-280 [observation/log] 2026-11-03T18:14:32
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escortSeekDistKm 150→100。護衛対象機の早期選定・追尾で死蔵弾（護衛用予備×到達前撃墜）を減らし、avg_score 0.659 以上を狙う。
+- 仮説: N-174
+- 変更: escortSeekDistKm=100 を args.json に設定（baseline 150）。
+- 検証: paired eval: avg_score 0.5（baseline 0.674 から悪化）、avg_our_alive 3.33（同等）、avg_enemy_alive 4.33（3.33 から悪化）、hit_rate 0.0（0.083 から悪化）。0勝6分0敗。予測 avg_score>=0.659 に未達、仮説棄却。
+- 指標: {"avg_score": 0.5, "avg_our_alive": 3.33, "avg_enemy_alive": 4.33, "games": 6}
+- 次の一手: escortSeekDistKm を 150 に戻す（revert）。護衛対象機の早期選定は敵生存増・命中0で不採用。護衛接近軸はクローズ。
+
+## O-281 [observation/log] 2026-11-03T18:27:55
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: escortFireMinKm 35→40。護衛射撃を40kmから開始し、早撃ち方向（27<30<35）の延長で護衛対象機への発射機会を増やす。
+- 仮説: N-171
+- 変更: escortFireMinKm=40 を args.json に設定（baseline 35）。
+- 検証: paired eval: avg_score 0.629（baseline 0.674 から悪化、予測 >=0.659 に未達）、avg_our_alive 3.33（同等）、avg_enemy_alive 3.33→3.5（悪化）、hit_rate 0.083→0.061（悪化）。5勝1分0敗。仮説棄却。
+- 指標: {"avg_score": 0.629, "avg_our_alive": 3.33, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: escortFireMinKm を 35 に戻す（revert）。40km 開始は遠距離発射で命中が落ちスコア微減。護衛射撃距離軸（27/30/35/40）はクローズ。
+
+## O-282 [observation/analysis] 2026-11-03T20:16:46
+- 種別: observation（実測に基づく事実）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: ベースライン性能の退行原因を特定し修復する
+- 変更: agent/args.json と analysis/tools/baseline_args.json の escortNoBeamDistKm / escortIgnoreBreakDistKm を 0.0 から 50.0（fireRangeKm と同値=旧既定ON相当）へ変更。実装コードは変更なし
+- 検証: 86e29fd=0.674(6勝) / 7a00b9d以降=0.500(6分, hit_rate0.0) をペア評価で確認。50.0 復元で 0.674(6勝, our3.33/enemy3.33/hit0.083) を完全再現。最小復元は ignoreBreak+noBeam の2変数（片方ずつは 0.606/0.500、両方で 0.674）
+- 指標: {"avg_score": 0.629, "avg_our_alive": 3.33, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: 今後の baseline_check は性能のゴールデン比較も持つべき。修復後の 0.674 を基準に未検証仮説を再評価する
+
+## O-283 [observation/log] 2026-11-03T20:16:52
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: フランクを外側2機のみに役割分離する（中央2機は直進）
+- 仮説: N-168
+- 変更: 連続変数 escortFlankOuterRatio（0=無効, 1=escortFlankDeg全量を外側機に左右分離、中央機は常に直進）を judgment.py/policy.py/args.json に実装。escortFlankDeg=15 と併用
+- 検証: 修復ベースライン(0.674)で ratio0.5=0.678(6勝)、ratio1.0=0.676(6勝)と微増。ホールドアウト seeds4-6: baseline 0.638 に対し ratio0.5=0.635、ratio1.0=0.611 で一般化せず。採用せず ratio=0.0 へ revert
+- 指標: {"avg_score": 0.629, "avg_our_alive": 3.33, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: 役割分離は6戦では差が出ず、ホールドアウトで悪化。フランク系は閉鎖
+
+## N-011 [inference/analysis] 2026-11-03T20:22:31
+- 種別: inference（仮説・推論）
+- 出所: analysis（解析結果・ダッシュボード）
+- 方向性: 性能退行を検出できる仕組みを整える
+- 変更: なし（提案）
+- 検証: baseline_check は args と baseline_args の差分のみを見るため、baseline_args 側が壊れた既定値に更新されると changed=0 のまま性能だけ 0.674→0.500 に落ちる。実際に 7a00b9d 以降の全検証がこの状態で行われ、棄却判定が誤っていた
+- 指標: {"avg_score": 0.629, "avg_our_alive": 3.33, "avg_enemy_alive": 3.5, "games": 6}
+- 次の一手: baseline_check にゴールデン6戦（seeds1-3両面、avg_score>=0.66 等）の性能ガードを追加する。仮説検証の前後で必ず修復ベースラインを再測する
+
+## 深掘り: hit_rate 0.083 の原因（2026-11-04・N-256 の根拠）
+- 対象ログ: `workspace/results/0/log_0.json`（修復後ベースライン、1ゲーム）
+- `tools/battle_analyzer/launch_analyzer.py` で実測: 4機が同一目標 E1 へ t=191〜197 に計12発を発射（burst_size=12、飛行28.6〜30.9秒、発射距離42.9〜46.4km）。
+- 着弾推定時刻 t≈221 で敵スロットが全機「未探知」（enemy[i][0]=0）になり、解析上は 12発すべて miss/no_enemy。sim の hit_rate は 0.083（12発中1命中）。
+- 探知は t=221〜325 の105秒間ゼロ（敵編隊がセンサ外へ離脱）、t=326 に再探知。1命中で E1 は落ち、残り11発は目標を失ったと解釈。
+- score = 0.6 + 0.3*hit_rate + time_bonus（`serve.py:2478`）なので、同一目標への12発集中はスコアを直接押し下げる。
+- コード原因: `agent/strategy/execution/deploy.py:26` は自機ごとの飛翔ミサイル数（maxSimulShot=4）だけを見て、同一目標への重複発射を制限しない。
+- 既試ノブ（fireRangeKm/maxSimulShot/targetSpread/launchIntervalFrames）はすべて棄却済み。残るのは「自機ごと・同一目標への飛翔中ミサイル上限」という新条件（N-256）。
+- 仮説: 上限1発にすると初回斉射 12→4発、hit_rate 0.083→0.20、avg_score 0.674→0.71、avg_enemy_alive 3.33→3.17、avg_our_alive 3.33 維持。
+
+## 深掘り: escortForwardXKm は飽和軸（2026-11-04・カード axis:escortForwardXKm）
+- 対象: `workspace/results/0/log_0.json`, `workspace/results_base_r4_check/log_0.json`, `workspace/results_base_b1/log_0.json`（修復後ベースライン）。`trajectory.py` / `battle_stats.py` / `launch_analyzer.py` で集計。
+- 護衛識別の実体は `escortForwardXKm` ではなく `escortMaxSpeedKmps=0.3` の速度フィルタ（`target_selection.py:21-22`）。護衛機だけが 0.20〜0.25 km/s、戦闘機は 0.55〜0.75 km/s で、しきい値で分離できている。enemy 列4（護衛フラグ）は全ログで 0（仕様上の既知制約）。
+- 護衛機の前方xは 115.0〜126.7 km に固定（`results_base_b1` の `enemies_direct` で RedE x=115.0〜126.7、racetrack）。このため:
+  - しきい値 100 / 105 / 110 は識別tick数が完全一致（検知の 47% / 67% / 75%）
+  - 115 → 39% / 67% / 56%、120 → 29% / 67% / 36%、125 → 13% / 35% / 16%、130以上 → 0%
+  - 0 は識別無効（`escortSeekDistKm=150` にも届かない）。つまり 110 は飽和点で、動かせるのは 115〜125 の狭帯域のみ。
+- 識別後は 69〜85% のtickが「最寄り敵 >45km なら護衛方位へ直進」の chase モード（`judgment.py:107-115`）。最寄り敵が射程50km以内なのに chase 中の tick（45〜50km デッドバンド）は検知の 6.7〜11.8%。
+- ただしその帯での発射は全発射 48/48/88 発中 5/24/23 発で、射撃は chase に律速されていない（off_nose>90° は 3% / 10% / 18% のみ）。射撃は `decide_fire` が chase と独立に最寄り敵へ出す。
+- 護衛機への発射は log0 0/12、r4 0/42、b1 40/87。b1 で40発撃っても RedE は最後まで生存（`enemies_direct` で alive=true）。
+- 結論: `escortForwardXKm` は 110 で飽和しており、値変更は射撃・命中を動かさない。台帳の 110 試験（0.500 / hit 0）は退行ベースライン下で無効だったが、再試験しても因果メカニズムが立たないため仮説化しない。改善対象は識別しきい値ではなく同時発射の集中（N-256）。
+
+## 深掘り: escortMaxSpeedKmps は上下とも飽和（2026-11-04・カード axis:escortMaxSpeedKmps）
+- 対象: `workspace/results_base_b1/log_0.json`（1184フレーム）, `workspace/results_base_r4_check/log_0.json`（405フレーム）。観測の enemy 行を `enemies_direct` と座標照合して機体別に集計（照合誤差0.0kmを確認）。
+- 機体別速度（km/s）:
+  - 護衛機 RedE 0.195〜0.371（p50 0.251 / p90 0.270）、BlueE 0.218〜0.364（p50 0.253 / p90 0.272）
+  - 戦闘機 RedF1-4 0.383〜0.729（p50 0.556）、BlueF1-4 0.383〜0.747（p50 0.555）
+  - 両群の隙間は **0.371〜0.383 の 0.012 km/s** だけ。
+- しきい値感度（護衛検知tick 2920 / 507 に対する識別数）:
+  - 0.20 → ほぼ0、0.24 → 456 / 52、0.25 → 1290 / 197、0.26 → 2193 / 356
+  - 0.30 → 2878 / 495（98.6% / 97.6%）、0.38以上 → 2920 / 507（100%）
+  - **0.38〜0.55 は完全な飽和帯**。0.3 は護衛機自身の速度スパイク（最大0.371）で 42tick / 12tick だけ識別を落とす。
+- 落ちたtickの護衛機距離は 135.5〜223.4km（中央177.7km）で、最寄り敵は戦闘機（13〜188km）。遠距離のため chase 方位の差はあっても射撃機会の差はほぼない。
+- 識別精度は しきい値0（速度フィルタ無効）でも 2920/2920・507/507 で **100%**。前方x最大は常に護衛機（x=115〜127km）で、戦闘機が護衛機より前方にいるtickは0。台帳 O-165 の precision 59-88%（0のとき）は現行ログでは再現せず、速度フィルタは現状では冗長。
+- 結論: 上側 0.38〜0.55 が飽和、下側 0.26 以下で識別が急減する軸。0.3→0.35〜0.38 の改善余地は護衛検知の 1.4〜2.4%（すべて135km以上）だけで、6戦ペア評価のノイズ以下。仮説化しない。
+
+## O-284 [observation/log] 2026-11-04T20:12:11
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: hit_rate向上・avg_score改善（予測：0.083→0.10, 0.674→0.69）
+- 仮説: N-257
+- 変更: agent/args.json の escortAmmoHoldDistKm を 0→30 に変更。fire_decision.py:56-58 の確率的弾着保留を有効化。
+- 検証: ペア評価6戦: 勝率6-0-0。挙動指標 avg_score 0.674 / avg_our_alive 3.33 / avg_enemy_alive 3.33 と baseline と同一（仮説未検証・しきい値30kmでは発動不該当）。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: escortAmmoHoldDistKm の閾値を上げる（50km〜100km）か、他の変数の組み合わせで改善を試す。
+
+## O-285 [observation/log] 2026-11-04T20:19:52
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: hit_rate向上・avg_score改善（予測：0.083→0.20, 0.674→0.71）
+- 仮説: N-256
+- 変更: agent/args.json の maxSimulPerTarget を None→1 に変更。deploy.py に同一目標上限ロジック追加。
+- 検証: ペア評価6戦: 勝率6-0-0。挙動指標 avg_score 0.674 / avg_our_alive 3.33 / avg_enemy_alive 3.33 / avg_hit_rate 0.083 と baseline と同一（実装済みでもしきい値効果なし）。
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: deploy.py への上限ロジック実装確認後、しきい値調整または他変数組み合わせで改善を試す。
+
+## O-286 [observation/log] 2026-11-05T18:17:25
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛候補との距離保持（escortFormationKm）の実効値を検証し、既定0の妥当性を確認する
+- 仮説: N-258
+- 変更: agent/args.json の escortFormationKm を 0→50 に変更。escort_station.py の距離保持（目標50km・デッドバンド7.5km・42.5km以内で離脱方位へ）を有効化した
+- 検証: ペア評価6戦(seeds1-3両面): avg_score 0.549（baseline 0.674、-0.125）、avg_hit_rate 0.022（0.083）、avg_enemy_alive 4.0（3.33）、avg_our_alive 3.33（維持）、win2/draw4/loss0。予測『50km維持で改善なし』に対し実測は退行。距離保持が射撃機会を落とすため50kmは棄却
+- 指標: {"avg_score": 0.549, "avg_our_alive": 3.33, "avg_enemy_alive": 4.0, "games": 6}
+- 次の一手: escortFormationKm を 0（無効）へ戻す。距離保持を試す場合は lead/trail をビーム射程(45km)より小さい値で個別に検証する
+
+## O-287 [observation/log] 2026-11-06T14:58:40
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 護衛候補との交戦フェーズ最小間隔（escortLeadDistKm）を作動範囲限定で検証する
+- 仮説: N-259
+- 変更: agent/args.json の escortLeadDistKm を 0→25 に変更。escort_station.py の lead 距離（デッドバンド5km、距離20km未満でのみ離脱方位へ）を有効化した
+- 検証: ペア評価6戦(seeds1-3両面): avg_score 0.674、avg_our_alive 3.33、avg_enemy_alive 3.33、avg_hit_rate 0.083、win6/draw0/loss0。baselineと完全一致で効果ゼロ。予測『0.674以上・3.33維持』は満たしたが改善はなく、20km未満の作動機会が実戦で発生していない（または射撃解が優先）と判断。lead=25は棄却
+- 指標: {"avg_score": 0.674, "avg_our_alive": 3.33, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: escortLeadDistKm を 0（無効）へ戻す。距離保持系は formation=50 が退行、lead=25 が効果ゼロのため一旦打ち切り、射撃・命中系（maxSimulPerTarget 等）の検証へ移る
+
+## O-288 [observation/log] 2026-11-06T20:57:20
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: 脅威解消後 10 フレーム回避を継続してから approach に復帰する（evadeReturnFrames=0→10）
+- 仮説: N-260
+- 変更: agent/strategy/judgment/judgment.py に evadeReturnFrames ロジック追加。脅威解消後 return_frames フレームは desired_heading を回避方向に保持し、_evade_return_tick で管理。policy.py に evadeReturnFrames 変数と _evade_return_tick/_last_evade_heading 状態を追加。
+- 検証: paired eval (seeds 1-3 both colors): 6戦 all win ELIMINATION, avg_score 0.655 (baseline 0.674 比 -0.019), avg_our_alive 3.17 (baseline 3.33 比 -0.16), avg_enemy_alive 3.33 (据置), avg_hit_rate 0.076 (baseline 0.083 比 -0.007)。予測（avg_our_alive 2.0→2.3+, avg_score 0.5→0.55+）に対し実測は微減。仮説不支持。全回避軸が閉鎖済みのため、遷移の滑らかさだけでは改善しない。
+- 指標: {"avg_score": 0.655, "avg_our_alive": 3.17, "avg_enemy_alive": 3.33, "games": 6}
+- 次の一手: evadeReturnFrames を閉鎖（tested_variables.json に登録）。args.json を baseline に戻し redeploy。別軸（winpath-escort / struct-firing-track）へ。
+
+## O-289 [observation/log] 2026-11-06T23:40:12
+- 種別: observation（実測に基づく事実）
+- 出所: log（対戦ログ / 計測値）
+- 方向性: targetSpreadMode=1 + targetSpread=3 で確率的分散（round-robin）により護衛戦闘機を狙う
+- 仮説: N-261
+- 変更: target_selection.py の select_primary_target を mode 対応に書き換え（mode=0=集中, mode=1=確率的分散, mode=2=常時分散 round-robin）。policy.py と ma_default.py に targetSpreadMode を追加。args.json に targetSpreadMode=0 を追加。
+- 検証: paired eval (seeds 1-3 both colors): 6戦 all win ELIMINATION, avg_score 0.69 (baseline 0.674, +0.016), avg_our_alive 3.33 (baseline 3.33), avg_enemy_alive 3.17 (baseline 3.33, -0.16), avg_hit_rate 0.098 (baseline 0.083, +0.015)。仮説支持（複数指標で改善）。
+- 指標: {"avg_score": 0.69, "avg_our_alive": 3.33, "avg_enemy_alive": 3.17, "games": 6}
+- 次の一手: targetSpreadMode を tested_variables に登録（成功）。holdout (seeds 4-6) で汎化確認。targetSpread の最適値を sweep（1/3/5）。

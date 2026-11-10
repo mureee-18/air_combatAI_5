@@ -14,19 +14,25 @@ function renderVerify(d) {
   }
   if (!pend.length) {
     document.getElementById("verify").innerHTML =
-      '<div class="empty">未検証の仮説はありません（' + hyps.length + ' 件すべて検証済み）。</div>';
+      '<div class="empty">未検証の仮説はありません（' + hyps.length + ' 件すべて検証済み）。<br>' +
+      '記録（record）は次のコマンドで実施します。<br>' +
+      '<code>python analysis/tools/improvement_session.py record --specialist ' +
+      esc(s.target || "default") +
+      ' --kind observation --source log --hypothesis &lt;ID&gt; --direction "&lt;方向&gt;" ' +
+      '--changes "&lt;実装した内容&gt;" --verification "&lt;ペア評価の判定&gt;" --next-steps "&lt;次&gt;"</code></div>';
     return;
   }
-  if (!state.verifyHyp || !pend.some(h => h.id === state.verifyHyp)) {
-    state.verifyHyp = pend[pend.length - 1].id;
+  const allWork = pend;
+  if (!state.verifyHyp || !allWork.some(h => h.id === state.verifyHyp)) {
+    state.verifyHyp = allWork[allWork.length - 1].id;
   }
   const sel = state.verifyHyp;
+  const cur = allWork.find(x => x.id === sel);
   let h = '<div class="verify-pick"><label for="verify-hyp">検証する仮説</label>' +
           `<select id="verify-hyp">` +
-          pend.map(x => `<option value="${attr(x.id)}"${x.id === sel ? " selected" : ""}>` +
+          allWork.map(x => `<option value="${attr(x.id)}"${x.id === sel ? " selected" : ""}>` +
                         `${esc(hypOptionLabel(x))}</option>`).join("") +
           `</select></div>`;
-  const cur = pend.find(x => x.id === sel);
   if (cur) {
     h += '<div class="verify-block">' +
          `<h3>${esc(cur.id)}<span class="badge">${esc(cur.source || "")}</span></h3>` +

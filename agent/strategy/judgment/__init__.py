@@ -5,6 +5,7 @@ and firing decisions.  Produces a Judgment describing the desired behaviour
 in semantic terms.  Does NOT convert to action-space indices.
 """
 
+from .escort_station import escort_station_heading
 from .fire_decision import decide_fire
 from .judgment import Judgment, judge
 from .navigation import navigate
@@ -21,4 +22,5 @@ __all__ = [
     "update_track_history",
     "decide_fire",
     "navigate",
+    "escort_station_heading",
 ]

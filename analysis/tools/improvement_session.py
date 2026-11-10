@@ -314,6 +314,36 @@ def _card_fill_open_direction_vars() -> set:
     }
 
 
+def check_variable_wired(variable: str) -> None:
+    """args.json にあるのにコードへ配線されていない変数は仮説にできない.
+
+    値だけ足された変数は --set しても挙動が変わらず、検証サイクル全体が
+    無駄になる。判定は tools/arg_wiring.py（ダッシュボード・提出前ゲートと共通）。
+    """
+    if not variable:
+        return
+    tools_dir = str(REPO_ROOT / "tools")
+    added = tools_dir not in sys.path
+    if added:
+        sys.path.insert(0, tools_dir)
+    try:
+        from arg_wiring import audit
+        info = audit(REPO_ROOT).get(variable)
+    except Exception:  # noqa: BLE001 - 監査不能なら従来動作を優先
+        return
+    finally:
+        if added:
+            try:
+                sys.path.remove(tools_dir)
+            except ValueError:
+                pass
+    if info is not None and not info.get("wired"):
+        print(f"登録拒否: 変数 {variable} は agent/args.json にあるがコードに未配線です。")
+        print("  値を変えても挙動が変わりません。先に policy → 判断層まで配線してください。")
+        print("  確認: python tools/arg_wiring.py")
+        raise SystemExit(2)
+
+
 def check_variable_untested(variable: str, retest: str) -> None:
     """登録簿に載っている変数は仮説にできない（重複・再試験の防止）。
     card_fill の open/direction カードが検証入口として立てた変数は再試験許可する
@@ -357,6 +387,7 @@ def cmd_hypothesis(args) -> None:
     validate_record("inference", args.source)
     variable = getattr(args, "variable", "") or ""
     retest = getattr(args, "retest", "") or ""
+    check_variable_wired(variable)
     check_variable_untested(variable, retest)
     state = load_state(args.specialist)
     if variable and variable in _pending_variables(state):

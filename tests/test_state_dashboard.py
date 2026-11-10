@@ -569,13 +569,13 @@ const box = {
 const root = { querySelector(sel) { return sel === ".hypho" ? box : null; } };
 
 const card = (s.evidence || []).find(c => c.id === "constraints");
-const metric = ((d.custom_metrics || {}).rows || []).find(m => m.id === "launch_count");
+const metric = ((d.custom_metrics || {}).rows || []).find(m => m.id === "wipe_count");
 const files = (d.paired || {}).files || [];
 const def = files.filter(f => String(f.name).indexOf("default") >= 0)[0];
 if (!card || !metric || !def) { console.log("SKIP"); process.exit(0); }
 
 hy.fact.value = "constraints";
-hy.metric.value = "launch_count";
+hy.metric.value = "wipe_count";
 hy.judge.value = "paired:" + def.name;
 hy.change.value = "maxSimulShot の上限を 4 から 6 に上げる";
 hy.variable.value = "maxSimulShot";
@@ -618,7 +618,7 @@ def test_hypothesis_builder_generates_command_in_browser_logic(tmp_path):
     cmd = re.search(r"CMD<<<(.*?)>>>", proc.stdout, re.S).group(1)
     assert card_phrase_appears(text), text
     data = json.loads(payload.read_text(encoding="utf-8"))
-    row = next(m for m in data["custom_metrics"]["rows"] if m["id"] == "launch_count")
+    row = next(m for m in data["custom_metrics"]["rows"] if m["id"] == "wipe_count")
     digits = row.get("digits", 2)
     for v in (row["value"], row["target"]):
         if v is not None:
@@ -701,11 +701,11 @@ def test_escort_branch_hypothesis_splits_reached_and_unreached():
     assert "ELIMINATION" in serve._escort_branch_hypothesis(19.6)
 
 
-def test_ammo_reserve_card_redirects_from_conservation():
+def test_ammo_reserve_card_removed_from_metrics():
+    # ユーザー判断（2026-11-06）で custom_metrics.json から除去。
+    # 計算は _trajectory_values に残るためいつでも戻せる。
     cards = serve._metric_cards({"ammo_reserve": 0.0}, None, None, "default", [])
-    card = next((c for c in cards if c.get("id") == "metric:ammo_reserve"), None)
-    assert card is not None
-    assert "N-028" in (card.get("hypothesis") or "")
+    assert next((c for c in cards if c.get("id") == "metric:ammo_reserve"), None) is None
 
 
 def test_threat_card_closed():
@@ -727,22 +727,19 @@ def test_scope_compare_rows_prefers_target_and_baseline():
     assert serve._scope_compare_rows([rows[0]], "default") == []
 
 
-def test_min_dist_and_launch_count_cards_redirect():
-    cards = serve._metric_cards({"min_dist": {"1": 31.0}, "launch_count": 8}, None, None, "default", [])
-    dist = next((c for c in cards if c.get("id") == "metric:min_dist_km"), None)
-    assert dist is not None
-    assert "N-017" in (dist.get("hypothesis") or "")
-    launches = next((c for c in cards if c.get("id") == "metric:launch_count"), None)
-    assert launches is not None
-    assert "N-018" in (launches.get("hypothesis") or "")
+def test_min_dist_card_removed_from_metrics():
+    # ユーザー判断（2026-11-06）で custom_metrics.json から除去。
+    # 計算は _trajectory_values に残るためいつでも戻せる。
+    cards = serve._metric_cards({"min_dist": {"1": 31.0}}, None, None, "default", [])
+    assert next((c for c in cards if c.get("id") == "metric:min_dist_km"), None) is None
 
 
-def test_fire_orders_card_redirects_from_volume():
+def test_fire_orders_card_removed_from_metrics():
+    # ユーザー判断（2026-11-06）で custom_metrics.json から除去。
+    # 計算は _logstats_values に残るためいつでも戻せる。
     stats = {"agents": [{"fire_orders": 634}]}
     cards = serve._metric_cards({}, stats, None, "default", [])
-    orders = next((c for c in cards if c.get("id") == "metric:fire_orders"), None)
-    assert orders is not None
-    assert "N-018" in (orders.get("hypothesis") or "")
+    assert next((c for c in cards if c.get("id") == "metric:fire_orders"), None) is None
 
 
 def test_wipe_games_picks_zero_alive_only():
@@ -766,6 +763,31 @@ def test_tested_axes_parsed_from_policy_table():
     # 表の見出し・区切り行を変数名として拾わない
     assert "変数" not in tested
     assert "" not in tested
+
+
+def test_tested_axes_include_ledger_variables():
+    # 実測台帳（tested_variables.json）の軸も閉鎖扱いにする。
+    # 表への追記漏れで「未試験の軸」カードが復活する事故を防ぐ。
+    tested = serve._tested_axes()
+    ledger = (serve.load_tested_variables() or {}).get("variables", {})
+    assert ledger, "台帳が空だと閉鎖判定が表だけに戻る"
+    tested_in_ledger = {k for k, v in ledger.items() if (v or {}).get("refs")}
+    assert tested_in_ledger <= tested
+    # 今回の誤カード（beamHoldFrames は 0/3/10 を試験済み）
+    assert "beamHoldFrames" in tested
+    ids = {c["id"] for c in serve._axis_cards() if "未試験の軸" in c["title"]}
+    assert "axis:beamHoldFrames" not in ids
+
+
+def test_tested_axes_keeps_unverified_ledger_entries_open(monkeypatch):
+    # refs が空の台帳項目は「実装済みだが未検証」。閉鎖して材料から消さない。
+    # （実台帳は全項目が refs を持つため、ここでは台帳を差し替えて検証する）
+    fake_ledger = {"variables": {"_unverified_probe": {"values": "0/1", "result": "probe", "refs": []}}}
+    monkeypatch.setattr(serve, "load_tested_variables", lambda: fake_ledger)
+    tested = serve._tested_axes()
+    assert "_unverified_probe" not in tested
+    # policy 表側の閉鎖判定はそのまま機能することも確認
+    assert "fireRangeKm" in tested
 
 
 def test_axis_cards_render_untested_axis(monkeypatch):

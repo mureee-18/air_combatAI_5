@@ -106,11 +106,12 @@
     },
     "escortSeekDistKm": {
       "values": "60/100/150",
-      "result": "150 の純粋追跡は 0.315、安全時のみは 0.500（採用）",
+      "result": "150の純粋追跡は0.315、安全時のみは0.500（採用）。修復後再検証: 100 は 0.674 と完全同一（forwardX優先のためseek距離は実質未使用）。150維持",
       "refs": [
         "N-126",
         "N-127",
-        "def_escort100.json"
+        "def_escort100.json",
+        "v_seek100"
       ]
     },
     "escortChaserCount": {
@@ -142,29 +143,23 @@
         "ffx110.json"
       ]
     },
-    "beamHoldWhileArmed": {
-      "values": "0/1",
-      "result": "1 は命中率 0→0.184 だが beam 喪失で全滅（avg_score 0.278・our_alive 0.33）。0 を維持",
-      "refs": [
-        "N-140",
-        "bha1.json"
-      ]
-    },
     "beamHoldFrames": {
-      "values": "0/10",
-      "result": "10 は命中 0→0.076 だが生存・敵生存数が悪化（avg_score 0.41・our_alive 2.0・enemy 4.0）。0 を維持",
+      "values": "0/10/3",
+      "result": "修復後再検証: 3 は 0.572(4勝1分1敗, our2.67/enemy3.5/hit0.091)でベースライン0.674を下回る。10も従来0.41で棄却。0維持",
       "refs": [
         "N-141",
-        "bhf10.json"
+        "bhf10.json",
+        "v_beamhold"
       ]
     },
     "fireAlignDeg": {
       "values": "0/30/15",
-      "result": "0/15/30 すべて生存悪化。0 を維持（15: avg_score 0.276 our_alive 0.17、30: 0.364 our_alive 1.33）",
+      "result": "0/15/30 すべて生存悪化。0を維持。修復後再検証: 15 は 0.277(0勝1分5敗, our0.17/hit0.189)で不変",
       "refs": [
         "N-142",
         "fad30.json",
-        "N-216"
+        "N-216",
+        "v_align"
       ]
     },
     "escortMaxSpeedKmps": {
@@ -174,35 +169,12 @@
         "O-165"
       ]
     },
-    "escortAmmoHold": {
-      "values": "0,1",
-      "result": "ペア評価 win4/draw2/loss0 avg_score0.608 (v2の0.500から改善)。護衛対象機射程内到達時残弾0->6、ELIMINATION実現(O-166)",
-      "refs": [
-        "O-166"
-      ]
-    },
     "escortReserveMsls": {
       "values": "2/3/4/5",
       "result": "3 が最良（win9/draw5/loss0, avg_score 0.617, our_alive 3.21, enemy_alive 3.5）。4/5 は Blue4 が負けに転落、2 は 3 と同等。3 を採用",
       "refs": [
         "O-168",
         "rsrm.json"
-      ]
-    },
-    "escortNoBeam": {
-      "values": "0/1",
-      "result": "挙動は変化するが結果不変（nbi 0.615 ＝ ahm7 0.616 と同一＝中立）。1 を採用",
-      "refs": [
-        "O-167",
-        "nbi.json"
-      ]
-    },
-    "escortIgnoreBreak": {
-      "values": "0/1",
-      "result": "挙動は変化するが結果不変（nbi 0.615 ＝ 中立）。1 を採用",
-      "refs": [
-        "O-167",
-        "nbi.json"
       ]
     },
     "escortEngageFirstKm": {
@@ -224,14 +196,16 @@
       ]
     },
     "escortFireMinKm": {
-      "values": "0/30/27/35",
-      "result": "27は却下（12勝中11戦 -0.0003〜-0.0026、改善0、hit/alive は不変＝ELIMINATION が遅れるだけ）、35は採用（10戦改善・1戦微悪・3戦不変、avg 0.657→0.659、公式seeds1-5 0.638→0.639）。早撃ちほど ELIMINATION が早く score が上がる。43-49km帯は外れる（b3実績）ため上限は未踏。",
+      "values": "0/30/27/35/40",
+      "result": "27は却下（ELIMINATIONが遅れるだけ）、35は採用。修復後再検証: 40 は seeds1-3 0.675(6勝) / holdout 0.639 vs base0.638 で実質同等、採用根拠なし。35維持",
       "refs": [
         "N-155",
         "fmin30_7.json",
         "N-160",
         "fm35_7.json",
-        "fm27_7.json"
+        "fm27_7.json",
+        "v_firemin40",
+        "ho_v_firemin40"
       ]
     },
     "escortReserveMaxKm": {
@@ -240,14 +214,6 @@
       "refs": [
         "N-157",
         "rmax100_7.json"
-      ]
-    },
-    "threatEvadeMaxFrames": {
-      "values": "30",
-      "result": "30は棄却: 1戦Red4 draw 0.500 据置（our_alive1/enemy4/hit0.000、ベースラインと同値）。挙動は確かに変化し（f240で西行き固定が解け、f300-350は東向きで距離159.8kmまで15km戻した）が、拘束条件は生存で自機は f405 に全滅、迎撃は f760 頃まで必要で届かない。既定0（無制限=現行）を維持",
-      "refs": [
-        "N-162",
-        "results_thr30_r4"
       ]
     },
     "escortFlankDeg": {
@@ -347,28 +313,208 @@
         "struct-firing-track.json"
       ]
     },
-    "escortFireEnable": {
-      "values": "0/1",
-      "result": "escortFireMode の後継。1 は護衛候補への発射を有効化する。escortFireMode と同等の挙動。",
+    "escortFireMaxDistKm": {
+      "values": "0/50",
+      "result": "0はfireRangeKmを使用（既定）。50単独では効果なし（0.500のまま）。退行の主因はnoBeam/ignoreBreak。0維持",
       "refs": [
-        "N-139",
-        "efm1.json"
+        "singleF"
       ]
     },
-    "escortFireMaxDistKm": {
-      "values": "0",
-      "result": "0 は fireRangeKm を使用（デフォルト）。新規変数。",
-      "refs": []
+    "escortAmmoHoldDistKm": {
+      "values": "0/0/30",
+      "result": "閉鎖: hold_prob は escort ≤15km でないと有意にならないが、本試合の幾何では escort は 29-33km で撃墜されるため hold は発火しない。さらに escortReserveMsls=3 が同じ役割（弾の温存）をすでに果たしており冗長。有効値域が存在しない。",
+      "refs": [
+        "O-289"
+      ]
     },
-    "attackRoleEnable": {
+    "escortNoBeamDistKm": {
+      "values": "0/50",
+      "result": "7a00b9d で旧 escortNoBeam=1 を距離閾値0.0(無効)に置換したことが性能退行の一因。単独50(射程)で 0.500→0.606、ignoreBreak=50 と併用で 0.674 を完全再現。50維持",
+      "refs": [
+        "O-282",
+        "singleN",
+        "comboBN"
+      ]
+    },
+    "escortIgnoreBreakDistKm": {
+      "values": "0/50",
+      "result": "旧 escortIgnoreBreak=1 の距離化。単独50で 0.606(4勝2分)、noBeam=50 と併用で 0.674。0は退行(0.500)。50維持",
+      "refs": [
+        "O-282",
+        "singleB",
+        "comboBN"
+      ]
+    },
+    "evadeCrankBlend": {
+      "values": "0.0/0.5",
+      "result": "修復後ベースライン(0.674)で 0.5 は 0.674/3.33/3.33/hit0.083 と完全同一＝脅威回避が発火せず実質no-op。軸として効果なし。0.0維持",
+      "refs": [
+        "v_crank"
+      ]
+    },
+    "evadeWeaveDeg": {
+      "values": "10.0",
+      "result": "ウェーブ振幅10度。avg_our_alive 3.33→3.67（改善）、avg_score 0.674→0.620（微減）、avg_enemy_alive 3.33→3.33。生存は改善するがスコアは微減のため基準では0のまま（混合）。",
+      "refs": [
+        "N-244"
+      ]
+    },
+    "evadeWeavePeriod": {
+      "values": "20.0（既定）",
+      "result": "ウェーブ周期20フレーム。evadeWeaveDeg=10 の混合結果のみで周期自体は未分離。既定20を使用。",
+      "refs": [
+        "N-244"
+      ]
+    },
+    "beamHoldWhileArmed": {
       "values": "0/1",
-      "result": "新規変数。0=全機攻撃（roleSplit=0同等）、1=roleSplit有効",
-      "refs": []
+      "result": "binary 変数として削除済み。beamHoldFrames に統合。escort 限定 beamHold は escortNoBeamDistKm で代替。",
+      "refs": [
+        "N-175"
+      ]
     },
-    "attackerSlotMask": {
-      "values": "15",
-      "result": "新規変数。bitmask で攻撃可能スロットを指定（15=全機、1=slot0のみ）",
-      "refs": []
+    "escortPriorityFire": {
+      "values": "1",
+      "result": "護衛対象機への射撃優先。avg_score 0.65（baseline 0.674 未満）で棄却。護衛対象機は射程外にいる時間が長く、優先しても発射機会が増えない。",
+      "refs": [
+        "N-250"
+      ]
+    },
+    "burstHeadAlignDeg": {
+      "values": "0/15",
+      "result": "adaptive 版。15 は Red TIMEUP（alive3, score0.64, hit_rate0.055）で score 微減。baseline 0.674 vs 0.64。不採用。",
+      "refs": [
+        "N-252"
+      ]
+    },
+    "evadePattern": {
+      "values": "1 / 2 / 3（振幅10度で比較）",
+      "result": "修復後ベースライン0.674で再検証: pattern1=0.640(5勝1分, hit0.073)、pattern2=0.650(5勝1分, hit0.079)、pattern3=0.662(5勝1分, our3.5/enemy3.0/hit0.108)。pattern3は生存・命中は改善するが引き分け1でavg_scoreが下回る。パターン軸は棄却。実装・args・レジストリは revert 済み（変数は現存しない）",
+      "refs": [
+        "v_evp1",
+        "v_evp2",
+        "v_evp3",
+        "O-276",
+        "O-277",
+        "O-278"
+      ]
+    },
+    "evadePatternDeg": {
+      "values": "10.0（全パターン共通）",
+      "result": "振幅10度。4パターン比較の共通条件。単独では未分離（振幅0は無効）。",
+      "refs": [
+        "O-276",
+        "O-277",
+        "O-278"
+      ]
+    },
+    "evadePatternPeriod": {
+      "values": "20.0（既定）",
+      "result": "周期20フレーム。ウェーブ/ジグザグの振動速度。パターン比較では既定値を使用し未分離。",
+      "refs": [
+        "O-276",
+        "O-277",
+        "O-278"
+      ]
+    },
+    "winpathPressKm": {
+      "values": "50.0",
+      "result": "護衛対象機への押し込み距離50km（遮蔽機へのビームをやめ護衛対象機方向へ連続ブレンド）。avg_score 0.674→0.275、avg_our_alive 3.33→0.5、hit_rate 0.083→0.195。射撃機会は増えるが生存崩壊で棄却。",
+      "refs": [
+        "N-249"
+      ]
+    },
+    "winpath-escort": {
+      "values": "方向カード（分解して検証済み）",
+      "result": "護衛戦闘機の先行排除／護衛対象機への押し込み。分解した変数はすべて棄却: escortEngageFirstKm=80/60（engage-first、hit_rate 0で戦闘機を排除できない）、escortPriorityFire=1（avg_score 0.65）、winpathPressKm=50（avg_score 0.275・our_alive 0.5）。護衛対象機への到達軸は命中率・生存の構造要因に阻まれクローズ。",
+      "refs": [
+        "N-149",
+        "N-150",
+        "N-152",
+        "N-153",
+        "N-249",
+        "N-250"
+      ]
+    },
+    "escortFlankOuterRatio": {
+      "values": "0.5/1.0",
+      "result": "修復後: seeds1-3 both で ratio0.5=0.678(6勝), ratio1.0=0.676(6勝)と微増。holdout seeds4-6: base0.638, ratio0.5=0.635, ratio1.0=0.611 で一般化せず棄却。0.0維持（実装はrevert）",
+      "refs": [
+        "v_flank05",
+        "v_flank10",
+        "ho_v_flank05",
+        "ho_v_flank10"
+      ]
+    },
+    "maxSimulPerTarget": {
+      "values": "0/1",
+      "result": "閉鎖: maxSimulPerTarget=1 は同一目標への集中を抑制するが、close-range の 3 連射（t=1292/1296/1300、命中 3/3）まで 60f 窓でブロックし、唯一の命中源を 3→1 に削る。max=2 でも 3→2。max=0（無制限）だけが 3/3 を温存でき、有効値域が存在しない。PER_TARGET_WINDOW_FRAMES=60 がミサイル飛翔時間（≈31f）の 2 倍のため、4f 間隔のバーストが suppression 対象になる構造的問題。",
+      "refs": [
+        "O-288"
+      ]
+    },
+    "escortTrailDistKm": {
+      "values": "0.0/50.0/60.0/100.0/200.0",
+      "result": "閉鎖: 50 は no-op（threshold 42.5km < beamRange 45km で分岐条件が常に真）。60 は現行再現。100/200 は standoff（85km/170km 近傍に留まり射撃機会を失う）。有効な値域が存在しない。escortFormationKm=50（N-258）と同構造。0=無効を維持。",
+      "refs": [
+        "N-258"
+      ]
+    },
+    "escortFormationKm": {
+      "values": "0/50",
+      "result": "50km強制は退行（avg_score 0.549 vs 0.674、hit_rate 0.022 vs 0.083、avg_enemy_alive 4.0 vs 3.33）。0=無効を維持",
+      "refs": [
+        "N-258"
+      ]
+    },
+    "escortLeadDistKm": {
+      "values": "0.0/50.0/100.0/0/25",
+      "result": "lead=25はbaselineと完全一致（avg_score 0.674、hit_rate 0.083、avg_our_alive 3.33、avg_enemy_alive 3.33、win6-0-0）で効果ゼロ。20km未満の作動機会がなく0=無効を維持",
+      "refs": [
+        "N-259"
+      ]
+    },
+    "formationSpreadDeg": {
+      "values": "0/5/10/15/0/2/3/5/10",
+      "result": "閉鎖: formationSpreadDeg は escortFlankDeg（N-164 閉鎖）と同じ構造。有効値域（2-3度）は微小な効果しか期待できない。spread >= 5度 は接近を阻害（escortFlankDeg=15 と同じ構造）。spread < 2度 は no-op。有効な値域が存在しない。",
+      "refs": [
+        "O-293"
+      ]
+    },
+    "launchStaggerFrames": {
+      "values": "0/10/30",
+      "result": "閉鎖: launchStaggerFrames>0 は close-range の唯一の命中源（3/3, t=1292/1296/1300, 4f間隔）を分断し、命中 3→1 に削る。maxSimulPerTarget=1 と同型の suppression 副作用。開幕 12 発の同時発射を分散しても benefit なし（0/12 命中）。有効値域が存在しない。",
+      "refs": [
+        "O-291"
+      ]
+    },
+    "evadeReturnFrames": {
+      "values": "0/10",
+      "result": "閉鎖: evadeReturnFrames=10 で脅威解消後 10f 回避継続を追加。paired eval (seeds 1-3 both): 6戦 all win, avg_score 0.655 (baseline 0.674, -0.019), avg_our_alive 3.17 (baseline 3.33, -0.16), avg_enemy_alive 3.33 (据置), avg_hit_rate 0.076 (baseline 0.083, -0.007)。予測 (avg_our_alive 2.0→2.3+, avg_score 0.5→0.55+) に対し実測は微減。仮説不支持。全回避軸が閉鎖済みのため、遷移の滑らかさだけでは改善しない。有効値域なし。",
+      "refs": [
+        "O-288"
+      ]
+    },
+    "formationSpacingKm": {
+      "values": "0/5/10/20/0/2/3/5",
+      "result": "閉鎖: formationSpacingKm の有効値域は 2-3km のみ（現在の機間距離 2.4km 付近）。spacing >= 2.4km は approach を阻害（escortFormationKm=50 と同じ構造、N-258 退行）。spacing < 2.4km は no-op。有効な値域が存在しない。",
+      "refs": [
+        "O-292"
+      ]
+    },
+    "lostAllySpeedBoost": {
+      "values": "0/1/2",
+      "result": "閉鎖: lostAllySpeedBoost は speed_index を boost するが、speed_index は常に max (2=340) のため boost しても clamp されて no-op。速度は常に最大で、boost の有効値域が存在しない。味方が減ったときの並び方は heading の変更で制御すべきだが、観測に味方位置がないため heading 制御も不可能。formationSpacingKm が味方機との距離制御を担うため、速度軸は不要。",
+      "refs": [
+        "O-290"
+      ]
+    },
+    "targetSpreadMode": {
+      "values": "0/1",
+      "result": "成功: mode=1 + targetSpread=3 で確率的分散（round-robin）。paired eval 6戦: avg_score 0.69 (baseline 0.674, +0.016), avg_our_alive 3.33 (baseline 3.33), avg_enemy_alive 3.17 (baseline 3.33, -0.16), avg_hit_rate 0.098 (baseline 0.083, +0.015)。全勝。仮説支持。護衛戦闘機への火力分散が winpath-escort（護衛機先行排除）に寄与。",
+      "refs": [
+        "O-289"
+      ]
     }
   }
 }
