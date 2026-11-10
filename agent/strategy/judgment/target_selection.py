@@ -50,16 +50,34 @@ def select_primary_target(policy, enemy, detected, name):
     escorted = [i for i in detected if enemy[i, 4] > 0.5]
     pool = near if near else (escorted if escorted else detected)
     pool_sorted = sorted(pool, key=lambda i: enemy[i, 2])
-    if policy.target_spread > 0 and name:
-        # Probabilistic target spread: higher value = more spread
+    if not pool_sorted:
+        return None, 0.0
+
+    mode = int(getattr(policy, "target_spread_mode", 0))
+    spread = int(getattr(policy, "target_spread", 0))
+
+    if mode == 0:
+        # concentrate: always nearest
+        pick_idx = 0
+    elif mode == 1:
+        # probabilistic spread: spread/10 chance to pick a non-nearest target
         import random
-        # Use target_spread as a probability weight
-        if random.random() < (policy.target_spread / 10.0):
-            offset = sum(ord(c) for c in name) % max(1, len(pool_sorted))
-            pick_idx = offset % len(pool_sorted)
+        if spread > 0 and random.random() < (spread / 10.0):
+            # round-robin by slot for coordinated spread
+            slot = 0
+            # derive slot from name hash
+            slot = hash(name or "") % max(1, len(pool_sorted))
+            pick_idx = slot % len(pool_sorted)
+            if pick_idx == 0 and len(pool_sorted) > 1:
+                pick_idx = 1
         else:
             pick_idx = 0
+    elif mode == 2:
+        # always spread: round-robin by slot
+        slot = hash(name or "") % max(1, len(pool_sorted))
+        pick_idx = slot % len(pool_sorted)
     else:
         pick_idx = 0
+
     best = pool_sorted[pick_idx]
     return best, float(enemy[best, 2])
